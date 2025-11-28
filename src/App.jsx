@@ -22,14 +22,15 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.1 - 正式發布版 (Production)'; 
+const VERSION = 'v11.18.2 - 版面優化修復版 (Layout Fix)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 // 注意：appId 決定資料庫儲存路徑，發布時建議固定，以免資料分散
 const appId = 'class-5a-app'; 
 
 // 替換為您的正式 Firebase 設定
-const firebaseConfig = {  apiKey: "AIzaSyArwz6gPeW9lNq_8LOfnKYwZmkRN-Wgtb8",
+const firebaseConfig = {
+  apiKey: "AIzaSyArwz6gPeW9lNq_8LOfnKYwZmkRN-Wgtb8",
   authDomain: "class-5a-app.firebaseapp.com",
   projectId: "class-5a-app",
   storageBucket: "class-5a-app.firebasestorage.app",
@@ -1504,13 +1505,13 @@ const App = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-    <div className="min-h-screen bg-gray-100 p-4 sm:p-8 font-sans relative">
+    <div className="min-h-screen bg-gray-100 p-2 sm:p-4 font-sans relative overflow-x-hidden">
       {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
       {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={STUDENT_LIST.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} /> )}
       {showSettingsModal && ( <PasswordSettingsModal currentSettings={systemSettings} onSave={handleUpdatePasswords} onClose={() => setShowSettingsModal(false)} isOffline={isOffline} /> )}
 
-      <div className="bg-white rounded-2xl shadow-xl">
-        <header className="p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[100vw]">
+        <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden">
           {isOffline && (
               <div className="absolute top-0 left-0 w-full bg-gray-800 text-white text-center py-2 text-xl font-bold tracking-wider z-10">
                   ⚠️ 目前為離線演示模式 (Guest Mode)
@@ -1597,20 +1598,20 @@ const App = () => {
                  <button onClick={handleAddNewAssignment} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center ${isGlobalLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-500'}`} disabled={isGlobalLoading || !selectedDisplayDate}><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>新增作業</button>
             </div>
             {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
-            <div className="relative border border-gray-300 rounded-lg shadow-xl"> 
-                <div className="pb-4">
+            <div className="relative border border-gray-300 rounded-lg shadow-xl overflow-x-auto"> 
+                <div className="pb-4 min-w-max">
                     {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
-                        <table className="min-w-full divide-y divide-gray-300">
+                        <table className="divide-y divide-gray-300">
                             <thead className="bg-gray-100 sticky top-0 z-30"><tr>
-                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-28 sticky left-0 top-0 bg-gray-100 z-40 text-center">座號</th>
-                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-40 sticky left-28 top-0 bg-gray-100 z-40 text-center">姓名</th>
+                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-28 sticky left-0 top-0 bg-gray-100 z-40 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
+                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-40 sticky left-28 top-0 bg-gray-100 z-40 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                                     {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} /> ))}
                                 </tr></thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {STUDENT_LIST.map((student) => (
                                     <tr key={student.id} className="hover:bg-gray-50 transition duration-100">
-                                        <td className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-28 sticky left-0 bg-white z-10 text-center">{student.id}</td> 
-                                        <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-28 bg-white z-10 text-center">{student.name}</td> 
+                                        <td className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-28 sticky left-0 bg-white z-10 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{student.id}</td> 
+                                        <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-28 bg-white z-10 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{student.name}</td> 
                                         {assignmentsForSelectedDate.map((assignment) => {
                                             const assignmentName = assignment.assignmentName;
                                             const assignmentData = assignmentMap[assignmentName];
