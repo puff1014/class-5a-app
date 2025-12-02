@@ -22,13 +22,11 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.2 - 版面優化修復版 (Layout Fix)'; 
+const VERSION = 'v11.18.3 - 雙向凍結窗格版 (Excel-like View)'; 
 
 // --- 全域變數與 Firebase 設定 ---
-// 注意：appId 決定資料庫儲存路徑，發布時建議固定，以免資料分散
 const appId = 'class-5a-app'; 
 
-// 替換為您的正式 Firebase 設定
 const firebaseConfig = {
   apiKey: "AIzaSyArwz6gPeW9lNq_8LOfnKYwZmkRN-Wgtb8",
   authDomain: "class-5a-app.firebaseapp.com",
@@ -39,7 +37,6 @@ const firebaseConfig = {
   measurementId: "G-8VGE0WKD01"
 };
 
-// 發布版通常不需要預設 token，設為 null 即可
 const initialAuthToken = null;
 
 // 五年甲班學生名單
@@ -78,7 +75,7 @@ const getCategoryCollectionPath = () =>
   `/artifacts/${appId}/public/data/categories`;
 
 const getSettingsDocPath = () =>
-  `/artifacts/${appId}/public/data/settings`; // global_config
+  `/artifacts/${appId}/public/data/settings`; 
 
 // 一般通知視窗
 const CustomAlert = ({ message, onClose }) => (
@@ -212,7 +209,7 @@ const PasswordSettingsModal = ({ currentSettings, onSave, onClose, isOffline }) 
     );
 };
 
-// ... existing ConfirmationModal component ...
+// ... ConfirmationModal component ...
 const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, confirmColor }) => {
     const [isAltPressed, setIsAltPressed] = useState(false);
     useEffect(() => {
@@ -257,7 +254,7 @@ const getTodayDate = () => {
     return `${year}-${month}-${day}`;
 };
 
-// ... existing MISSING_COLOR_TIERS and helper functions ...
+// ... MISSING_COLOR_TIERS ...
 const MISSING_COLOR_TIERS = [
     { min: 1, max: 3, colors: { bg: 'bg-blue-300', border: 'border-blue-500', text: 'text-gray-900', countText: 'text-gray-900' }, label: '1-3項' },
     { min: 4, max: 6, colors: { bg: 'bg-sky-400', border: 'border-sky-600', text: 'text-white', countText: 'text-white' }, label: '4-6項' },
@@ -310,7 +307,7 @@ const MissingColorExplanation = () => {
     );
 };
 
-// ... existing MonthlyStudentStats ...
+// ... MonthlyStudentStats ...
 const MonthlyStudentStats = ({ monthlyStats, months }) => {
     const studentIds = useMemo(() => Object.keys(monthlyStats).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)), [monthlyStats]);
     if (studentIds.length === 0) return null;
@@ -365,7 +362,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
     );
 };
 
-// ... existing MissingDetailsModal ...
+// ... MissingDetailsModal ...
 const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStudentGlobalData, db, userId, allAssignmentsByDate, setAlertMessage, isOffline, authMode }) => {
     const [selectedItemIds, setSelectedItemIds] = useState([]);
     const stat = missingStats.find(s => s.id === student.id);
@@ -478,7 +475,7 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
     );
 };
 
-// ... existing useCategories ...
+// ... useCategories ...
 const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline) => {
     const [categories, setCategories] = useState([]);
     const [loadingCategories, setLoadingCategories] = useState(true);
@@ -587,7 +584,7 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline) => {
     return { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus };
 };
 
-// ... existing AssignmentHeader ...
+// ... AssignmentHeader ...
 const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment, handleEditSave, handleMoveAssignment, setEditingAssignmentId, setEditingAssignmentName, editingAssignmentId, editingAssignmentName }) => {
     const isEditing = editingAssignmentId === assignment.id;
     const [{ isDragging }, drag] = useDrag({ type: ItemTypes.ASSIGNMENT, item: { id: assignment.id, type: ItemTypes.ASSIGNMENT }, collect: (monitor) => ({ isDragging: monitor.isDragging() }) });
@@ -601,7 +598,7 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]);
 
     return (
-        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-3 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out`}>
+        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-3 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-40 bg-gray-100`}>
             <div className="flex flex-col items-center justify-center min-w-[120px] group relative">
                 <div className={`relative p-2 rounded-xl shadow-md transition duration-100 border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}>
                     {isEditing ? (
@@ -1344,7 +1341,6 @@ const App = () => {
         } catch (e) { console.error("Export failed:", e); setAlertMessage("匯出資料失敗。"); } finally { setLoading(false); }
     }, [db, userId, setAlertMessage, isOffline, allAssignmentsByDate]);
 
-    // NEW: 優化後的匯入邏輯
     const handleImportData = useCallback(async (e) => {
         if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯入。"); return; }
         const file = e.target.files[0]; if (!file) return;
@@ -1356,16 +1352,12 @@ const App = () => {
                 if (!Array.isArray(json)) { setAlertMessage("檔案格式錯誤：JSON 內容必須是作業紀錄陣列。"); return; }
                 
                 if (isOffline) {
-                    // Offline import logic
                     let importedCount = 0;
                     const newMap = { ...allAssignmentsByDate };
-                    
                     json.forEach(item => {
                         const date = item.assignmentDate || getTodayDate();
                         const name = (item.assignmentName || "未命名作業").trim();
                         if (!newMap[date]) newMap[date] = [];
-                        
-                        // Check duplicate
                         if (!newMap[date].some(a => a.assignmentName === name)) {
                             newMap[date].push({
                                 ...item,
@@ -1385,12 +1377,9 @@ const App = () => {
 
                 const path = getAssignmentCollectionPath();
                 const assignmentCollection = collection(db, path);
-                
                 let importCount = 0;
                 let duplicateCount = 0;
                 const itemsToAdd = [];
-
-                // 建立現有資料的快速查找 Set (Key: 日期_名稱)
                 const existingKeys = new Set();
                 Object.entries(allAssignmentsByDate).forEach(([dateKey, assignments]) => {
                     assignments.forEach(a => {
@@ -1398,18 +1387,14 @@ const App = () => {
                     });
                 });
 
-                // 第一步：過濾出需要新增的資料
                 json.forEach(item => {
                     const date = item.assignmentDate || getTodayDate();
                     const name = (item.assignmentName || "未命名作業").trim();
                     const uniqueKey = `${date}_${name}`;
-
-                    // 檢查是否重複
                     if (existingKeys.has(uniqueKey)) {
                         duplicateCount++;
                         return; 
                     }
-
                     const dataToImport = { 
                         assignmentName: name, 
                         assignmentDate: date, 
@@ -1417,19 +1402,16 @@ const App = () => {
                         submissionStatus: item.submissionStatus || getInitialSubmissionStatus, 
                         createdAt: serverTimestamp(), 
                     };
-                    
                     itemsToAdd.push(dataToImport);
-                    existingKeys.add(uniqueKey); // 標記為已存在，防止同批次內重複
+                    existingKeys.add(uniqueKey); 
                 });
 
-                // 第二步：分批寫入
                 if (itemsToAdd.length > 0) {
                     const CHUNK_SIZE = 450;
                     const chunks = [];
                     for (let i = 0; i < itemsToAdd.length; i += CHUNK_SIZE) {
                         chunks.push(itemsToAdd.slice(i, i + CHUNK_SIZE));
                     }
-
                     for (const chunk of chunks) {
                         const batch = writeBatch(db);
                         chunk.forEach(data => {
@@ -1439,7 +1421,6 @@ const App = () => {
                         await batch.commit();
                         importCount += chunk.length;
                     }
-
                     let msg = `成功匯入 ${importCount} 筆作業紀錄。`;
                     if (duplicateCount > 0) msg += ` (已自動忽略 ${duplicateCount} 筆重複資料)`;
                     setAlertMessage(msg); 
@@ -1450,7 +1431,6 @@ const App = () => {
                         setAlertMessage("匯入檔案中沒有找到有效的作業紀錄。"); 
                     }
                 }
-
             } catch (error) { 
                 console.error("Import failed:", error); 
                 setAlertMessage("匯入失敗：檔案解析錯誤或數據格式不正確。"); 
@@ -1469,7 +1449,6 @@ const App = () => {
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
         <p className="text-3xl text-gray-600 mb-6">正在連線至雲端資料庫...</p>
-        
         {authTimeout && (
             <div className="text-center animate-fade-in">
                 <p className="text-2xl text-amber-600 mb-4">連線似乎有點慢，或是無法連接到伺服器。</p>
@@ -1486,7 +1465,6 @@ const App = () => {
     );
   }
 
-  // --- Login Screen Guard ---
   if (!isAuthenticated && !loading && !loadingCategories) {
       return <LoginScreen onLogin={handleLogin} loadingSettings={loadingSettings} errorMsg={loginError} />;
   }
@@ -1550,11 +1528,9 @@ const App = () => {
                 {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} /> ))}
             </div>
             
-            {/* 動態按鈕區塊：根據 Auth Mode 切換樣式 */}
             <div className="flex flex-wrap items-center gap-2">
                  <input id="newAssignmentDate" type="date" value={newAssignmentDate} onChange={handleNewAssignmentDateChange} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] focus:ring-yellow-500 focus:border-yellow-500 transition flex-shrink-0" required disabled={isGlobalLoading} />
                  
-                 {/* 按鈕組：一般模式用 px-5 py-3 無 flex-1；管理員模式用 px-4 py-2 有 flex-1 */}
                  <button 
                     onClick={handleAddNewDate} 
                     className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${isGlobalLoading ? 'bg-yellow-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'}`} 
@@ -1598,26 +1574,25 @@ const App = () => {
                  <button onClick={handleAddNewAssignment} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center ${isGlobalLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-500'}`} disabled={isGlobalLoading || !selectedDisplayDate}><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>新增作業</button>
             </div>
             {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
-            <div className="relative border border-gray-300 rounded-lg shadow-xl overflow-x-auto"> 
+            <div className="relative border border-gray-300 rounded-lg shadow-xl overflow-auto max-h-[75vh]"> 
                 <div className="pb-4 min-w-max">
                     {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
                         <table className="divide-y divide-gray-300">
                             <thead className="bg-gray-100 sticky top-0 z-30"><tr>
-                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-28 sticky left-0 top-0 bg-gray-100 z-40 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
-                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-40 sticky left-28 top-0 bg-gray-100 z-40 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
+                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-28 sticky left-0 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
+                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-40 sticky left-28 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                                     {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} /> ))}
                                 </tr></thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {STUDENT_LIST.map((student) => (
                                     <tr key={student.id} className="hover:bg-gray-50 transition duration-100">
-                                        <td className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-28 sticky left-0 bg-white z-10 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{student.id}</td> 
-                                        <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-28 bg-white z-10 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{student.name}</td> 
+                                        <td className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-28 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{student.id}</td> 
+                                        <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-28 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{student.name}</td> 
                                         {assignmentsForSelectedDate.map((assignment) => {
                                             const assignmentName = assignment.assignmentName;
                                             const assignmentData = assignmentMap[assignmentName];
                                             const status = assignmentData ? assignmentData.submissionStatus[student.id] ?? true : true; 
                                             
-                                            // UI Logic for Unlock Counter
                                             const cellKey = `${student.id}-${assignmentData?.id}`;
                                             const clicks = unlockClicks[cellKey] || 0;
                                             const remaining = 3 - clicks;
