@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.4 - 移除全頁橫向捲動條 (No Page Scroll)'; 
+const VERSION = 'v11.18.5 - 強制鎖定螢幕寬度 (Fixed Viewport Width)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -313,15 +313,15 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
     if (studentIds.length === 0) return null;
 
     return (
-        <div className="mt-12 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200">
+        <div className="mt-12 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
             <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">
                 <span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span>
             </h2> 
-            <div className="relative overflow-x-auto border border-gray-300 rounded-lg shadow-lg">
+            <div className="w-full relative overflow-x-auto border border-gray-300 rounded-lg shadow-lg">
                 <table className="min-w-full divide-y divide-gray-300">
                     <thead className="bg-gray-200 sticky top-0 z-30">
                         <tr>
-                            <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-40 sticky left-0 bg-gray-200 z-40 border-r border-gray-300">姓名</th>
+                            <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-40 sticky left-0 bg-gray-200 z-40 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                             {months.map(month => (
                                 <th key={month.id} className={`px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-white min-w-[200px] ${month.color}`}>{month.name}</th>
                             ))}
@@ -333,7 +333,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                             if (!studentData) return null;
                             return (
                                 <tr key={studentId} className="hover:bg-gray-50 transition duration-100">
-                                    <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-0 bg-white z-10 border-r border-gray-300">{studentData.studentName}</td>
+                                    <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
                                     {months.map(month => {
                                         const stats = studentData.monthStats[month.id];
                                         const hasMissing = stats.daysMissing > 0;
@@ -1502,7 +1502,7 @@ const App = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-    <div className="min-h-screen bg-gray-100 p-2 sm:p-4 font-sans relative overflow-x-hidden">
+    <div className="min-h-screen bg-gray-100 p-2 sm:p-4 font-sans relative w-screen overflow-x-hidden box-border">
       {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
       {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={STUDENT_LIST.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} /> )}
       {showSettingsModal && ( <PasswordSettingsModal currentSettings={systemSettings} onSave={handleUpdatePasswords} onClose={() => setShowSettingsModal(false)} isOffline={isOffline} /> )}
@@ -1595,7 +1595,7 @@ const App = () => {
                  <button onClick={handleAddNewAssignment} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center ${isGlobalLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-500'}`} disabled={isGlobalLoading || !selectedDisplayDate}><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>新增作業</button>
             </div>
             {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
-            <div className="relative border border-gray-300 rounded-lg shadow-xl overflow-auto max-h-[75vh]"> 
+            <div className="w-full relative border border-gray-300 rounded-lg shadow-xl overflow-auto max-h-[75vh]"> 
                 <div className="pb-4 min-w-max">
                     {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
                         <table className="divide-y divide-gray-300">
