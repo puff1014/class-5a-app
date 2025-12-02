@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.3 - 雙向凍結窗格版 (Excel-like View)'; 
+const VERSION = 'v11.18.4 - 移除全頁橫向捲動條 (No Page Scroll)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -287,11 +287,11 @@ const getMissingColorClasses = (count) => {
 const MissingColorExplanation = () => {
     const legendTiers = MISSING_COLOR_TIERS.map(tier => ({ count: tier.label, classes: tier.colors }));
     return (
-        <div className="mt-8 p-6 bg-white rounded-xl shadow-xl border border-gray-200">
+        <div className="mt-8 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200">
             <h3 className="text-4xl font-bold text-gray-800 mb-6 flex items-center">
                 <span className="text-pink-500 text-5xl mr-3">🎨</span>顏色分級說明
             </h3>
-            <div className="grid grid-cols-5 gap-2"> 
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"> 
                 {legendTiers.map((item, index) => (
                     <div key={index} className={`
                         py-3 px-2 rounded-xl text-center cursor-default
@@ -313,7 +313,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
     if (studentIds.length === 0) return null;
 
     return (
-        <div className="mt-12 p-6 bg-white rounded-xl shadow-xl border border-gray-200">
+        <div className="mt-12 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200">
             <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">
                 <span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span>
             </h2> 
@@ -1341,6 +1341,7 @@ const App = () => {
         } catch (e) { console.error("Export failed:", e); setAlertMessage("匯出資料失敗。"); } finally { setLoading(false); }
     }, [db, userId, setAlertMessage, isOffline, allAssignmentsByDate]);
 
+    // NEW: 優化後的匯入邏輯
     const handleImportData = useCallback(async (e) => {
         if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯入。"); return; }
         const file = e.target.files[0]; if (!file) return;
@@ -1352,12 +1353,16 @@ const App = () => {
                 if (!Array.isArray(json)) { setAlertMessage("檔案格式錯誤：JSON 內容必須是作業紀錄陣列。"); return; }
                 
                 if (isOffline) {
+                    // Offline import logic
                     let importedCount = 0;
                     const newMap = { ...allAssignmentsByDate };
+                    
                     json.forEach(item => {
                         const date = item.assignmentDate || getTodayDate();
                         const name = (item.assignmentName || "未命名作業").trim();
                         if (!newMap[date]) newMap[date] = [];
+                        
+                        // Check duplicate
                         if (!newMap[date].some(a => a.assignmentName === name)) {
                             newMap[date].push({
                                 ...item,
@@ -1377,9 +1382,12 @@ const App = () => {
 
                 const path = getAssignmentCollectionPath();
                 const assignmentCollection = collection(db, path);
+                
                 let importCount = 0;
                 let duplicateCount = 0;
                 const itemsToAdd = [];
+
+                // 建立現有資料的快速查找 Set (Key: 日期_名稱)
                 const existingKeys = new Set();
                 Object.entries(allAssignmentsByDate).forEach(([dateKey, assignments]) => {
                     assignments.forEach(a => {
@@ -1387,14 +1395,18 @@ const App = () => {
                     });
                 });
 
+                // 第一步：過濾出需要新增的資料
                 json.forEach(item => {
                     const date = item.assignmentDate || getTodayDate();
                     const name = (item.assignmentName || "未命名作業").trim();
                     const uniqueKey = `${date}_${name}`;
+
+                    // 檢查是否重複
                     if (existingKeys.has(uniqueKey)) {
                         duplicateCount++;
                         return; 
                     }
+
                     const dataToImport = { 
                         assignmentName: name, 
                         assignmentDate: date, 
@@ -1402,16 +1414,19 @@ const App = () => {
                         submissionStatus: item.submissionStatus || getInitialSubmissionStatus, 
                         createdAt: serverTimestamp(), 
                     };
+                    
                     itemsToAdd.push(dataToImport);
-                    existingKeys.add(uniqueKey); 
+                    existingKeys.add(uniqueKey); // 標記為已存在，防止同批次內重複
                 });
 
+                // 第二步：分批寫入
                 if (itemsToAdd.length > 0) {
                     const CHUNK_SIZE = 450;
                     const chunks = [];
                     for (let i = 0; i < itemsToAdd.length; i += CHUNK_SIZE) {
                         chunks.push(itemsToAdd.slice(i, i + CHUNK_SIZE));
                     }
+
                     for (const chunk of chunks) {
                         const batch = writeBatch(db);
                         chunk.forEach(data => {
@@ -1421,6 +1436,7 @@ const App = () => {
                         await batch.commit();
                         importCount += chunk.length;
                     }
+
                     let msg = `成功匯入 ${importCount} 筆作業紀錄。`;
                     if (duplicateCount > 0) msg += ` (已自動忽略 ${duplicateCount} 筆重複資料)`;
                     setAlertMessage(msg); 
@@ -1431,6 +1447,7 @@ const App = () => {
                         setAlertMessage("匯入檔案中沒有找到有效的作業紀錄。"); 
                     }
                 }
+
             } catch (error) { 
                 console.error("Import failed:", error); 
                 setAlertMessage("匯入失敗：檔案解析錯誤或數據格式不正確。"); 
@@ -1449,6 +1466,7 @@ const App = () => {
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
         <p className="text-3xl text-gray-600 mb-6">正在連線至雲端資料庫...</p>
+        
         {authTimeout && (
             <div className="text-center animate-fade-in">
                 <p className="text-2xl text-amber-600 mb-4">連線似乎有點慢，或是無法連接到伺服器。</p>
@@ -1465,6 +1483,7 @@ const App = () => {
     );
   }
 
+  // --- Login Screen Guard ---
   if (!isAuthenticated && !loading && !loadingCategories) {
       return <LoginScreen onLogin={handleLogin} loadingSettings={loadingSettings} errorMsg={loginError} />;
   }
@@ -1488,7 +1507,7 @@ const App = () => {
       {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={STUDENT_LIST.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} /> )}
       {showSettingsModal && ( <PasswordSettingsModal currentSettings={systemSettings} onSave={handleUpdatePasswords} onClose={() => setShowSettingsModal(false)} isOffline={isOffline} /> )}
 
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[100vw]">
+      <div className="bg-white rounded-2xl shadow-xl w-full">
         <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden">
           {isOffline && (
               <div className="absolute top-0 left-0 w-full bg-gray-800 text-white text-center py-2 text-xl font-bold tracking-wider z-10">
@@ -1528,9 +1547,11 @@ const App = () => {
                 {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} /> ))}
             </div>
             
+            {/* 動態按鈕區塊：根據 Auth Mode 切換樣式 */}
             <div className="flex flex-wrap items-center gap-2">
                  <input id="newAssignmentDate" type="date" value={newAssignmentDate} onChange={handleNewAssignmentDateChange} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] focus:ring-yellow-500 focus:border-yellow-500 transition flex-shrink-0" required disabled={isGlobalLoading} />
                  
+                 {/* 按鈕組：一般模式用 px-5 py-3 無 flex-1；管理員模式用 px-4 py-2 有 flex-1 */}
                  <button 
                     onClick={handleAddNewDate} 
                     className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${isGlobalLoading ? 'bg-yellow-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'}`} 
