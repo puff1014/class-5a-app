@@ -19,10 +19,10 @@ import {
 } from 'firebase/firestore';
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.11 - 語法修正版 (Syntax Fix)'; 
+const VERSION = 'v11.18.14 - 語法修復版 (Syntax Fix II)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -854,7 +854,6 @@ const App = () => {
   const handleLogout = () => {
       setIsAuthenticated(false);
       setAuthMode(null);
-      setPassword(''); 
   };
   
   const handleUpdatePasswords = async (newUserPwd, newAdminPwd) => {
@@ -1695,7 +1694,7 @@ const App = () => {
 
             {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
             
-            <div className="w-full relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[calc(100vh-220px)] min-h-[500px] bg-white mb-8"> 
+            <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
                 <div className="pb-4 min-w-max">
                     {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
                         <table className="divide-y divide-gray-300 w-full">
@@ -1704,19 +1703,19 @@ const App = () => {
                                     <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-40 sticky left-28 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                                     {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} /> ))}
                                 </tr></thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
                                 {(focusedStudentId ? STUDENT_LIST.filter(s => s.id === focusedStudentId) : STUDENT_LIST).map((student) => (
-                                    <tr key={student.id} className="hover:bg-blue-50 transition duration-100 group">
+                                    <tr key={student.id} className={`transition duration-100 group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-28 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-50"
+                                            className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-28 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
                                             {student.id}
                                         </td> 
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-28 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-50 flex items-center justify-center gap-2"
+                                            className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-28 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-2"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
                                             {student.name}
