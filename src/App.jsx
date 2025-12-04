@@ -1755,7 +1755,7 @@ const App = () => {
                                 ))}
                             </tbody>
                         </table>
-                    )}
+                    }
                 </div>
             </div>
             
