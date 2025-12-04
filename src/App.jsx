@@ -19,10 +19,10 @@ import {
 } from 'firebase/firestore';
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut } from 'lucide-react';
+import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.6 - 回復至智慧滿版 (Reverted to Smart Full-Height)'; 
+const VERSION = 'v11.18.10 - 學生專注模式 (Student Focus Mode)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -204,6 +204,79 @@ const PasswordSettingsModal = ({ currentSettings, onSave, onClose, isOffline }) 
                     </button>
                 </div>
                 {isOffline && <p className="mt-4 text-center text-red-500 font-medium text-xl">目前為離線模式，修改不會儲存到雲端。</p>}
+            </div>
+        </div>
+    );
+};
+
+// 全班未完成總表 (新增組件)
+const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
+    // Filter students who have missing assignments
+    const studentsWithMissing = missingStats.filter(s => s.missingCount > 0);
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h3 className="text-4xl font-bold text-gray-800 flex items-center">
+                        <AlertCircle className="w-10 h-10 text-red-500 mr-3" />
+                        全班未完成作業總表
+                    </h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+                        <X className="w-8 h-8" />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-auto">
+                    {studentsWithMissing.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                            <Check className="w-24 h-24 mb-4 text-green-400" />
+                            <p className="text-4xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p>
+                        </div>
+                    ) : (
+                        <table className="min-w-full divide-y divide-gray-300">
+                            <thead className="bg-gray-100 sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th>
+                                    <th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {studentsWithMissing.map((student) => (
+                                    <tr key={student.id} className="hover:bg-red-50 transition duration-100">
+                                        <td className="px-4 py-4 text-2xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td>
+                                        <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name}</td>
+                                        <td className="px-4 py-4 text-center border-r border-gray-200">
+                                            <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">
+                                                {student.missingCount}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-xl text-gray-700">
+                                            <ul className="list-disc list-inside space-y-1">
+                                                {[...student.missingDetails]
+                                                    .sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW'))
+                                                    .map((detail, idx) => (
+                                                    <li key={idx} className="flex items-start">
+                                                        <span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span>
+                                                        <span className="font-mono font-medium text-gray-400 text-lg">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-gray-200 text-right">
+                     <button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">
+                        關閉視窗
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -655,6 +728,10 @@ const App = () => {
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [loginError, setLoginError] = useState('');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  // --- 新增狀態：全班未完成作業清單 ---
+  const [showAllMissingModal, setShowAllMissingModal] = useState(false);
+  // --- 新增狀態：學生專注模式 (Focused Student ID) ---
+  const [focusedStudentId, setFocusedStudentId] = useState(null);
 
   // 智慧日期偵測
   const { defaultSemester, defaultMonth } = useMemo(() => {
@@ -1502,13 +1579,15 @@ const App = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-    <div className="min-h-screen bg-gray-100 p-2 sm:p-4 font-sans relative w-screen overflow-x-hidden box-border">
+    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
       {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
       {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={STUDENT_LIST.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} /> )}
       {showSettingsModal && ( <PasswordSettingsModal currentSettings={systemSettings} onSave={handleUpdatePasswords} onClose={() => setShowSettingsModal(false)} isOffline={isOffline} /> )}
+      {/* --- 新增全班未完成總表 Modal --- */}
+      {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
 
-      <div className="bg-white rounded-2xl shadow-xl w-full">
-        <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden">
+      <div className="bg-white shadow-xl w-full flex flex-col h-full">
+        <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
           {isOffline && (
               <div className="absolute top-0 left-0 w-full bg-gray-800 text-white text-center py-2 text-xl font-bold tracking-wider z-10">
                   ⚠️ 目前為離線演示模式 (Guest Mode)
@@ -1536,7 +1615,8 @@ const App = () => {
           <p className="text-2xl text-gray-500"> 版本: {VERSION}</p>
         </header>
         {alertMessage && ( <CustomAlert message={alertMessage} onClose={() => setAlertMessage(null)} /> )}
-        <div className="p-6 bg-gray-50 border-b">
+        
+        <div className="flex-1 overflow-auto bg-gray-50 p-4 relative">
             <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl">
                 <label className="font-semibold text-gray-700">學期：</label>
                 <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading}>{semesters.map((s) => ( <option key={s.id} value={s.id}>{s.name}</option>))}</select>
@@ -1547,11 +1627,9 @@ const App = () => {
                 {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} /> ))}
             </div>
             
-            {/* 動態按鈕區塊：根據 Auth Mode 切換樣式 */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 mb-6">
                  <input id="newAssignmentDate" type="date" value={newAssignmentDate} onChange={handleNewAssignmentDateChange} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] focus:ring-yellow-500 focus:border-yellow-500 transition flex-shrink-0" required disabled={isGlobalLoading} />
                  
-                 {/* 按鈕組：一般模式用 px-5 py-3 無 flex-1；管理員模式用 px-4 py-2 有 flex-1 */}
                  <button 
                     onClick={handleAddNewDate} 
                     className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${isGlobalLoading ? 'bg-yellow-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'}`} 
@@ -1567,6 +1645,16 @@ const App = () => {
                     title="將所有紀錄匯出為 JSON 檔案"
                 >
                     <Download className="h-6 w-6 mr-1" />匯出
+                </button>
+
+                {/* --- 新增按鈕：開啟全班未完成總表 --- */}
+                 <button 
+                    onClick={() => setShowAllMissingModal(true)} 
+                    className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 transition duration-150 shadow-md flex items-center justify-center`} 
+                    disabled={isGlobalLoading} 
+                    title="檢視全班未完成作業總表"
+                >
+                    <FileText className="h-6 w-6 mr-1" />未完成總表
                 </button>
                 
                 <div className={`${authMode === 'ADMIN' ? 'flex-1 relative' : 'relative'}`}>
@@ -1588,27 +1676,54 @@ const App = () => {
                     </>
                 )}
             </div>
-        </div>
-        <div className="p-4 sm:p-6 w-full">
+            
              <div className="flex justify-between items-center mb-6">
                 <h2 className="text-5xl font-bold text-gray-800 flex items-center"><span className="text-gray-500 mr-3 text-5xl">📋</span>{selectedDisplayDate ? <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span> : '請選擇日期'}</h2>
-                 <button onClick={handleAddNewAssignment} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center ${isGlobalLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-500'}`} disabled={isGlobalLoading || !selectedDisplayDate}><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>新增作業</button>
+                 <div className="flex items-center gap-4">
+                    {/* Show Reset View button if focused mode is active */}
+                    {focusedStudentId && (
+                        <button 
+                            onClick={() => setFocusedStudentId(null)}
+                            className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-gray-600 hover:bg-gray-700 transition duration-150 shadow-md flex items-center"
+                        >
+                            <Eye className="h-8 w-8 mr-2" /> 顯示全部學生
+                        </button>
+                    )}
+                    <button onClick={handleAddNewAssignment} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center ${isGlobalLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-500'}`} disabled={isGlobalLoading || !selectedDisplayDate}><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>新增作業</button>
+                 </div>
             </div>
+
             {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
-            <div className="w-full relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[calc(100vh-220px)] min-h-[500px]"> 
+            
+            <div className="w-full relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[calc(100vh-220px)] min-h-[500px] bg-white mb-8"> 
                 <div className="pb-4 min-w-max">
                     {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
-                        <table className="divide-y divide-gray-300">
+                        <table className="divide-y divide-gray-300 w-full">
                             <thead className="bg-gray-100 sticky top-0 z-50"><tr>
                                     <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-28 sticky left-0 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
                                     <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-40 sticky left-28 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                                     {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} /> ))}
                                 </tr></thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {STUDENT_LIST.map((student) => (
-                                    <tr key={student.id} className="hover:bg-gray-50 transition duration-100">
-                                        <td className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-28 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{student.id}</td> 
-                                        <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-28 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{student.name}</td> 
+                                {(focusedStudentId ? STUDENT_LIST.filter(s => s.id === focusedStudentId) : STUDENT_LIST).map((student) => (
+                                    <tr key={student.id} className="hover:bg-blue-50 transition duration-100 group">
+                                        <td 
+                                            onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
+                                            className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-28 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-50"
+                                            title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
+                                        >
+                                            {student.id}
+                                        </td> 
+                                        <td 
+                                            onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
+                                            className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-28 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-50 flex items-center justify-center gap-2"
+                                            title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
+                                        >
+                                            {student.name}
+                                            <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-sm transition-opacity">
+                                                {focusedStudentId === student.id ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                            </span>
+                                        </td> 
                                         {assignmentsForSelectedDate.map((assignment) => {
                                             const assignmentName = assignment.assignmentName;
                                             const assignmentData = assignmentMap[assignmentName];
@@ -1637,7 +1752,7 @@ const App = () => {
                                 ))}
                             </tbody>
                         </table>
-                    )}
+                    }
                 </div>
             </div>
             
