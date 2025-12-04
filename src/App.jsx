@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.10 - 學生專注模式 (Student Focus Mode)'; 
+const VERSION = 'v11.18.11 - 語法修正版 (Syntax Fix)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -1752,7 +1752,7 @@ const App = () => {
                                 ))}
                             </tbody>
                         </table>
-                    }
+                    )}
                 </div>
             </div>
             
