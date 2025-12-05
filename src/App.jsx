@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.15 - 語法與版面終極修復版 (Syntax & Layout Final Fix)'; 
+const VERSION = 'v11.18.16 - 語法與版面緊急修復版 (Critical Syntax Fix)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -361,8 +361,8 @@ const MissingColorExplanation = () => {
     const legendTiers = MISSING_COLOR_TIERS.map(tier => ({ count: tier.label, classes: tier.colors }));
     return (
         <div className="mt-8 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200">
-            <h3 className="text-4xl font-bold text-gray-800 mb-6 flex items-center">
-                <span className="text-pink-500 text-5xl mr-3">🎨</span>顏色分級說明
+            <h3 className="text-3xl font-bold text-gray-800 mb-6 flex items-center">
+                <span className="text-pink-500 text-4xl mr-3">🎨</span>顏色分級說明
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"> 
                 {legendTiers.map((item, index) => (
@@ -372,7 +372,7 @@ const MissingColorExplanation = () => {
                         border-2 border-b-[6px]
                         flex items-center justify-center
                     `}>
-                        <p className={`text-2xl font-black ${item.classes.text} leading-tight`}>{item.count}</p>
+                        <p className={`text-xl font-black ${item.classes.text} leading-tight`}>{item.count}</p>
                     </div>
                 ))}
             </div>
@@ -387,16 +387,16 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
 
     return (
         <div className="mt-12 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
-            <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">
-                <span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span>
+            <h2 className="text-3xl font-extrabold text-gray-800 mb-6 flex items-center">
+                <span className="text-4xl mr-3">📊</span><span className="text-3xl">每月繳交狀況統計</span>
             </h2> 
             <div className="w-full relative overflow-x-auto border border-gray-300 rounded-lg shadow-lg">
                 <table className="min-w-full divide-y divide-gray-300">
                     <thead className="bg-gray-200 sticky top-0 z-30">
                         <tr>
-                            <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-40 sticky left-0 bg-gray-200 z-40 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
+                            <th className="px-4 py-4 text-xl font-semibold uppercase tracking-wider text-gray-700 w-32 sticky left-0 bg-gray-200 z-40 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                             {months.map(month => (
-                                <th key={month.id} className={`px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-white min-w-[200px] ${month.color}`}>{month.name}</th>
+                                <th key={month.id} className={`px-4 py-4 text-xl font-semibold uppercase tracking-wider text-white min-w-[150px] ${month.color}`}>{month.name}</th>
                             ))}
                         </tr>
                     </thead>
@@ -406,7 +406,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                             if (!studentData) return null;
                             return (
                                 <tr key={studentId} className="hover:bg-gray-50 transition duration-100">
-                                    <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
+                                    <td className="px-4 py-4 text-xl whitespace-nowrap text-gray-900 font-semibold w-32 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
                                     {months.map(month => {
                                         const stats = studentData.monthStats[month.id];
                                         const hasMissing = stats.daysMissing > 0;
@@ -414,12 +414,12 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                                         const hasTotal = stats.totalDays > 0;
                                         const hasCompletedOnly = !hasMissing && !hasLate && hasTotal;
                                         return (
-                                            <td key={month.id} className={`px-4 py-4 whitespace-nowrap text-center text-3xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
+                                            <td key={month.id} className={`px-4 py-4 whitespace-nowrap text-center text-xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
                                                 {hasTotal ? (
-                                                    <div className="flex justify-around items-center gap-3">
-                                                        <span className="text-green-700 whitespace-nowrap">完成: <span className="inline-block w-10 text-right">{stats.daysCompleted}</span>天</span>
-                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap`}>遲交: <span className="inline-block w-10 text-right">{stats.daysLate}</span>天</span>
-                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap`}>未完成: <span className="inline-block w-10 text-right">{stats.daysMissing}</span>天</span>
+                                                    <div className="flex justify-around items-center gap-2">
+                                                        <span className="text-green-700 whitespace-nowrap text-base">完成:{stats.daysCompleted}</span>
+                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap text-base`}>遲交:{stats.daysLate}</span>
+                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap text-base`}>未完成:{stats.daysMissing}</span>
                                                     </div>
                                                 ) : <span className="text-gray-400">-</span>}
                                             </td>
@@ -507,17 +507,17 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-2">
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full transform transition-all duration-300 scale-100 max-h-[95vh] flex flex-col">
                 <div className="relative border-b pb-2 mb-3">
-                    <h3 className="text-5xl font-bold text-gray-800 text-center">{name} 的未訂正作業</h3>
+                    <h3 className="text-4xl font-bold text-gray-800 text-center">{name} 的未訂正作業</h3>
                     <button onClick={onClose} className="absolute -top-2 -right-2 text-gray-500 hover:text-gray-800 text-4xl p-2 rounded-full">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
                 <div className={`p-4 rounded-xl mb-4 shadow-md border-l-8 ${colorClasses.bg} ${colorClasses.border} text-center`}>
-                    <div className={`text-4xl font-semibold ${colorClasses.text}`}>累積總計：<span className={`ml-2 font-black ${colorClasses.countText} text-5xl`}>{missingCount}</span> 次</div>
+                    <div className={`text-3xl font-semibold ${colorClasses.text}`}>累積總計：<span className={`ml-2 font-black ${colorClasses.countText} text-4xl`}>{missingCount}</span> 次</div>
                 </div>
                 <div className="flex justify-between items-center mb-2 border-b pb-2">
-                    <h4 className="text-3xl font-bold text-gray-800">詳細未訂正項目 ({detailedMissingItems.length} 筆紀錄):</h4>
-                    <button onClick={handleToggleSelectAll} className="text-2xl font-medium text-blue-600 hover:text-blue-800 transition">{selectedItemIds.length === detailedMissingItems.length ? '取消全選' : '全選'}</button>
+                    <h4 className="text-2xl font-bold text-gray-800">詳細未訂正項目 ({detailedMissingItems.length} 筆紀錄):</h4>
+                    <button onClick={handleToggleSelectAll} className="text-xl font-medium text-blue-600 hover:text-blue-800 transition">{selectedItemIds.length === detailedMissingItems.length ? '取消全選' : '全選'}</button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4">
@@ -526,7 +526,7 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
                                 {columnItems.map((item) => {
                                     const isSelected = selectedItemIds.includes(item.assignmentId);
                                     return (
-                                        <li key={item.assignmentId} className={`p-3 flex items-center gap-3 text-3xl text-gray-700 cursor-pointer transition duration-100 ${isSelected ? 'bg-blue-200' : 'hover:bg-blue-50'}`} onClick={() => handleToggleSelect(item.assignmentId)}>
+                                        <li key={item.assignmentId} className={`p-3 flex items-center gap-3 text-2xl text-gray-700 cursor-pointer transition duration-100 ${isSelected ? 'bg-blue-200' : 'hover:bg-blue-50'}`} onClick={() => handleToggleSelect(item.assignmentId)}>
                                             <input className="h-7 w-7 text-blue-600 rounded cursor-pointer" onClick={(e) => e.stopPropagation()} />
                                             <span className="font-medium text-gray-900 w-32">{item.date}</span>
                                             <span className="flex-1">{item.assignmentName}</span>
@@ -538,11 +538,11 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
                     </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-green-300">
-                    <button onClick={handleBatchDeleteSelectedItems} disabled={selectedItemIds.length === 0} className={`w-full py-3 rounded-lg transition duration-150 ease-in-out font-medium text-3xl flex items-center justify-center shadow-lg ${selectedItemIds.length === 0 ? 'bg-gray-400 cursor-not-allowed text-gray-200' : 'bg-green-600 hover:bg-green-700 text-white'}`} title="按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)">
-                        <span className="text-5xl mr-2">⚠️</span> 批次標記 {selectedItemIds.length} 項為「已補交 (遲繳)」
+                    <button onClick={handleBatchDeleteSelectedItems} disabled={selectedItemIds.length === 0} className={`w-full py-3 rounded-lg transition duration-150 ease-in-out font-medium text-2xl flex items-center justify-center shadow-lg ${selectedItemIds.length === 0 ? 'bg-gray-400 cursor-not-allowed text-gray-200' : 'bg-green-600 hover:bg-green-700 text-white'}`} title="按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)">
+                        <span className="text-3xl mr-2">⚠️</span> 批次標記 {selectedItemIds.length} 項為「已補交 (遲繳)」
                     </button>
                 </div>
-                <button onClick={onClose} className="mt-4 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-3xl">關閉</button>
+                <button onClick={onClose} className="mt-4 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-2xl">關閉</button>
             </div>
         </div>
     );
@@ -671,11 +671,11 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]);
 
     return (
-        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-3 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100`}>
-            <div className="flex flex-col items-center justify-center min-w-[120px] group relative">
+        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-3 py-4 text-2xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100`}>
+            <div className="flex flex-col items-center justify-center min-w-[80px] group relative">
                 <div className={`relative p-2 rounded-xl shadow-md transition duration-100 border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}>
                     {isEditing ? (
-                        <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-3xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} />
+                        <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-2xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} />
                     ) : <span className={`font-bold ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'}`}>{assignment.assignmentName}</span>}
                     {!isEditing && (
                         <button onClick={handleDeleteClick} disabled={isGlobalLoading} className="absolute -top-3 -right-3 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition duration-150 p-1 rounded-full bg-white shadow-lg" title="點擊以刪除此項目 (Ctrl/Cmd 可強制刪除)">
@@ -691,7 +691,7 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
 const DateTab = ({ date, isSelected, onClick }) => {
     const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
     return (
-        <button onClick={() => onClick(date)} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}>
+        <button onClick={() => onClick(date)} className={`px-4 py-3 text-2xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}>
             {formattedDate}
         </button>
     );
@@ -1578,15 +1578,15 @@ const App = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-    <div className="min-h-screen bg-gray-100 p-2 sm:p-4 font-sans relative w-full overflow-x-hidden box-border">
+    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
       {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
       {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={STUDENT_LIST.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} /> )}
       {showSettingsModal && ( <PasswordSettingsModal currentSettings={systemSettings} onSave={handleUpdatePasswords} onClose={() => setShowSettingsModal(false)} isOffline={isOffline} /> )}
       {/* --- 新增全班未完成總表 Modal --- */}
       {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
 
-      <div className="bg-white rounded-2xl shadow-xl w-full">
-        <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden">
+      <div className="bg-white shadow-xl w-full flex flex-col h-full">
+        <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
           {isOffline && (
               <div className="absolute top-0 left-0 w-full bg-gray-800 text-white text-center py-2 text-xl font-bold tracking-wider z-10">
                   ⚠️ 目前為離線演示模式 (Guest Mode)
@@ -1614,7 +1614,8 @@ const App = () => {
           <p className="text-2xl text-gray-500"> 版本: {VERSION}</p>
         </header>
         {alertMessage && ( <CustomAlert message={alertMessage} onClose={() => setAlertMessage(null)} /> )}
-        <div className="p-6 bg-gray-50 border-b">
+        
+        <div className="flex-1 overflow-auto bg-gray-50 p-4 relative">
             <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl">
                 <label className="font-semibold text-gray-700">學期：</label>
                 <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading}>{semesters.map((s) => ( <option key={s.id} value={s.id}>{s.name}</option>))}</select>
@@ -1625,11 +1626,9 @@ const App = () => {
                 {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} /> ))}
             </div>
             
-            {/* 動態按鈕區塊：根據 Auth Mode 切換樣式 */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 mb-6">
                  <input id="newAssignmentDate" type="date" value={newAssignmentDate} onChange={handleNewAssignmentDateChange} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] focus:ring-yellow-500 focus:border-yellow-500 transition flex-shrink-0" required disabled={isGlobalLoading} />
                  
-                 {/* 按鈕組：一般模式用 px-5 py-3 無 flex-1；管理員模式用 px-4 py-2 有 flex-1 */}
                  <button 
                     onClick={handleAddNewDate} 
                     className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${isGlobalLoading ? 'bg-yellow-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'}`} 
@@ -1755,7 +1754,7 @@ const App = () => {
                                 ))}
                             </tbody>
                         </table>
-                    }
+                    )}
                 </div>
             </div>
             
