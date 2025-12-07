@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.20 - 強制滿版與防斷行 (Full Width & No Wrap)'; 
+const VERSION = 'v11.18.21 - 黃金比例適配版 (Golden Ratio Fit)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -81,11 +81,11 @@ const getSettingsDocPath = () =>
 const CustomAlert = ({ message, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
         <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100">
-            <h3 className="text-3xl font-semibold text-gray-800 mb-4">通知</h3>
+            <h3 className="text-2xl font-semibold text-gray-800 mb-4">通知</h3>
             <p className="text-xl text-gray-600 mb-6">{message}</p>
             <button
                 onClick={onClose}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-2xl"
+                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-xl"
             >
                 確定
             </button>
@@ -219,19 +219,19 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
                     <h3 className="text-3xl font-bold text-gray-800 flex items-center">
-                        <AlertCircle className="w-8 h-8 text-red-500 mr-3" />
+                        <AlertCircle className="w-8 h-8 text-red-500 mr-2" />
                         全班未完成作業總表
                     </h3>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200">
-                        <X className="w-8 h-8" />
+                        <X className="w-6 h-6" />
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-auto">
                     {studentsWithMissing.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                            <Check className="w-24 h-24 mb-4 text-green-400" />
-                            <p className="text-4xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p>
+                            <Check className="w-20 h-20 mb-4 text-green-400" />
+                            <p className="text-2xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p>
                         </div>
                     ) : (
                         <table className="min-w-full divide-y divide-gray-300">
@@ -302,13 +302,13 @@ const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, 
                 <h3 className="text-3xl font-bold text-gray-800 mb-4">{title}</h3>
                 <p className="text-2xl text-gray-600 mb-6">{message}</p>
                 <div className="flex justify-between gap-4 mt-6">
-                    <button onClick={onCancel} className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg hover:bg-gray-400 transition duration-150 ease-in-out font-medium text-3xl">取消 (保留資料)</button>
+                    <button onClick={onCancel} className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg hover:bg-gray-400 transition duration-150 ease-in-out font-medium text-2xl">取消 (保留資料)</button>
                     <button
                         onClick={() => {
                             if (isAltPressed) { onConfirm(); } else { alert(`請按住 Alt 鍵，才能確認執行 ${confirmTitle} 操作！`); }
                         }}
                         disabled={!isAltPressed}
-                        className={`flex-1 text-white py-3 rounded-lg transition duration-150 ease-in-out font-medium text-3xl ${confirmColor} ${isAltPressed ? 'hover:brightness-110' : 'bg-red-400 cursor-not-allowed'}`}
+                        className={`flex-1 text-white py-3 rounded-lg transition duration-150 ease-in-out font-medium text-2xl ${confirmColor} ${isAltPressed ? 'hover:brightness-110' : 'bg-red-400 cursor-not-allowed'}`}
                     >
                         {confirmTitle} 
                     </button>
@@ -360,19 +360,19 @@ const getMissingColorClasses = (count) => {
 const MissingColorExplanation = () => {
     const legendTiers = MISSING_COLOR_TIERS.map(tier => ({ count: tier.label, classes: tier.colors }));
     return (
-        <div className="mt-8 p-6 bg-white rounded-xl shadow-xl border border-gray-200">
-            <h3 className="text-3xl font-bold text-gray-800 mb-6 flex items-center">
-                <span className="text-pink-500 text-4xl mr-3">🎨</span>顏色分級說明
+        <div className="mt-6 p-4 bg-white rounded-xl shadow-xl border border-gray-200">
+            <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <span className="text-pink-500 text-3xl mr-2">🎨</span>顏色分級說明
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"> 
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-10 gap-2"> 
                 {legendTiers.map((item, index) => (
                     <div key={index} className={`
-                        py-3 px-2 rounded-xl text-center cursor-default
+                        py-2 px-1 rounded-lg text-center cursor-default
                         ${item.classes.bg} ${item.classes.border} 
-                        border-2 border-b-[6px]
+                        border-2 border-b-4
                         flex items-center justify-center
                     `}>
-                        <p className={`text-xl font-black ${item.classes.text} leading-tight`}>{item.count}</p>
+                        <p className={`text-base font-black ${item.classes.text} leading-tight`}>{item.count}</p>
                     </div>
                 ))}
             </div>
@@ -386,17 +386,17 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
     if (studentIds.length === 0) return null;
 
     return (
-        <div className="mt-12 p-6 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
-            <h2 className="text-3xl font-extrabold text-gray-800 mb-6 flex items-center">
-                <span className="text-4xl mr-3">📊</span><span className="text-3xl">每月繳交狀況統計</span>
+        <div className="mt-8 p-4 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
+            <h2 className="text-2xl font-extrabold text-gray-800 mb-4 flex items-center">
+                <span className="text-3xl mr-2">📊</span><span className="text-2xl">每月繳交狀況統計</span>
             </h2> 
             <div className="w-full relative overflow-x-auto border border-gray-300 rounded-lg shadow-lg">
                 <table className="min-w-full divide-y divide-gray-300">
                     <thead className="bg-gray-200 sticky top-0 z-30">
                         <tr>
-                            <th className="px-4 py-4 text-2xl font-semibold uppercase tracking-wider text-gray-700 w-36 sticky left-0 bg-gray-200 z-40 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
+                            <th className="px-3 py-3 text-lg font-semibold uppercase tracking-wider text-gray-700 w-24 sticky left-0 bg-gray-200 z-40 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                             {months.map(month => (
-                                <th key={month.id} className={`px-4 py-4 text-2xl font-semibold uppercase tracking-wider text-white min-w-[200px] ${month.color}`}>{month.name}</th>
+                                <th key={month.id} className={`px-3 py-3 text-lg font-semibold uppercase tracking-wider text-white min-w-[120px] ${month.color}`}>{month.name}</th>
                             ))}
                         </tr>
                     </thead>
@@ -406,7 +406,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                             if (!studentData) return null;
                             return (
                                 <tr key={studentId} className="hover:bg-gray-50 transition duration-100">
-                                    <td className="px-4 py-4 text-2xl whitespace-nowrap text-gray-900 font-semibold w-36 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
+                                    <td className="px-3 py-3 text-lg whitespace-nowrap text-gray-900 font-semibold w-24 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
                                     {months.map(month => {
                                         const stats = studentData.monthStats[month.id];
                                         const hasMissing = stats.daysMissing > 0;
@@ -414,12 +414,12 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                                         const hasTotal = stats.totalDays > 0;
                                         const hasCompletedOnly = !hasMissing && !hasLate && hasTotal;
                                         return (
-                                            <td key={month.id} className={`px-4 py-4 whitespace-nowrap text-center text-2xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
+                                            <td key={month.id} className={`px-3 py-3 whitespace-nowrap text-center text-lg ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
                                                 {hasTotal ? (
                                                     <div className="flex flex-col sm:flex-row justify-center items-center gap-1">
-                                                        <span className="text-green-700 whitespace-nowrap text-lg">完:{stats.daysCompleted}</span>
-                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap text-lg`}>遲:{stats.daysLate}</span>
-                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap text-lg`}>缺:{stats.daysMissing}</span>
+                                                        <span className="text-green-700 whitespace-nowrap text-base">完:{stats.daysCompleted}</span>
+                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap text-base`}>遲:{stats.daysLate}</span>
+                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap text-base`}>缺:{stats.daysMissing}</span>
                                                     </div>
                                                 ) : <span className="text-gray-400">-</span>}
                                             </td>
@@ -508,16 +508,16 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full transform transition-all duration-300 scale-100 max-h-[95vh] flex flex-col">
                 <div className="relative border-b pb-2 mb-3">
                     <h3 className="text-4xl font-bold text-gray-800 text-center">{name} 的未訂正作業</h3>
-                    <button onClick={onClose} className="absolute -top-2 -right-2 text-gray-500 hover:text-gray-800 text-4xl p-2 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <button onClick={onClose} className="absolute -top-2 -right-2 text-gray-500 hover:text-gray-800 text-3xl p-2 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
                 <div className={`p-4 rounded-xl mb-4 shadow-md border-l-8 ${colorClasses.bg} ${colorClasses.border} text-center`}>
-                    <div className={`text-3xl font-semibold ${colorClasses.text}`}>累積總計：<span className={`ml-2 font-black ${colorClasses.countText} text-4xl`}>{missingCount}</span> 次</div>
+                    <div className={`text-3xl font-semibold ${colorClasses.text}`}>累積總計：<span className={`ml-2 font-black ${colorClasses.countText} text-3xl`}>{missingCount}</span> 次</div>
                 </div>
                 <div className="flex justify-between items-center mb-2 border-b pb-2">
-                    <h4 className="text-2xl font-bold text-gray-800">詳細未訂正項目 ({detailedMissingItems.length} 筆紀錄):</h4>
-                    <button onClick={handleToggleSelectAll} className="text-xl font-medium text-blue-600 hover:text-blue-800 transition">{selectedItemIds.length === detailedMissingItems.length ? '取消全選' : '全選'}</button>
+                    <h4 className="text-xl font-bold text-gray-800">詳細未訂正項目 ({detailedMissingItems.length} 筆紀錄):</h4>
+                    <button onClick={handleToggleSelectAll} className="text-lg font-medium text-blue-600 hover:text-blue-800 transition">{selectedItemIds.length === detailedMissingItems.length ? '取消全選' : '全選'}</button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4">
@@ -526,9 +526,9 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
                                 {columnItems.map((item) => {
                                     const isSelected = selectedItemIds.includes(item.assignmentId);
                                     return (
-                                        <li key={item.assignmentId} className={`p-3 flex items-center gap-3 text-2xl text-gray-700 cursor-pointer transition duration-100 ${isSelected ? 'bg-blue-200' : 'hover:bg-blue-50'}`} onClick={() => handleToggleSelect(item.assignmentId)}>
+                                        <li key={item.assignmentId} className={`p-3 flex items-center gap-3 text-xl text-gray-700 cursor-pointer transition duration-100 ${isSelected ? 'bg-blue-200' : 'hover:bg-blue-50'}`} onClick={() => handleToggleSelect(item.assignmentId)}>
                                             <input className="h-6 w-6 text-blue-600 rounded cursor-pointer" onClick={(e) => e.stopPropagation()} />
-                                            <span className="font-medium text-gray-900 w-28">{item.date}</span>
+                                            <span className="font-medium text-gray-900 w-24">{item.date}</span>
                                             <span className="flex-1">{item.assignmentName}</span>
                                         </li>
                                     );
@@ -538,8 +538,8 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
                     </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-green-300">
-                    <button onClick={handleBatchDeleteSelectedItems} disabled={selectedItemIds.length === 0} className={`w-full py-3 rounded-lg transition duration-150 ease-in-out font-medium text-3xl flex items-center justify-center shadow-lg ${selectedItemIds.length === 0 ? 'bg-gray-400 cursor-not-allowed text-gray-200' : 'bg-green-600 hover:bg-green-700 text-white'}`} title="按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)">
-                        <span className="text-3xl mr-2">⚠️</span> 批次標記 {selectedItemIds.length} 項為「已補交 (遲繳)」
+                    <button onClick={handleBatchDeleteSelectedItems} disabled={selectedItemIds.length === 0} className={`w-full py-3 rounded-lg transition duration-150 ease-in-out font-medium text-2xl flex items-center justify-center shadow-lg ${selectedItemIds.length === 0 ? 'bg-gray-400 cursor-not-allowed text-gray-200' : 'bg-green-600 hover:bg-green-700 text-white'}`} title="按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)">
+                        <span className="text-2xl mr-2">⚠️</span> 批次標記 {selectedItemIds.length} 項為「已補交 (遲繳)」
                     </button>
                 </div>
                 <button onClick={onClose} className="mt-4 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-2xl">關閉</button>
@@ -671,15 +671,15 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]);
 
     return (
-        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-4 py-4 text-2xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100`}>
-            <div className="flex flex-col items-center justify-center min-w-[120px] group relative">
-                <div className={`relative p-2 rounded-xl shadow-md transition duration-100 border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}>
+        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-2 py-3 text-xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100`}>
+            <div className="flex flex-col items-center justify-center min-w-[80px] group relative">
+                <div className={`relative p-2 rounded-lg shadow-sm transition duration-100 border-2 border-transparent ${isEditing ? 'ring-2 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}>
                     {isEditing ? (
-                        <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-2xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} />
+                        <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} />
                     ) : <span className={`font-bold whitespace-nowrap ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'}`}>{assignment.assignmentName}</span>}
                     {!isEditing && (
                         <button onClick={handleDeleteClick} disabled={isGlobalLoading} className="absolute -top-3 -right-3 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition duration-150 p-1 rounded-full bg-white shadow-lg" title="點擊以刪除此項目 (Ctrl/Cmd 可強制刪除)">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     )}
                 </div>
@@ -691,7 +691,7 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
 const DateTab = ({ date, isSelected, onClick }) => {
     const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
     return (
-        <button onClick={() => onClick(date)} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}>
+        <button onClick={() => onClick(date)} className={`px-4 py-3 text-2xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}>
             {formattedDate}
         </button>
     );
@@ -1676,7 +1676,7 @@ const App = () => {
                 )}
             </div>
             
-             <div className="flex justify-between items-center mb-2 shrink-0">
+             <div className="flex justify-between items-center mb-6">
                 <div className="flex flex-col">
                     <h2 className="text-5xl font-bold text-gray-800 flex items-center"><span className="text-gray-500 mr-3 text-5xl">📋</span>{selectedDisplayDate ? <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span> : '請選擇日期'}</h2>
                     <span className="text-gray-500 text-lg mt-1 flex items-center"><Lightbulb className="w-5 h-5 mr-1 text-yellow-500"/> 提示：點擊「座號」或「姓名」可以只顯示該位學生，避免看錯行！</span>
@@ -1703,8 +1703,8 @@ const App = () => {
                     <div className="min-w-full inline-block align-middle">
                         <table className="w-full divide-y divide-gray-300">
                             <thead className="bg-gray-100 sticky top-0 z-50"><tr>
-                                    <th className="px-4 py-4 text-2xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-28 sticky left-0 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
-                                    <th className="px-4 py-4 text-2xl font-semibold uppercase tracking-wider text-gray-600 w-32 sticky left-28 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
+                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-36 sticky left-0 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
+                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-48 sticky left-36 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                                     {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} /> ))}
                                 </tr></thead>
                             <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
@@ -1712,19 +1712,19 @@ const App = () => {
                                     <tr key={student.id} className={`transition duration-100 group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-4 py-4 text-2xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-28 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100"
+                                            className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-36 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
                                             {student.id}
                                         </td> 
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-4 py-4 text-2xl whitespace-nowrap text-gray-900 font-semibold w-32 sticky left-28 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-2"
+                                            className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-48 sticky left-36 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-2"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
                                             {student.name}
                                             <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-sm transition-opacity">
-                                                {focusedStudentId === student.id ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                {focusedStudentId === student.id ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
                                             </span>
                                         </td> 
                                         {assignmentsForSelectedDate.map((assignment) => {
