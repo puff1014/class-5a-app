@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.17 - 滿版修復版 (Full Width Fixed)'; 
+const VERSION = 'v11.18.18 - 真・滿版修復 (True Full-Width)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -80,12 +80,12 @@ const getSettingsDocPath = () =>
 // 一般通知視窗
 const CustomAlert = ({ message, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-        <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100">
-            <h3 className="text-3xl font-semibold text-gray-800 mb-4">通知</h3>
-            <p className="text-xl text-gray-600 mb-6">{message}</p>
+        <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-all duration-300 scale-100">
+            <h3 className="text-2xl font-semibold text-gray-800 mb-4">通知</h3>
+            <p className="text-lg text-gray-600 mb-6">{message}</p>
             <button
                 onClick={onClose}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-2xl"
+                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-xl"
             >
                 確定
             </button>
@@ -104,14 +104,14 @@ const LoginScreen = ({ onLogin, loadingSettings, errorMsg }) => {
 
     return (
         <div className="fixed inset-0 bg-[#F0F8FF] flex items-center justify-center z-[10000]">
-            <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md text-center border border-blue-100">
+            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm text-center border border-blue-100">
                 <div className="flex justify-center mb-6">
-                    <div className="p-4 rounded-2xl border-2 border-blue-400">
-                        <Lock className="w-12 h-12 text-blue-500" />
+                    <div className="p-3 rounded-2xl border-2 border-blue-400">
+                        <Lock className="w-10 h-10 text-blue-500" />
                     </div>
                 </div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1>
-                <p className="text-gray-400 text-xl mb-8 font-medium">請輸入密碼以存取資料</p>
+                <h1 className="text-3xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1>
+                <p className="text-gray-400 text-lg mb-8 font-medium">請輸入密碼以存取資料</p>
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
@@ -120,25 +120,25 @@ const LoginScreen = ({ onLogin, loadingSettings, errorMsg }) => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="請輸入密碼"
-                            className="w-full px-4 py-4 text-2xl text-center border-2 border-blue-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all placeholder-gray-300 text-gray-700"
+                            className="w-full px-4 py-3 text-2xl text-center border-2 border-blue-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all placeholder-gray-300 text-gray-700"
                             autoFocus
                             disabled={loadingSettings}
                         />
                     </div>
                     {errorMsg && (
-                        <p className="text-red-500 text-xl font-bold animate-pulse">{errorMsg}</p>
+                        <p className="text-red-500 text-lg font-bold animate-pulse">{errorMsg}</p>
                     )}
                     <button
                         type="submit"
                         disabled={loadingSettings}
-                        className={`w-full py-4 rounded-xl text-white text-2xl font-bold tracking-wider shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2
+                        className={`w-full py-3 rounded-xl text-white text-2xl font-bold tracking-wider shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2
                             ${loadingSettings ? 'bg-gray-400 cursor-wait' : 'bg-blue-500 hover:bg-blue-600'}
                         `}
                     >
-                        {loadingSettings ? '讀取設定中...' : <><Lock className="w-6 h-6" /> 解鎖</>}
+                        {loadingSettings ? '讀取設定中...' : <><Lock className="w-5 h-5" /> 解鎖</>}
                     </button>
                 </form>
-                <div className="mt-8 text-gray-400 text-lg">
+                <div className="mt-8 text-gray-400 text-base">
                     By 訂正作業系統 {VERSION}
                 </div>
             </div>
@@ -165,45 +165,45 @@ const PasswordSettingsModal = ({ currentSettings, onSave, onClose, isOffline }) 
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[11000] p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg transform transition-all scale-100 border-4 border-gray-100">
-                <h3 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-3">
-                    <Settings className="w-8 h-8 text-gray-600" />
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md transform transition-all scale-100 border-4 border-gray-100">
+                <h3 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-3">
+                    <Settings className="w-6 h-6 text-gray-600" />
                     系統密碼設定
                 </h3>
-                <p className="text-gray-500 text-xl mb-6">修改後，所有使用者下次登入皆需使用新密碼。</p>
+                <p className="text-gray-500 text-base mb-6">修改後，所有使用者下次登入皆需使用新密碼。</p>
                 
-                <div className="space-y-6">
+                <div className="space-y-4">
                     <div>
-                        <label className="block text-xl font-bold text-gray-700 mb-2">一般模式密碼 (User)</label>
+                        <label className="block text-lg font-bold text-gray-700 mb-1">一般模式密碼 (User)</label>
                         <input 
                             type="text" 
                             value={userPwd}
                             onChange={(e) => setUserPwd(e.target.value)}
-                            className="w-full p-4 border-2 border-gray-300 rounded-xl text-2xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                            className="w-full p-3 border-2 border-gray-300 rounded-xl text-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                         />
                     </div>
                     <div>
-                        <label className="block text-xl font-bold text-gray-700 mb-2">管理員密碼 (Admin)</label>
+                        <label className="block text-lg font-bold text-gray-700 mb-1">管理員密碼 (Admin)</label>
                         <input 
                             type="text" 
                             value={adminPwd}
                             onChange={(e) => setAdminPwd(e.target.value)}
-                            className="w-full p-4 border-2 border-gray-300 rounded-xl text-2xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                            className="w-full p-3 border-2 border-gray-300 rounded-xl text-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                         />
                     </div>
                 </div>
 
                 <div className="flex gap-4 mt-8">
-                    <button onClick={onClose} className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl text-2xl font-bold hover:bg-gray-300 transition">取消</button>
+                    <button onClick={onClose} className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-xl text-xl font-bold hover:bg-gray-300 transition">取消</button>
                     <button 
                         onClick={handleSave} 
                         disabled={saving}
-                        className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-2xl font-bold hover:bg-blue-700 transition shadow-md"
+                        className="flex-1 py-2 bg-blue-600 text-white rounded-xl text-xl font-bold hover:bg-blue-700 transition shadow-md"
                     >
                         {saving ? '儲存中...' : '確認修改'}
                     </button>
                 </div>
-                {isOffline && <p className="mt-4 text-center text-red-500 font-medium text-xl">目前為離線模式，修改不會儲存到雲端。</p>}
+                {isOffline && <p className="mt-4 text-center text-red-500 font-medium text-base">目前為離線模式，修改不會儲存到雲端。</p>}
             </div>
         </div>
     );
@@ -216,51 +216,51 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h3 className="text-3xl font-bold text-gray-800 flex items-center">
-                        <AlertCircle className="w-10 h-10 text-red-500 mr-3" />
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-4xl h-[85vh] flex flex-col border border-gray-200">
+                <div className="flex justify-between items-center mb-4 border-b pb-3">
+                    <h3 className="text-2xl font-bold text-gray-800 flex items-center">
+                        <AlertCircle className="w-8 h-8 text-red-500 mr-2" />
                         全班未完成作業總表
                     </h3>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200">
-                        <X className="w-8 h-8" />
+                        <X className="w-6 h-6" />
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-auto">
                     {studentsWithMissing.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                            <Check className="w-24 h-24 mb-4 text-green-400" />
-                            <p className="text-3xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p>
+                            <Check className="w-20 h-20 mb-4 text-green-400" />
+                            <p className="text-2xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p>
                         </div>
                     ) : (
                         <table className="min-w-full divide-y divide-gray-300">
                             <thead className="bg-gray-100 sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-4 py-4 text-xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th>
-                                    <th className="px-4 py-4 text-xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th>
-                                    <th className="px-4 py-4 text-xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th>
-                                    <th className="px-6 py-4 text-xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th>
+                                    <th className="px-3 py-3 text-lg font-bold text-gray-700 uppercase tracking-wider w-20 text-center border-r border-gray-300">座號</th>
+                                    <th className="px-3 py-3 text-lg font-bold text-gray-700 uppercase tracking-wider w-28 text-center border-r border-gray-300">姓名</th>
+                                    <th className="px-3 py-3 text-lg font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">缺交數</th>
+                                    <th className="px-4 py-3 text-lg font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {studentsWithMissing.map((student) => (
                                     <tr key={student.id} className="hover:bg-red-50 transition duration-100">
-                                        <td className="px-4 py-4 text-xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td>
-                                        <td className="px-4 py-4 text-xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name}</td>
-                                        <td className="px-4 py-4 text-center border-r border-gray-200">
-                                            <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-xl">
+                                        <td className="px-3 py-3 text-lg text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td>
+                                        <td className="px-3 py-3 text-lg text-gray-900 font-bold text-center border-r border-gray-200">{student.name}</td>
+                                        <td className="px-3 py-3 text-center border-r border-gray-200">
+                                            <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-lg">
                                                 {student.missingCount}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-xl text-gray-700">
+                                        <td className="px-4 py-3 text-base text-gray-700">
                                             <ul className="list-disc list-inside space-y-1">
                                                 {[...student.missingDetails]
                                                     .sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW'))
                                                     .map((detail, idx) => (
                                                     <li key={idx} className="flex items-start">
-                                                        <span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span>
-                                                        <span className="font-mono font-medium text-gray-400 text-lg">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span>
+                                                        <span className="text-red-600 font-bold text-base mr-2">{detail.assignment}</span>
+                                                        <span className="font-mono font-medium text-gray-400 text-sm">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span>
                                                     </li>
                                                 ))}
                                             </ul>
@@ -272,8 +272,8 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                     )}
                 </div>
                 
-                <div className="mt-4 pt-4 border-t border-gray-200 text-right">
-                     <button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">
+                <div className="mt-4 pt-3 border-t border-gray-200 text-right">
+                     <button onClick={onClose} className="bg-gray-800 text-white py-2 px-6 rounded-lg hover:bg-gray-900 transition text-lg font-bold">
                         關閉視窗
                     </button>
                 </div>
@@ -298,22 +298,22 @@ const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, 
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4">
-            <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100">
-                <h3 className="text-3xl font-bold text-gray-800 mb-4">{title}</h3>
-                <p className="text-2xl text-gray-600 mb-6">{message}</p>
+            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-all duration-300 scale-100">
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">{title}</h3>
+                <p className="text-lg text-gray-600 mb-6">{message}</p>
                 <div className="flex justify-between gap-4 mt-6">
-                    <button onClick={onCancel} className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg hover:bg-gray-400 transition duration-150 ease-in-out font-medium text-3xl">取消 (保留資料)</button>
+                    <button onClick={onCancel} className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400 transition duration-150 ease-in-out font-medium text-xl">取消</button>
                     <button
                         onClick={() => {
                             if (isAltPressed) { onConfirm(); } else { alert(`請按住 Alt 鍵，才能確認執行 ${confirmTitle} 操作！`); }
                         }}
                         disabled={!isAltPressed}
-                        className={`flex-1 text-white py-3 rounded-lg transition duration-150 ease-in-out font-medium text-3xl ${confirmColor} ${isAltPressed ? 'hover:brightness-110' : 'bg-red-400 cursor-not-allowed'}`}
+                        className={`flex-1 text-white py-2 rounded-lg transition duration-150 ease-in-out font-medium text-xl ${confirmColor} ${isAltPressed ? 'hover:brightness-110' : 'bg-red-400 cursor-not-allowed'}`}
                     >
                         {confirmTitle} 
                     </button>
                 </div>
-                <p className="mt-3 text-center text-red-500 text-2xl font-semibold opacity-0">請按住 **Alt 鍵** 才能啟用刪除按鈕！</p>
+                <p className="mt-3 text-center text-red-500 text-lg font-semibold opacity-0">請按住 **Alt 鍵** 才能啟用刪除按鈕！</p>
             </div>
         </div>
     );
@@ -1700,8 +1700,8 @@ const App = () => {
             {/* 關鍵修改：將表格與統計區塊包在一個 overflow-auto 的容器中，實現內部捲動 */}
             <div className="flex-1 overflow-auto relative">
                 <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
-                    <div className="min-w-full inline-block align-middle">
-                        <table className="min-w-full divide-y divide-gray-300">
+                    <div className="min-w-max">
+                        <table className="divide-y divide-gray-300 w-full">
                             <thead className="bg-gray-100 sticky top-0 z-50"><tr>
                                     <th className="px-4 py-4 text-2xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-28 sticky left-0 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
                                     <th className="px-4 py-4 text-2xl font-semibold uppercase tracking-wider text-gray-600 w-40 sticky left-28 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
