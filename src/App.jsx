@@ -273,7 +273,7 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                 </div>
                 
                 <div className="mt-4 pt-4 border-t border-gray-200 text-right">
-                     <button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">
+                     <button onClick={onClose} className="bg-gray-800 text-white py-2 px-6 rounded-lg hover:bg-gray-900 transition text-lg font-bold">
                         關閉視窗
                     </button>
                 </div>
@@ -360,7 +360,7 @@ const getMissingColorClasses = (count) => {
 const MissingColorExplanation = () => {
     const legendTiers = MISSING_COLOR_TIERS.map(tier => ({ count: tier.label, classes: tier.colors }));
     return (
-        <div className="mt-8 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200">
+        <div className="mt-6 p-4 bg-white rounded-xl shadow-xl border border-gray-200">
             <h3 className="text-3xl font-bold text-gray-800 mb-6 flex items-center">
                 <span className="text-pink-500 text-4xl mr-3">🎨</span>顏色分級說明
             </h3>
@@ -386,7 +386,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
     if (studentIds.length === 0) return null;
 
     return (
-        <div className="mt-12 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
+        <div className="mt-8 p-4 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
             <h2 className="text-3xl font-extrabold text-gray-800 mb-6 flex items-center">
                 <span className="text-4xl mr-3">📊</span><span className="text-3xl">每月繳交狀況統計</span>
             </h2> 
@@ -507,7 +507,7 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-2">
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full transform transition-all duration-300 scale-100 max-h-[95vh] flex flex-col">
                 <div className="relative border-b pb-2 mb-3">
-                    <h3 className="text-4xl font-bold text-gray-800 text-center">{name} 的未訂正作業</h3>
+                    <h3 className="text-3xl font-bold text-gray-800 text-center">{name} 的未訂正作業</h3>
                     <button onClick={onClose} className="absolute -top-2 -right-2 text-gray-500 hover:text-gray-800 text-3xl p-2 rounded-full">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
@@ -1615,7 +1615,7 @@ const App = () => {
         </header>
         {alertMessage && ( <CustomAlert message={alertMessage} onClose={() => setAlertMessage(null)} /> )}
         
-        <div className="flex-1 overflow-auto bg-gray-50 p-4 relative">
+        <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 p-4">
             <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl shrink-0">
                 <label className="font-semibold text-gray-700">學期：</label>
                 <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading}>{semesters.map((s) => ( <option key={s.id} value={s.id}>{s.name}</option>))}</select>
@@ -1697,10 +1697,11 @@ const App = () => {
 
             {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner shrink-0"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
             
-            <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
-                <div className="pb-4 min-w-full">
-                    {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
-                        <table className="divide-y divide-gray-300 w-full">
+            {/* 關鍵修改：將表格與統計區塊包在一個 overflow-auto 的容器中，實現內部捲動 */}
+            <div className="flex-1 overflow-auto relative">
+                <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
+                    <div className="min-w-full inline-block align-middle">
+                        <table className="w-full divide-y divide-gray-300">
                             <thead className="bg-gray-100 sticky top-0 z-50"><tr>
                                     <th className="px-4 py-4 text-2xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-28 sticky left-0 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
                                     <th className="px-4 py-4 text-2xl font-semibold uppercase tracking-wider text-gray-600 w-40 sticky left-28 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
@@ -1754,25 +1755,24 @@ const App = () => {
                                 ))}
                             </tbody>
                         </table>
-                    }
+                    </div>
                 </div>
-            </div>
-            
-            <MissingColorExplanation />
-            <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner border border-gray-200">
-                <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">⚠️</span><span className="text-4xl">全班未訂正統計</span></h2> 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    {studentMissingStats.map((stat) => {
-                        const colorClasses = getMissingColorClasses(stat.missingCount);
-                        const countText = stat.missingCount;
-                        return (
-                            <div 
-                                key={stat.id} 
-                                onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} 
-                                className={`
-                                    relative p-4 rounded-2xl cursor-pointer transition-all duration-150 
-                                    ${colorClasses.bg} ${colorClasses.border} ${colorClasses.text} text-center
-                                    border-2 border-b-[8px] active:border-b-[2px] active:translate-y-[6px] hover:-translate-y-[2px] hover:shadow-md
+                
+                <MissingColorExplanation />
+                <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner border border-gray-200">
+                    <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">⚠️</span><span className="text-4xl">全班未訂正統計</span></h2> 
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        {studentMissingStats.map((stat) => {
+                            const colorClasses = getMissingColorClasses(stat.missingCount);
+                            const countText = stat.missingCount;
+                            return (
+                                <div 
+                                    key={stat.id} 
+                                    onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} 
+                                    className={`
+                                        relative p-4 rounded-2xl cursor-pointer transition-all duration-150 
+                                        ${colorClasses.bg} ${colorClasses.border} ${colorClasses.text} text-center
+                                        border-2 border-b-[8px] active:border-b-[2px] active:translate-y-[6px] hover:-translate-y-[2px] hover:shadow-md
                                     `}
                                 >
                                     <p className="text-4xl font-semibold mb-1">{stat.name}</p>
