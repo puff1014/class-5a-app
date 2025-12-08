@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.19 - 版本號位置修正 (Version Position Fix)'; 
+const VERSION = 'v11.18.21 - 作業表姓名隱私優化 (Main Table Name Privacy)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -407,7 +407,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                             if (!studentData) return null;
                             return (
                                 <tr key={studentId} className="hover:bg-gray-50 transition duration-100">
-                                    <td className="px-2 py-4 text-3xl font-semibold text-gray-900 border-r border-gray-300 text-center">{studentData.studentName}</td>
+                                    <td className="px-2 py-4 text-3xl font-semibold text-gray-900 border-r border-gray-300 text-center whitespace-nowrap">{studentData.studentName[0] + 'O' + studentData.studentName.slice(2)}</td>
                                     {months.map(month => {
                                         const stats = studentData.monthStats[month.id];
                                         const hasMissing = stats.daysMissing > 0;
@@ -1721,10 +1721,10 @@ const App = () => {
                                         </td> 
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-2 py-4 text-3xl whitespace-normal text-gray-900 font-semibold w-32 sticky left-20 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-1 break-words"
+                                            className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-32 sticky left-20 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-1"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
-                                            {student.name}
+                                            {student.name[0] + 'O' + student.name.slice(2)}
                                             <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-sm transition-opacity">
                                                 {focusedStudentId === student.id ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                             </span>
