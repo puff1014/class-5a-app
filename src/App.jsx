@@ -9,8 +9,8 @@ import {
   setDoc, 
   deleteDoc, 
   query, 
-  Timestamp,
-  getDocs,
+  Timestamp, 
+  getDocs, 
   writeBatch, 
   serverTimestamp, 
   updateDoc, 
@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.14 - 語法修復版 (Syntax Fix II)'; 
+const VERSION = 'v11.18.16 - 全螢幕自適應版 (Full Screen Fit)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -380,7 +380,7 @@ const MissingColorExplanation = () => {
     );
 };
 
-// ... MonthlyStudentStats ...
+// ... MonthlyStudentStats (已恢復並優化為無橫向捲動) ...
 const MonthlyStudentStats = ({ monthlyStats, months }) => {
     const studentIds = useMemo(() => Object.keys(monthlyStats).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)), [monthlyStats]);
     if (studentIds.length === 0) return null;
@@ -390,13 +390,14 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
             <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">
                 <span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span>
             </h2> 
-            <div className="w-full relative overflow-x-auto border border-gray-300 rounded-lg shadow-lg">
-                <table className="min-w-full divide-y divide-gray-300">
-                    <thead className="bg-gray-200 sticky top-0 z-30">
+            {/* 移除 overflow-x-auto，改用 w-full 和 break-words */}
+            <div className="w-full relative border border-gray-300 rounded-lg shadow-lg overflow-hidden">
+                <table className="w-full divide-y divide-gray-300 table-fixed">
+                    <thead className="bg-gray-200">
                         <tr>
-                            <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-40 sticky left-0 bg-gray-200 z-40 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
+                            <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-24 border-r border-gray-300">姓名</th>
                             {months.map(month => (
-                                <th key={month.id} className={`px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-white min-w-[200px] ${month.color}`}>{month.name}</th>
+                                <th key={month.id} className={`px-1 py-4 text-3xl font-semibold uppercase tracking-wider text-white ${month.color} break-words`}>{month.name}</th>
                             ))}
                         </tr>
                     </thead>
@@ -406,7 +407,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                             if (!studentData) return null;
                             return (
                                 <tr key={studentId} className="hover:bg-gray-50 transition duration-100">
-                                    <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
+                                    <td className="px-2 py-4 text-3xl font-semibold text-gray-900 border-r border-gray-300 text-center">{studentData.studentName}</td>
                                     {months.map(month => {
                                         const stats = studentData.monthStats[month.id];
                                         const hasMissing = stats.daysMissing > 0;
@@ -414,14 +415,14 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                                         const hasTotal = stats.totalDays > 0;
                                         const hasCompletedOnly = !hasMissing && !hasLate && hasTotal;
                                         return (
-                                            <td key={month.id} className={`px-4 py-4 whitespace-nowrap text-center text-3xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
+                                            <td key={month.id} className={`px-1 py-4 text-center text-2xl sm:text-3xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
                                                 {hasTotal ? (
-                                                    <div className="flex justify-around items-center gap-3">
-                                                        <span className="text-green-700 whitespace-nowrap">完成: <span className="inline-block w-10 text-right">{stats.daysCompleted}</span>天</span>
-                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap`}>遲交: <span className="inline-block w-10 text-right">{stats.daysLate}</span>天</span>
-                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap`}>未完成: <span className="inline-block w-10 text-right">{stats.daysMissing}</span>天</span>
+                                                    <div className="flex flex-col items-center justify-center gap-1">
+                                                        <span className="text-green-700 whitespace-nowrap text-xl">完:{stats.daysCompleted}</span>
+                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-400'} whitespace-nowrap text-xl`}>遲:{stats.daysLate}</span>
+                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-400'} whitespace-nowrap text-xl`}>缺:{stats.daysMissing}</span>
                                                     </div>
-                                                ) : <span className="text-gray-400">-</span>}
+                                                ) : <span className="text-gray-300">-</span>}
                                             </td>
                                         );
                                     })}
@@ -671,12 +672,14 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]);
 
     return (
-        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-3 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100`}>
-            <div className="flex flex-col items-center justify-center min-w-[120px] group relative">
+        // 移除 w-28 等固定寬度，使用 w-auto
+        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-2 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100 break-words`}>
+            {/* 移除 min-w-[120px] */}
+            <div className="flex flex-col items-center justify-center group relative w-auto">
                 <div className={`relative p-2 rounded-xl shadow-md transition duration-100 border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}>
                     {isEditing ? (
                         <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-3xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} />
-                    ) : <span className={`font-bold ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'}`}>{assignment.assignmentName}</span>}
+                    ) : <span className={`font-bold ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'} break-words`}>{assignment.assignmentName}</span>}
                     {!isEditing && (
                         <button onClick={handleDeleteClick} disabled={isGlobalLoading} className="absolute -top-3 -right-3 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition duration-150 p-1 rounded-full bg-white shadow-lg" title="點擊以刪除此項目 (Ctrl/Cmd 可強制刪除)">
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1018,14 +1021,14 @@ const App = () => {
     if (!isForced && !window.confirm(`確定要刪除 ${assignmentName} 嗎？此操作不可逆轉。`)) { return; }
     
     if (isOffline) {
-         setAllAssignmentsByDate(prev => {
-             const newMap = { ...prev };
-             if (newMap[selectedDisplayDate]) {
-                 newMap[selectedDisplayDate] = newMap[selectedDisplayDate].filter(a => a.id !== assignmentId);
-             }
-             return newMap;
-         });
-         return;
+          setAllAssignmentsByDate(prev => {
+              const newMap = { ...prev };
+              if (newMap[selectedDisplayDate]) {
+                  newMap[selectedDisplayDate] = newMap[selectedDisplayDate].filter(a => a.id !== assignmentId);
+              }
+              return newMap;
+          });
+          return;
     }
 
     if (!db || !userId) return;
@@ -1137,20 +1140,20 @@ const App = () => {
     if (dragIndex === -1 || hoverIndex === -1) return;
     
     if (isOffline) {
-         setAllAssignmentsByDate(prev => {
-             const newMap = { ...prev };
-             const currentList = [...(newMap[selectedDisplayDate] || [])];
-             const dragItem = currentList[dragIndex];
-             const hoverItem = currentList[hoverIndex];
-             
-             // Swap orders logic roughly
-             currentList[dragIndex] = { ...dragItem, order: hoverItem.order };
-             currentList[hoverIndex] = { ...hoverItem, order: dragItem.order };
-             
-             newMap[selectedDisplayDate] = currentList.sort((a,b) => a.order - b.order);
-             return newMap;
-         });
-         return;
+          setAllAssignmentsByDate(prev => {
+              const newMap = { ...prev };
+              const currentList = [...(newMap[selectedDisplayDate] || [])];
+              const dragItem = currentList[dragIndex];
+              const hoverItem = currentList[hoverIndex];
+              
+              // Swap orders logic roughly
+              currentList[dragIndex] = { ...dragItem, order: hoverItem.order };
+              currentList[hoverIndex] = { ...hoverItem, order: dragItem.order };
+              
+              newMap[selectedDisplayDate] = currentList.sort((a,b) => a.order - b.order);
+              return newMap;
+          });
+          return;
     }
 
     if (!db || !userId) return;
@@ -1694,13 +1697,16 @@ const App = () => {
 
             {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
             
-            <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
-                <div className="pb-4 min-w-max">
+            {/* 修正主表格： overflow-x-hidden 強制隱藏橫向捲動，移除 min-w-max */}
+            <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-y-auto overflow-x-hidden h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
+                <div className="pb-4 w-full">
                     {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
-                        <table className="divide-y divide-gray-300 w-full">
+                        // table-fixed 讓欄位均分，強制不超出寬度
+                        <table className="divide-y divide-gray-300 w-full table-fixed">
                             <thead className="bg-gray-100 sticky top-0 z-50"><tr>
-                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-28 sticky left-0 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
-                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-40 sticky left-28 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
+                                    {/* 欄位寬度調整：移除 w-28 固定寬度，改用 px-2 */}
+                                    <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-20 sticky left-0 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
+                                    <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-32 sticky left-20 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                                     {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} /> ))}
                                 </tr></thead>
                             <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
@@ -1708,14 +1714,14 @@ const App = () => {
                                     <tr key={student.id} className={`transition duration-100 group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-28 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100"
+                                            className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 w-20 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
                                             {student.id}
                                         </td> 
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-28 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-2"
+                                            className="px-2 py-4 text-3xl whitespace-normal text-gray-900 font-semibold w-32 sticky left-20 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-1 break-words"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
                                             {student.name}
@@ -1733,7 +1739,7 @@ const App = () => {
                                             const remaining = 3 - clicks;
 
                                             return (
-                                                <td key={`${student.id}-${assignmentName}`} className="px-3 py-4 whitespace-nowrap text-center">
+                                                <td key={`${student.id}-${assignmentName}`} className="px-1 py-4 whitespace-nowrap text-center">
                                                     <div className="relative inline-block">
                                                         <button
                                                             onClick={() => handleToggleSubmission(assignmentName, student.id, status)}
@@ -1779,6 +1785,7 @@ const App = () => {
                     })}
                 </div>
             </div>
+            {/* 恢復並顯示 MonthlyStudentStats，確保它在最下方但不產生橫向捲動 */}
             <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
         </div>
       </div>
