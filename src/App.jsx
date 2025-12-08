@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.19 - 大字體滿版重製 (Large Font Full Width Restored)'; 
+const VERSION = 'v11.18.22 - 文字大版與解除凍結 (Large Text & Unfrozen)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -81,11 +81,11 @@ const getSettingsDocPath = () =>
 const CustomAlert = ({ message, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
         <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100">
-            <h3 className="text-4xl font-semibold text-gray-800 mb-4">通知</h3>
-            <p className="text-3xl text-gray-600 mb-6">{message}</p>
+            <h3 className="text-3xl font-semibold text-gray-800 mb-4">通知</h3>
+            <p className="text-xl text-gray-600 mb-6">{message}</p>
             <button
                 onClick={onClose}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-4xl"
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-2xl"
             >
                 確定
             </button>
@@ -209,8 +209,9 @@ const PasswordSettingsModal = ({ currentSettings, onSave, onClose, isOffline }) 
     );
 };
 
-// 全班未完成總表
+// 全班未完成總表 (新增組件)
 const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
+    // Filter students who have missing assignments
     const studentsWithMissing = missingStats.filter(s => s.missingCount > 0);
 
     return (
@@ -236,8 +237,8 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                         <table className="min-w-full divide-y divide-gray-300">
                             <thead className="bg-gray-100 sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-36 text-center border-r border-gray-300">座號</th>
-                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-48 text-center border-r border-gray-300">姓名</th>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th>
                                     <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th>
                                     <th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th>
                                 </tr>
@@ -393,7 +394,8 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                 <table className="min-w-full divide-y divide-gray-300">
                     <thead className="bg-gray-200 sticky top-0 z-30">
                         <tr>
-                            <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-36 sticky left-0 bg-gray-200 z-40 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
+                            <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-36 text-center border-r border-gray-300">座號</th>
+                            <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-48 text-center border-r border-gray-300">姓名</th>
                             {months.map(month => (
                                 <th key={month.id} className={`px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-white min-w-[200px] ${month.color}`}>{month.name}</th>
                             ))}
@@ -405,7 +407,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                             if (!studentData) return null;
                             return (
                                 <tr key={studentId} className="hover:bg-gray-50 transition duration-100">
-                                    <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-36 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
+                                    <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-36 text-center border-r border-gray-300">{studentData.studentName}</td>
                                     {months.map(month => {
                                         const stats = studentData.monthStats[month.id];
                                         const hasMissing = stats.daysMissing > 0;
@@ -416,9 +418,9 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                                             <td key={month.id} className={`px-4 py-4 whitespace-nowrap text-center text-3xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
                                                 {hasTotal ? (
                                                     <div className="flex flex-col sm:flex-row justify-center items-center gap-1">
-                                                        <span className="text-green-700 whitespace-nowrap text-xl">完:{stats.daysCompleted}</span>
-                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap text-xl`}>遲:{stats.daysLate}</span>
-                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap text-xl`}>缺:{stats.daysMissing}</span>
+                                                        <span className="text-green-700 whitespace-nowrap text-2xl">完:{stats.daysCompleted}</span>
+                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap text-2xl`}>遲:{stats.daysLate}</span>
+                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap text-2xl`}>缺:{stats.daysMissing}</span>
                                                     </div>
                                                 ) : <span className="text-gray-400">-</span>}
                                             </td>
@@ -670,7 +672,7 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]);
 
     return (
-        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-4 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100`}>
+        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-4 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out bg-gray-100`}>
             <div className="flex flex-col items-center justify-center min-w-[120px] group relative">
                 <div className={`relative p-2 rounded-xl shadow-md transition duration-100 border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}>
                     {isEditing ? (
@@ -1675,7 +1677,7 @@ const App = () => {
                 )}
             </div>
             
-             <div className="flex justify-between items-center mb-6">
+             <div className="flex justify-between items-center mb-2 shrink-0">
                 <div className="flex flex-col">
                     <h2 className="text-5xl font-bold text-gray-800 flex items-center"><span className="text-gray-500 mr-3 text-5xl">📋</span>{selectedDisplayDate ? <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span> : '請選擇日期'}</h2>
                     <span className="text-gray-500 text-lg mt-1 flex items-center"><Lightbulb className="w-5 h-5 mr-1 text-yellow-500"/> 提示：點擊「座號」或「姓名」可以只顯示該位學生，避免看錯行！</span>
@@ -1701,9 +1703,9 @@ const App = () => {
                 <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
                     <div className="min-w-full inline-block align-middle">
                         <table className="w-full divide-y divide-gray-300">
-                            <thead className="bg-gray-100 sticky top-0 z-50"><tr>
-                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-36 sticky left-0 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] whitespace-nowrap">座號</th>
-                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-48 sticky left-36 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] whitespace-nowrap">姓名</th>
+                            <thead className="bg-gray-100"><tr>
+                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-36 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] whitespace-nowrap">座號</th>
+                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-48 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] whitespace-nowrap">姓名</th>
                                     {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} /> ))}
                                 </tr></thead>
                             <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
@@ -1711,14 +1713,14 @@ const App = () => {
                                     <tr key={student.id} className={`transition duration-100 group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-36 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100"
+                                            className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-36 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
                                             {student.id}
                                         </td> 
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-48 sticky left-36 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-2"
+                                            className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-48 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-2"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
                                             {student.name}
@@ -1741,10 +1743,16 @@ const App = () => {
                                                         <button
                                                             onClick={() => handleToggleSubmission(assignmentName, student.id, status)}
                                                             disabled={isGlobalLoading}
-                                                            className={`p-2 rounded-lg transition duration-150 shadow-md disabled:cursor-not-allowed relative ${status === true ? 'bg-green-200 text-green-700 hover:bg-green-300' : (status === 'late' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-white border-4 border-red-300 text-red-500 hover:bg-red-50')}`}
+                                                            className={`p-2 rounded-lg transition duration-150 shadow-md disabled:cursor-not-allowed relative ${status === true ? 'bg-green-100 hover:bg-green-200' : (status === 'late' ? 'bg-yellow-50 hover:bg-yellow-100' : 'bg-red-50 hover:bg-red-100')}`}
                                                             aria-label={status === true ? '已完成' : (status === 'late' ? '遲繳' : '待完成')}
                                                         >
-                                                            {status === false ? ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg> )}
+                                                            {status === true ? (
+                                                                <span className="text-green-600 font-bold text-3xl">完成</span>
+                                                            ) : status === 'late' ? (
+                                                                <span className="text-yellow-600 font-bold text-3xl">遲交</span>
+                                                            ) : (
+                                                                <span className="text-red-600 font-bold text-3xl">缺交</span>
+                                                            )}
                                                         </button>
                                                     </div>
                                                 </td>
