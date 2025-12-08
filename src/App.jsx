@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.25 - 統計區塊高度優化 (Stats Height Reduced)'; 
+const VERSION = 'v11.18.14 - 語法修復版 (Syntax Fix II)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -81,11 +81,11 @@ const getSettingsDocPath = () =>
 const CustomAlert = ({ message, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
         <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100">
-            <h3 className="text-3xl font-semibold text-gray-800 mb-4">通知</h3>
-            <p className="text-xl text-gray-600 mb-6">{message}</p>
+            <h3 className="text-4xl font-semibold text-gray-800 mb-4">通知</h3>
+            <p className="text-3xl text-gray-600 mb-6">{message}</p>
             <button
                 onClick={onClose}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-2xl"
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-4xl"
             >
                 確定
             </button>
@@ -111,7 +111,7 @@ const LoginScreen = ({ onLogin, loadingSettings, errorMsg }) => {
                     </div>
                 </div>
                 <h1 className="text-5xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1>
-                <p className="text-gray-400 text-3xl mb-8 font-medium">請輸入密碼以存取資料</p>
+                <p className="text-gray-400 text-2xl mb-8 font-medium">請輸入密碼以存取資料</p>
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
@@ -360,19 +360,19 @@ const getMissingColorClasses = (count) => {
 const MissingColorExplanation = () => {
     const legendTiers = MISSING_COLOR_TIERS.map(tier => ({ count: tier.label, classes: tier.colors }));
     return (
-        <div className="mt-4 p-4 bg-white rounded-xl shadow-xl border border-gray-200">
-            <h3 className="text-2xl font-bold text-gray-800 mb-2 flex items-center">
-                <span className="text-pink-500 text-3xl mr-2">🎨</span>顏色分級說明
+        <div className="mt-8 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200">
+            <h3 className="text-4xl font-bold text-gray-800 mb-6 flex items-center">
+                <span className="text-pink-500 text-5xl mr-3">🎨</span>顏色分級說明
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-10 gap-2"> 
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"> 
                 {legendTiers.map((item, index) => (
                     <div key={index} className={`
-                        py-1 px-1 rounded-lg text-center cursor-default
+                        py-3 px-2 rounded-xl text-center cursor-default
                         ${item.classes.bg} ${item.classes.border} 
-                        border-2 border-b-4
+                        border-2 border-b-[6px]
                         flex items-center justify-center
                     `}>
-                        <p className={`text-base font-black ${item.classes.text} leading-tight`}>{item.count}</p>
+                        <p className={`text-2xl font-black ${item.classes.text} leading-tight`}>{item.count}</p>
                     </div>
                 ))}
             </div>
@@ -386,18 +386,17 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
     if (studentIds.length === 0) return null;
 
     return (
-        <div className="mt-4 p-3 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
-            <h2 className="text-2xl font-extrabold text-gray-800 mb-2 flex items-center">
-                <span className="text-3xl mr-2">📊</span><span className="text-2xl">每月繳交狀況統計</span>
+        <div className="mt-12 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
+            <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">
+                <span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span>
             </h2> 
-            {/* 關鍵修改：限制高度為 25vh 並允許垂直捲動 */}
-            <div className="w-full relative overflow-x-auto overflow-y-auto max-h-[25vh] border border-gray-300 rounded-lg shadow-lg">
+            <div className="w-full relative overflow-x-auto border border-gray-300 rounded-lg shadow-lg">
                 <table className="min-w-full divide-y divide-gray-300">
                     <thead className="bg-gray-200 sticky top-0 z-30">
                         <tr>
-                            <th className="px-2 py-2 text-xl font-semibold uppercase tracking-wider text-gray-700 w-32 sticky left-0 bg-gray-200 z-40 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
+                            <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-40 sticky left-0 bg-gray-200 z-40 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                             {months.map(month => (
-                                <th key={month.id} className={`px-2 py-2 text-xl font-semibold uppercase tracking-wider text-white min-w-[150px] ${month.color}`}>{month.name}</th>
+                                <th key={month.id} className={`px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-white min-w-[200px] ${month.color}`}>{month.name}</th>
                             ))}
                         </tr>
                     </thead>
@@ -407,7 +406,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                             if (!studentData) return null;
                             return (
                                 <tr key={studentId} className="hover:bg-gray-50 transition duration-100">
-                                    <td className="px-2 py-2 text-xl whitespace-nowrap text-gray-900 font-semibold w-32 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
+                                    <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
                                     {months.map(month => {
                                         const stats = studentData.monthStats[month.id];
                                         const hasMissing = stats.daysMissing > 0;
@@ -415,13 +414,12 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                                         const hasTotal = stats.totalDays > 0;
                                         const hasCompletedOnly = !hasMissing && !hasLate && hasTotal;
                                         return (
-                                            <td key={month.id} className={`px-2 py-2 whitespace-nowrap text-center text-xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
+                                            <td key={month.id} className={`px-4 py-4 whitespace-nowrap text-center text-3xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
                                                 {hasTotal ? (
-                                                    // 強制橫向排列 (flex-row)
-                                                    <div className="flex flex-row justify-center items-center gap-2">
-                                                        <span className="text-green-700 whitespace-nowrap text-xl font-bold">完成:{stats.daysCompleted}</span>
-                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap text-xl font-bold`}>遲交:{stats.daysLate}</span>
-                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap text-xl font-bold`}>缺交:{stats.daysMissing}</span>
+                                                    <div className="flex justify-around items-center gap-3">
+                                                        <span className="text-green-700 whitespace-nowrap">完成: <span className="inline-block w-10 text-right">{stats.daysCompleted}</span>天</span>
+                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap`}>遲交: <span className="inline-block w-10 text-right">{stats.daysLate}</span>天</span>
+                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap`}>未完成: <span className="inline-block w-10 text-right">{stats.daysMissing}</span>天</span>
                                                     </div>
                                                 ) : <span className="text-gray-400">-</span>}
                                             </td>
@@ -673,12 +671,12 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]);
 
     return (
-        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-4 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100`}>
+        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-3 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100`}>
             <div className="flex flex-col items-center justify-center min-w-[120px] group relative">
                 <div className={`relative p-2 rounded-xl shadow-md transition duration-100 border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}>
                     {isEditing ? (
                         <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-3xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} />
-                    ) : <span className={`font-bold whitespace-nowrap ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'}`}>{assignment.assignmentName}</span>}
+                    ) : <span className={`font-bold ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'}`}>{assignment.assignmentName}</span>}
                     {!isEditing && (
                         <button onClick={handleDeleteClick} disabled={isGlobalLoading} className="absolute -top-3 -right-3 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition duration-150 p-1 rounded-full bg-white shadow-lg" title="點擊以刪除此項目 (Ctrl/Cmd 可強制刪除)">
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1580,14 +1578,14 @@ const App = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden w-full">
+    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
       {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
       {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={STUDENT_LIST.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} /> )}
       {showSettingsModal && ( <PasswordSettingsModal currentSettings={systemSettings} onSave={handleUpdatePasswords} onClose={() => setShowSettingsModal(false)} isOffline={isOffline} /> )}
       {/* --- 新增全班未完成總表 Modal --- */}
       {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
 
-      <div className="bg-white shadow-xl w-full flex flex-col h-full overflow-hidden">
+      <div className="bg-white shadow-xl w-full flex flex-col h-full">
         <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
           {isOffline && (
               <div className="absolute top-0 left-0 w-full bg-gray-800 text-white text-center py-2 text-xl font-bold tracking-wider z-10">
@@ -1617,18 +1615,18 @@ const App = () => {
         </header>
         {alertMessage && ( <CustomAlert message={alertMessage} onClose={() => setAlertMessage(null)} /> )}
         
-        <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 p-4">
-            <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl shrink-0">
+        <div className="flex-1 overflow-auto bg-gray-50 p-4 relative">
+            <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl">
                 <label className="font-semibold text-gray-700">學期：</label>
                 <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading}>{semesters.map((s) => ( <option key={s.id} value={s.id}>{s.name}</option>))}</select>
                 <label className="font-semibold text-gray-700">月份：</label>
                 <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading} style={{ backgroundColor: months.find(m => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
             </div>
-            <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2 shrink-0">
+            <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2">
                 {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} /> ))}
             </div>
             
-            <div className="flex flex-wrap items-center gap-2 mb-6 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 mb-6">
                  <input id="newAssignmentDate" type="date" value={newAssignmentDate} onChange={handleNewAssignmentDateChange} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] focus:ring-yellow-500 focus:border-yellow-500 transition flex-shrink-0" required disabled={isGlobalLoading} />
                  
                  <button 
@@ -1679,10 +1677,7 @@ const App = () => {
             </div>
             
              <div className="flex justify-between items-center mb-6">
-                <div className="flex flex-col">
-                    <h2 className="text-5xl font-bold text-gray-800 flex items-center"><span className="text-gray-500 mr-3 text-5xl">📋</span>{selectedDisplayDate ? <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span> : '請選擇日期'}</h2>
-                    <span className="text-gray-500 text-lg mt-1 flex items-center"><Lightbulb className="w-5 h-5 mr-1 text-yellow-500"/> 提示：點擊「座號」或「姓名」可以只顯示該位學生，避免看錯行！</span>
-                </div>
+                <h2 className="text-5xl font-bold text-gray-800 flex items-center"><span className="text-gray-500 mr-3 text-5xl">📋</span>{selectedDisplayDate ? <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span> : '請選擇日期'}</h2>
                  <div className="flex items-center gap-4">
                     {/* Show Reset View button if focused mode is active */}
                     {focusedStudentId && (
@@ -1697,16 +1692,15 @@ const App = () => {
                  </div>
             </div>
 
-            {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner shrink-0"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
+            {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
             
-            {/* 關鍵修改：將表格與統計區塊包在一個 overflow-auto 的容器中，實現內部捲動 */}
-            <div className="flex-1 overflow-auto relative">
-                <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
-                    <div className="min-w-full inline-block align-middle">
-                        <table className="w-full divide-y divide-gray-300">
+            <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
+                <div className="pb-4 min-w-max">
+                    {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
+                        <table className="divide-y divide-gray-300 w-full">
                             <thead className="bg-gray-100 sticky top-0 z-50"><tr>
-                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-36 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] whitespace-nowrap">座號</th>
-                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-48 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] whitespace-nowrap">姓名</th>
+                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-28 sticky left-0 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
+                                    <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-40 sticky left-28 top-0 bg-gray-100 z-50 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                                     {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} /> ))}
                                 </tr></thead>
                             <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
@@ -1714,19 +1708,19 @@ const App = () => {
                                     <tr key={student.id} className={`transition duration-100 group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-36 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100"
+                                            className="px-4 py-4 text-3xl whitespace-nowrap font-medium text-gray-900 border-r border-gray-300 w-28 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
                                             {student.id}
                                         </td> 
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-48 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-2"
+                                            className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-40 sticky left-28 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-2"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
                                             {student.name}
                                             <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-sm transition-opacity">
-                                                {focusedStudentId === student.id ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
+                                                {focusedStudentId === student.id ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                             </span>
                                         </td> 
                                         {assignmentsForSelectedDate.map((assignment) => {
@@ -1744,16 +1738,10 @@ const App = () => {
                                                         <button
                                                             onClick={() => handleToggleSubmission(assignmentName, student.id, status)}
                                                             disabled={isGlobalLoading}
-                                                            className={`p-2 rounded-lg transition duration-150 shadow-md disabled:cursor-not-allowed relative ${status === true ? 'bg-green-100 hover:bg-green-200' : (status === 'late' ? 'bg-yellow-50 hover:bg-yellow-100' : 'bg-red-50 hover:bg-red-100')}`}
+                                                            className={`p-2 rounded-lg transition duration-150 shadow-md disabled:cursor-not-allowed relative ${status === true ? 'bg-green-200 text-green-700 hover:bg-green-300' : (status === 'late' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-white border-4 border-red-300 text-red-500 hover:bg-red-50')}`}
                                                             aria-label={status === true ? '已完成' : (status === 'late' ? '遲繳' : '待完成')}
                                                         >
-                                                            {status === true ? (
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                                            ) : status === 'late' ? (
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                                            ) : (
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                                                            )}
+                                                            {status === false ? ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg> )}
                                                         </button>
                                                     </div>
                                                 </td>
@@ -1763,38 +1751,35 @@ const App = () => {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
-                </div>
-                
-                <div className="px-4">
-                  <MissingColorExplanation />
-                  {/* Reduced padding for "Total Missing Stats" grid */}
-                  <div className="mt-6 p-3 bg-white rounded-xl shadow-inner border border-gray-200">
-                      <h2 className="text-2xl font-extrabold text-gray-800 mb-2 flex items-center"><span className="text-5xl mr-3">⚠️</span><span className="text-4xl">全班未訂正統計</span></h2> 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-                          {studentMissingStats.map((stat) => {
-                              const colorClasses = getMissingColorClasses(stat.missingCount);
-                              const countText = stat.missingCount;
-                              return (
-                                  <div 
-                                      key={stat.id} 
-                                      onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} 
-                                      className={`
-                                          relative p-2 rounded-xl cursor-pointer transition-all duration-150 
-                                          ${colorClasses.bg} ${colorClasses.border} ${colorClasses.text} text-center
-                                          border-2 border-b-[8px] active:border-b-[2px] active:translate-y-[6px] hover:-translate-y-[2px] hover:shadow-md
-                                      `}
-                                  >
-                                      <p className="text-xl font-semibold mb-1">{stat.name}</p>
-                                      <p className={`text-4xl font-black mt-1 ${colorClasses.countText}`}>{countText}</p>
-                                  </div>
-                              );
-                          })}
-                      </div>
-                  </div>
-                  <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
+                    )}
                 </div>
             </div>
+            
+            <MissingColorExplanation />
+            <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner border border-gray-200">
+                <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">⚠️</span><span className="text-4xl">全班未訂正統計</span></h2> 
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {studentMissingStats.map((stat) => {
+                        const colorClasses = getMissingColorClasses(stat.missingCount);
+                        const countText = stat.missingCount;
+                        return (
+                            <div 
+                                key={stat.id} 
+                                onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} 
+                                className={`
+                                    relative p-4 rounded-2xl cursor-pointer transition-all duration-150 
+                                    ${colorClasses.bg} ${colorClasses.border} ${colorClasses.text} text-center
+                                    border-2 border-b-[8px] active:border-b-[2px] active:translate-y-[6px] hover:-translate-y-[2px] hover:shadow-md
+                                `}
+                            >
+                                <p className="text-4xl font-semibold mb-1">{stat.name}</p>
+                                <p className={`text-6xl font-black mt-2 ${colorClasses.countText}`}>{countText}</p>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+            <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
         </div>
       </div>
     </div>
