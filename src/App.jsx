@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.16 - 全螢幕自適應版 (Full Screen Fit)'; 
+const VERSION = 'v11.18.17 - 月統計表格式修復 (Monthly Stats Fix)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -417,10 +417,10 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                                         return (
                                             <td key={month.id} className={`px-1 py-4 text-center text-2xl sm:text-3xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
                                                 {hasTotal ? (
-                                                    <div className="flex flex-col items-center justify-center gap-1">
-                                                        <span className="text-green-700 whitespace-nowrap text-xl">完:{stats.daysCompleted}</span>
-                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-400'} whitespace-nowrap text-xl`}>遲:{stats.daysLate}</span>
-                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-400'} whitespace-nowrap text-xl`}>缺:{stats.daysMissing}</span>
+                                                    <div className="flex flex-wrap justify-center items-center gap-1 sm:gap-2">
+                                                        <span className="text-green-700 whitespace-nowrap">完成:<span className="inline-block w-8 text-right">{stats.daysCompleted}</span></span>
+                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-400'} whitespace-nowrap`}>遲交:<span className="inline-block w-8 text-right">{stats.daysLate}</span></span>
+                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-400'} whitespace-nowrap`}>缺交:<span className="inline-block w-8 text-right">{stats.daysMissing}</span></span>
                                                     </div>
                                                 ) : <span className="text-gray-300">-</span>}
                                             </td>
@@ -1521,7 +1521,7 @@ const App = () => {
                     setAlertMessage(msg); 
                 } else {
                     if (duplicateCount > 0) {
-                         setAlertMessage(`沒有匯入任何新資料 (發現 ${duplicateCount} 筆重複紀錄)。`);
+                         setAlertMessage(`沒有匯入任何新資料 (發現 ${duplicateCount} 筆重複資料)。`);
                     } else {
                         setAlertMessage("匯入檔案中沒有找到有效的作業紀錄。"); 
                     }
