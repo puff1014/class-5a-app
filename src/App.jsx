@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.19 - 大字體滿版修復 (Large Font Full Width)'; 
+const VERSION = 'v11.18.19 - 大字體滿版重製 (Large Font Full Width Restored)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -81,7 +81,7 @@ const getSettingsDocPath = () =>
 const CustomAlert = ({ message, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
         <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100">
-            <h3 className="text-3xl font-semibold text-gray-800 mb-4">通知</h3>
+            <h3 className="text-4xl font-semibold text-gray-800 mb-4">通知</h3>
             <p className="text-3xl text-gray-600 mb-6">{message}</p>
             <button
                 onClick={onClose}
@@ -111,7 +111,7 @@ const LoginScreen = ({ onLogin, loadingSettings, errorMsg }) => {
                     </div>
                 </div>
                 <h1 className="text-5xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1>
-                <p className="text-gray-400 text-2xl mb-8 font-medium">請輸入密碼以存取資料</p>
+                <p className="text-gray-400 text-3xl mb-8 font-medium">請輸入密碼以存取資料</p>
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
@@ -209,9 +209,8 @@ const PasswordSettingsModal = ({ currentSettings, onSave, onClose, isOffline }) 
     );
 };
 
-// 全班未完成總表 (新增組件)
+// 全班未完成總表
 const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
-    // Filter students who have missing assignments
     const studentsWithMissing = missingStats.filter(s => s.missingCount > 0);
 
     return (
@@ -237,8 +236,8 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                         <table className="min-w-full divide-y divide-gray-300">
                             <thead className="bg-gray-100 sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th>
-                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-36 text-center border-r border-gray-300">座號</th>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-48 text-center border-r border-gray-300">姓名</th>
                                     <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th>
                                     <th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th>
                                 </tr>
@@ -538,7 +537,7 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
                     </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-green-300">
-                    <button onClick={handleBatchDeleteSelectedItems} disabled={selectedItemIds.length === 0} className={`w-full py-3 rounded-lg transition duration-150 ease-in-out font-medium text-3xl flex items-center justify-center shadow-lg ${selectedItemIds.length === 0 ? 'bg-gray-400 cursor-not-allowed text-gray-200' : 'bg-green-600 hover:bg-green-700 text-white'}`} title="按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)">
+                    <button onClick={handleBatchDeleteSelectedItems} disabled={selectedItemIds.length === 0} className={`w-full py-3 rounded-lg transition duration-150 ease-in-out font-medium text-2xl flex items-center justify-center shadow-lg ${selectedItemIds.length === 0 ? 'bg-gray-400 cursor-not-allowed text-gray-200' : 'bg-green-600 hover:bg-green-700 text-white'}`} title="按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)">
                         <span className="text-3xl mr-2">⚠️</span> 批次標記 {selectedItemIds.length} 項為「已補交 (遲繳)」
                     </button>
                 </div>
@@ -1676,7 +1675,7 @@ const App = () => {
                 )}
             </div>
             
-             <div className="flex justify-between items-center mb-2 shrink-0">
+             <div className="flex justify-between items-center mb-6">
                 <div className="flex flex-col">
                     <h2 className="text-5xl font-bold text-gray-800 flex items-center"><span className="text-gray-500 mr-3 text-5xl">📋</span>{selectedDisplayDate ? <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span> : '請選擇日期'}</h2>
                     <span className="text-gray-500 text-lg mt-1 flex items-center"><Lightbulb className="w-5 h-5 mr-1 text-yellow-500"/> 提示：點擊「座號」或「姓名」可以只顯示該位學生，避免看錯行！</span>
