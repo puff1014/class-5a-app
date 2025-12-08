@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.21 - 作業表姓名隱私優化 (Main Table Name Privacy)'; 
+const VERSION = 'v11.18.23 - 座號對齊修正 (Seat Align Fix)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -247,7 +247,7 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                                 {studentsWithMissing.map((student) => (
                                     <tr key={student.id} className="hover:bg-red-50 transition duration-100">
                                         <td className="px-4 py-4 text-2xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td>
-                                        <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name}</td>
+                                        <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td>
                                         <td className="px-4 py-4 text-center border-r border-gray-200">
                                             <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">
                                                 {student.missingCount}
@@ -1714,7 +1714,7 @@ const App = () => {
                                     <tr key={student.id} className={`transition duration-100 group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 w-20 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words"
+                                            className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 w-20 sticky left-0 bg-white z-30 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words flex items-center justify-center h-full"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
                                         >
                                             {student.id}
@@ -1778,7 +1778,7 @@ const App = () => {
                                     border-2 border-b-[8px] active:border-b-[2px] active:translate-y-[6px] hover:-translate-y-[2px] hover:shadow-md
                                 `}
                             >
-                                <p className="text-4xl font-semibold mb-1">{stat.name}</p>
+                                <p className="text-4xl font-semibold mb-1">{stat.name[0] + 'O' + stat.name.slice(2)}</p>
                                 <p className={`text-6xl font-black mt-2 ${colorClasses.countText}`}>{countText}</p>
                             </div>
                         );
