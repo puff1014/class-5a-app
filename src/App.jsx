@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.22 - 文字大版與解除凍結 (Large Text & Unfrozen)'; 
+const VERSION = 'v11.18.23 - 圖示回歸與滿版優化 (Icons Restored & Full Width)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -392,7 +392,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
             </h2> 
             <div className="w-full relative overflow-x-auto border border-gray-300 rounded-lg shadow-lg">
                 <table className="min-w-full divide-y divide-gray-300">
-                    <thead className="bg-gray-200 sticky top-0 z-30">
+                    <thead className="bg-gray-200">
                         <tr>
                             <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-36 text-center border-r border-gray-300">座號</th>
                             <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-48 text-center border-r border-gray-300">姓名</th>
@@ -1747,11 +1747,11 @@ const App = () => {
                                                             aria-label={status === true ? '已完成' : (status === 'late' ? '遲繳' : '待完成')}
                                                         >
                                                             {status === true ? (
-                                                                <span className="text-green-600 font-bold text-3xl">完成</span>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                                                             ) : status === 'late' ? (
-                                                                <span className="text-yellow-600 font-bold text-3xl">遲交</span>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                                                             ) : (
-                                                                <span className="text-red-600 font-bold text-3xl">缺交</span>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                                             )}
                                                         </button>
                                                     </div>
