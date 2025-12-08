@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.24 - 統計表文字優化版 (Monthly Stats Text Update)'; 
+const VERSION = 'v11.18.25 - 統計表高度緊湊版 (Compact Monthly Stats)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -386,17 +386,17 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
     if (studentIds.length === 0) return null;
 
     return (
-        <div className="mt-12 p-6 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
-            <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">
-                <span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span>
+        <div className="mt-6 p-3 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
+            <h2 className="text-3xl font-extrabold text-gray-800 mb-2 flex items-center">
+                <span className="text-4xl mr-3">📊</span><span className="text-3xl">每月繳交狀況統計</span>
             </h2> 
             <div className="w-full relative overflow-x-auto border border-gray-300 rounded-lg shadow-lg">
                 <table className="min-w-full divide-y divide-gray-300">
                     <thead className="bg-gray-200 sticky top-0 z-30">
                         <tr>
-                            <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-36 text-center border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
+                            <th className="px-2 py-2 text-xl font-semibold uppercase tracking-wider text-gray-700 w-32 sticky left-0 bg-gray-200 z-40 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
                             {months.map(month => (
-                                <th key={month.id} className={`px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-white min-w-[200px] ${month.color}`}>{month.name}</th>
+                                <th key={month.id} className={`px-2 py-2 text-xl font-semibold uppercase tracking-wider text-white min-w-[150px] ${month.color}`}>{month.name}</th>
                             ))}
                         </tr>
                     </thead>
@@ -406,7 +406,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                             if (!studentData) return null;
                             return (
                                 <tr key={studentId} className="hover:bg-gray-50 transition duration-100">
-                                    <td className="px-4 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-36 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
+                                    <td className="px-2 py-2 text-xl whitespace-nowrap text-gray-900 font-semibold w-32 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
                                     {months.map(month => {
                                         const stats = studentData.monthStats[month.id];
                                         const hasMissing = stats.daysMissing > 0;
@@ -414,12 +414,12 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                                         const hasTotal = stats.totalDays > 0;
                                         const hasCompletedOnly = !hasMissing && !hasLate && hasTotal;
                                         return (
-                                            <td key={month.id} className={`px-4 py-4 whitespace-nowrap text-center text-3xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
+                                            <td key={month.id} className={`px-2 py-2 whitespace-nowrap text-center text-xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
                                                 {hasTotal ? (
-                                                    <div className="flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-3">
-                                                        <span className="text-green-700 whitespace-nowrap text-2xl font-bold">完成:{stats.daysCompleted}</span>
-                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap text-2xl font-bold`}>遲交:{stats.daysLate}</span>
-                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap text-2xl font-bold`}>缺交:{stats.daysMissing}</span>
+                                                    <div className="flex flex-row justify-center items-center gap-2">
+                                                        <span className="text-green-700 whitespace-nowrap text-xl font-bold">完成:{stats.daysCompleted}</span>
+                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap text-xl font-bold`}>遲交:{stats.daysLate}</span>
+                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap text-xl font-bold`}>缺交:{stats.daysMissing}</span>
                                                     </div>
                                                 ) : <span className="text-gray-400">-</span>}
                                             </td>
@@ -671,12 +671,12 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]);
 
     return (
-        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-4 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out bg-gray-100`}>
+        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-4 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100`}>
             <div className="flex flex-col items-center justify-center min-w-[120px] group relative">
                 <div className={`relative p-2 rounded-xl shadow-md transition duration-100 border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}>
                     {isEditing ? (
                         <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-3xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} />
-                    ) : <span className={`font-bold whitespace-nowrap ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'}`}>{assignment.assignmentName}</span>}
+                    ) : <span className={`font-bold ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'} whitespace-nowrap`}>{assignment.assignmentName}</span>}
                     {!isEditing && (
                         <button onClick={handleDeleteClick} disabled={isGlobalLoading} className="absolute -top-3 -right-3 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition duration-150 p-1 rounded-full bg-white shadow-lg" title="點擊以刪除此項目 (Ctrl/Cmd 可強制刪除)">
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1702,7 +1702,7 @@ const App = () => {
                 <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
                     <div className="min-w-full inline-block align-middle">
                         <table className="w-full divide-y divide-gray-300">
-                            <thead className="bg-gray-100"><tr>
+                            <thead className="bg-gray-100 sticky top-0 z-50"><tr>
                                     <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-36 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] whitespace-nowrap">座號</th>
                                     <th className="px-4 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-48 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] whitespace-nowrap">姓名</th>
                                     {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} /> ))}
@@ -1766,7 +1766,54 @@ const App = () => {
                 
                 <div className="px-4">
                   <MissingColorExplanation />
-                  <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner border border-gray-200">
+                  <div className="mt-6 p-3 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
+                      <h2 className="text-3xl font-extrabold text-gray-800 mb-2 flex items-center">
+                          <span className="text-4xl mr-3">📊</span><span className="text-3xl">每月繳交狀況統計</span>
+                      </h2> 
+                      <div className="w-full relative overflow-x-auto border border-gray-300 rounded-lg shadow-lg">
+                          <table className="min-w-full divide-y divide-gray-300">
+                              <thead className="bg-gray-200 sticky top-0 z-30">
+                                  <tr>
+                                      <th className="px-2 py-2 text-xl font-semibold uppercase tracking-wider text-gray-700 w-32 sticky left-0 bg-gray-200 z-40 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
+                                      {months.map(month => (
+                                          <th key={month.id} className={`px-2 py-2 text-xl font-semibold uppercase tracking-wider text-white min-w-[150px] ${month.color}`}>{month.name}</th>
+                                      ))}
+                                  </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                  {studentIds.map(studentId => {
+                                      const studentData = monthlyStats[studentId];
+                                      if (!studentData) return null;
+                                      return (
+                                          <tr key={studentId} className="hover:bg-gray-50 transition duration-100">
+                                              <td className="px-2 py-2 text-xl whitespace-nowrap text-gray-900 font-semibold w-32 sticky left-0 bg-white z-10 border-r border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{studentData.studentName}</td>
+                                              {months.map(month => {
+                                                  const stats = studentData.monthStats[month.id];
+                                                  const hasMissing = stats.daysMissing > 0;
+                                                  const hasLate = stats.daysLate > 0;
+                                                  const hasTotal = stats.totalDays > 0;
+                                                  const hasCompletedOnly = !hasMissing && !hasLate && hasTotal;
+                                                  return (
+                                                      <td key={month.id} className={`px-2 py-2 whitespace-nowrap text-center text-xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
+                                                          {hasTotal ? (
+                                                              <div className="flex flex-row justify-center items-center gap-2">
+                                                                  <span className="text-green-700 whitespace-nowrap text-xl font-bold">完成:{stats.daysCompleted}</span>
+                                                                  <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-700'} whitespace-nowrap text-xl font-bold`}>遲交:{stats.daysLate}</span>
+                                                                  <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-700'} whitespace-nowrap text-xl font-bold`}>缺交:{stats.daysMissing}</span>
+                                                              </div>
+                                                          ) : <span className="text-gray-400">-</span>}
+                                                      </td>
+                                                  );
+                                              })}
+                                          </tr>
+                                      );
+                                  })}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+                  {/* Reinserted AllMissingAssignments grid that was missing in snippet but likely wanted */}
+                   <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner border border-gray-200">
                       <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">⚠️</span><span className="text-4xl">全班未訂正統計</span></h2> 
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                           {studentMissingStats.map((stat) => {
@@ -1789,7 +1836,6 @@ const App = () => {
                           })}
                       </div>
                   </div>
-                  <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
                 </div>
             </div>
         </div>
