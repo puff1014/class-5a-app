@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.28 - 表格對齊與寬度修正 (Layout Alignment Fix)'; 
+const VERSION = 'v11.18.31 - 學生清單隱藏鎖定 (Silent Lock)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -390,14 +390,14 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
             <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">
                 <span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span>
             </h2> 
-            {/* 移除 overflow-x-auto，改用 w-full 和 break-words */}
-            <div className="w-full relative border border-gray-300 rounded-lg shadow-lg overflow-hidden">
+            {/* FIX: 移除 overflow-hidden 以確保 sticky 表頭能正確黏附於視窗頂端 (或上層捲動容器) */}
+            <div className="w-full relative border border-gray-300 rounded-lg shadow-lg">
                 <table className="w-full divide-y divide-gray-300 table-fixed">
                     <thead className="bg-gray-200">
                         <tr>
-                            <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-24 border-r border-gray-300">姓名</th>
+                            <th className="sticky top-0 z-30 px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-24 border-r border-gray-300 bg-gray-200 shadow-sm">姓名</th>
                             {months.map(month => (
-                                <th key={month.id} className={`px-1 py-4 text-3xl font-semibold uppercase tracking-wider text-white ${month.color} break-words`}>{month.name}</th>
+                                <th key={month.id} className={`sticky top-0 z-30 px-1 py-4 text-3xl font-semibold uppercase tracking-wider text-white ${month.color} break-words shadow-sm`}>{month.name}</th>
                             ))}
                         </tr>
                     </thead>
@@ -482,7 +482,12 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
 
     const handleBatchDeleteSelectedItems = useCallback(async (e) => {
         if (selectedItemIds.length === 0) { alert("請先勾選至少一項要標記為『已補交』的作業紀錄。"); return; }
-        if (!e.ctrlKey && !e.metaKey) { alert("請按住 Control (Ctrl/Cmd) 鍵，才能確認執行批次標記為已補交！"); return; }
+        
+        // 隱藏鎖定：恢復需按住 CTRL 才能執行，但移除提示視窗，避免學生發現
+        if (!e.ctrlKey && !e.metaKey) { 
+            return; 
+        }
+        
         setAlertMessage(null);
         if (isOffline) {
             setAlertMessage(`[離線模式] 成功將 ${selectedItemIds.length} 項作業標記為「已補交」（記憶體暫存）。`);
@@ -500,9 +505,14 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
             setAlertMessage(`成功將 ${selectedItemIds.length} 項作業標記為「已補交」。`);
             setSelectedItemIds([]); onClose();
         } catch (error) { console.error("Batch delete failed:", error); setAlertMessage("批次標記已訂正失敗。"); } 
-    }, [selectedItemIds, db, userId, student.id, onClose, setAlertMessage, isOffline]);
+    }, [selectedItemIds, db, userId, student.id, onClose, setAlertMessage, isOffline, authMode]);
 
     if (!hasMissingItems) return null;
+
+    // FIX: 根據 authMode 決定是否顯示「按住 Ctrl」的提示 title
+    const batchButtonTitle = authMode === 'ADMIN' 
+        ? "按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)" 
+        : undefined;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-2">
@@ -539,7 +549,7 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
                     </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-green-300">
-                    <button onClick={handleBatchDeleteSelectedItems} disabled={selectedItemIds.length === 0} className={`w-full py-3 rounded-lg transition duration-150 ease-in-out font-medium text-3xl flex items-center justify-center shadow-lg ${selectedItemIds.length === 0 ? 'bg-gray-400 cursor-not-allowed text-gray-200' : 'bg-green-600 hover:bg-green-700 text-white'}`} title="按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)">
+                    <button onClick={handleBatchDeleteSelectedItems} disabled={selectedItemIds.length === 0} className={`w-full py-3 rounded-lg transition duration-150 ease-in-out font-medium text-3xl flex items-center justify-center shadow-lg ${selectedItemIds.length === 0 ? 'bg-gray-400 cursor-not-allowed text-gray-200' : 'bg-green-600 hover:bg-green-700 text-white'}`} title={batchButtonTitle}>
                         <span className="text-5xl mr-2">⚠️</span> 批次標記 {selectedItemIds.length} 項為「已補交 (遲繳)」
                     </button>
                 </div>
@@ -659,7 +669,7 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline) => {
 };
 
 // ... AssignmentHeader ...
-const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment, handleEditSave, handleMoveAssignment, setEditingAssignmentId, setEditingAssignmentName, editingAssignmentId, editingAssignmentName }) => {
+const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment, handleEditSave, handleMoveAssignment, setEditingAssignmentId, setEditingAssignmentName, editingAssignmentId, editingAssignmentName, authMode }) => {
     const isEditing = editingAssignmentId === assignment.id;
     const [{ isDragging }, drag] = useDrag({ type: ItemTypes.ASSIGNMENT, item: { id: assignment.id, type: ItemTypes.ASSIGNMENT }, collect: (monitor) => ({ isDragging: monitor.isDragging() }) });
     const [, drop] = useDrop({ 
@@ -671,6 +681,11 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     const handleLocalEditSave = useCallback(() => { if (!isEditing || !editingAssignmentName.trim() || isGlobalLoading) return; handleEditSave(assignment.id, editingAssignmentName).finally(() => { setEditingAssignmentId(null); setEditingAssignmentName(''); }); }, [assignment.id, editingAssignmentName, handleEditSave, isEditing, setEditingAssignmentId, setEditingAssignmentName, isGlobalLoading]);
     const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]);
 
+    // FIX: 根據 authMode 決定是否顯示操作提示 title
+    const deleteButtonTitle = authMode === 'ADMIN' 
+        ? "點擊以刪除此項目 (Ctrl/Cmd 可強制刪除)" 
+        : undefined;
+
     return (
         // 移除 w-28 等固定寬度，使用 w-auto
         <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-2 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100 break-words`}>
@@ -681,7 +696,7 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
                         <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-3xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} />
                     ) : <span className={`font-bold ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'} break-words`}>{assignment.assignmentName}</span>}
                     {!isEditing && (
-                        <button onClick={handleDeleteClick} disabled={isGlobalLoading} className="absolute -top-3 -right-3 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition duration-150 p-1 rounded-full bg-white shadow-lg" title="點擊以刪除此項目 (Ctrl/Cmd 可強制刪除)">
+                        <button onClick={handleDeleteClick} disabled={isGlobalLoading} className="absolute -top-3 -right-3 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition duration-150 p-1 rounded-full bg-white shadow-lg" title={deleteButtonTitle}>
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     )}
@@ -1016,7 +1031,15 @@ const App = () => {
     if (targetAssignment) {
         const submissionStatus = targetAssignment.submissionStatus || {};
         const hasIncompleteWork = STUDENT_LIST.some(student => submissionStatus[student.id] === false);
-        if (hasIncompleteWork && !isForced) { alert(`無法刪除作業「${assignmentName}」：\n\n尚有學生未完成此項作業的訂正！\n\n如需【強制刪除】，請在點擊刪除按鈕時按住 Control (Ctrl/Cmd) 鍵。`); return; }
+        if (hasIncompleteWork && !isForced) { 
+            // FIX: 在 User 模式下，簡化提示訊息，移除強制刪除的指令
+            if (authMode === 'ADMIN') {
+                 alert(`無法刪除作業「${assignmentName}」：\n\n尚有學生未完成此項作業的訂正！\n\n如需【強制刪除】，請在點擊刪除按鈕時按住 Control (Ctrl/Cmd) 鍵。`); 
+            } else {
+                 alert(`無法刪除作業「${assignmentName}」：\n\n尚有學生未完成此項作業的訂正！`); 
+            }
+            return; 
+        }
     }
     if (!isForced && !window.confirm(`確定要刪除 ${assignmentName} 嗎？此操作不可逆轉。`)) { return; }
     
@@ -1037,7 +1060,7 @@ const App = () => {
         const docRef = doc(db, getAssignmentCollectionPath(), assignmentId);
         await deleteDoc(docRef);
     } catch (e) { console.error("Error deleting assignment: ", e); setAlertMessage("刪除作業項目失敗。"); } finally { setLoading(false); }
-  }, [db, userId, selectedDisplayDate, setAlertMessage, allAssignmentsByDate, isOffline]);
+  }, [db, userId, selectedDisplayDate, setAlertMessage, allAssignmentsByDate, isOffline, authMode]);
 
   const handleBatchAddDefaultAssignments = useCallback(async (targetDate, defaultCategories) => {
       if (isOffline) {
@@ -1707,7 +1730,7 @@ const App = () => {
                                     {/* 欄位寬度調整：強制固定寬度與sticky位置 */}
                                     <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 sticky left-0 top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '80px', width: '80px', maxWidth: '80px', left: '0px' }}>座號</th>
                                     <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 sticky top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '80px' }}>姓名</th>
-                                    {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} /> ))}
+                                    {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} authMode={authMode} /> ))}
                                 </tr></thead>
                             <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
                                 {(focusedStudentId ? STUDENT_LIST.filter(s => s.id === focusedStudentId) : STUDENT_LIST).map((student) => (
