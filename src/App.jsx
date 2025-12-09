@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v12.0.0 - 資安強化版 (Secure Auth)'; 
+const VERSION = 'v12.0.1 - 優化載入體驗 (Silent Auth)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -581,7 +581,14 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline) => {
                 loadedCategories.sort((a, b) => (a.order || 0) - (b.order || 0));
                 setCategories(loadedCategories);
                 setLoadingCategories(false); 
-            }, (e) => { console.error("Error fetching categories:", e); setAlertMessage("讀取作業項目清單時發生錯誤。"); setLoadingCategories(false); });
+            }, (e) => { 
+                // Ignore permission errors for categories initially, as main content is more critical
+                console.error("Error fetching categories:", e); 
+                if (e.code !== 'permission-denied') {
+                    setAlertMessage("讀取作業項目清單時發生錯誤。"); 
+                }
+                setLoadingCategories(false); 
+            });
             return () => unsubscribe();
         }
     }, [isAuthReady, db, userId, setAlertMessage, initializeCategories, isOffline]);
@@ -893,8 +900,10 @@ const App = () => {
       if (!loadingCategories) { setLoading(false); }
     }, (e) => { 
         console.error("Error fetching assignments:", e);
+        // 修改：針對 permission-denied 進行靜默處理或僅警告，不顯示彈窗
         if (e.code === 'permission-denied') {
-            setAlertMessage("⚠️ 無法讀取資料。\n請確認您是否已登入，或聯繫管理員。");
+            console.warn("Permission denied (transient) - 資料存取被拒絕，可能是登入狀態尚未同步，若資料可見則請忽略。");
+            // setAlertMessage("⚠️ 無法讀取資料..."); // 已移除此行以避免干擾
         } else {
             setAlertMessage("讀取資料時發生錯誤，請稍後再試。");
             setAuthTimeout(true);
