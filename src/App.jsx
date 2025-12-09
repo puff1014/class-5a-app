@@ -22,7 +22,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.25 - 圖層重疊與對齊終極修正 (Z-Index & Align Final)'; 
+const VERSION = 'v11.18.28 - 表格對齊與寬度修正 (Layout Alignment Fix)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -674,8 +674,8 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     return (
         // 移除 w-28 等固定寬度，使用 w-auto
         <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-2 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100 break-words`}>
-            {/* 移除 min-w-[120px] */}
-            <div className="flex flex-col items-center justify-center group relative w-auto">
+            {/* 移除 min-w-[120px], 改回 min-w-[150px] 以確保捲動 */}
+            <div className="flex flex-col items-center justify-center group relative min-w-[150px]">
                 <div className={`relative p-2 rounded-xl shadow-md transition duration-100 border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}>
                     {isEditing ? (
                         <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-3xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} />
@@ -1697,16 +1697,16 @@ const App = () => {
 
             {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
             
-            {/* 修正主表格： overflow-x-hidden 強制隱藏橫向捲動，移除 min-w-max */}
-            <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-y-auto overflow-x-hidden h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
-                <div className="pb-4 w-full">
+            {/* 修正主表格： overflow-x-auto 強制顯示橫向捲動，inner div 設定 min-w-max 以防止內容擠壓 */}
+            <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-y-auto overflow-x-auto h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
+                <div className="pb-4 min-w-max">
                     {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
-                        // table-fixed 讓欄位均分，強制不超出寬度
-                        <table className="divide-y divide-gray-300 w-full table-fixed">
+                        // 移除 table-fixed 讓欄位依內容自然寬度展開
+                        <table className="divide-y divide-gray-300 w-full">
                             <thead className="bg-gray-100 sticky top-0 z-[70]"><tr>
-                                    {/* 欄位寬度調整：移除 w-28 固定寬度，改用 px-2 */}
-                                    <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 w-20 sticky left-0 top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">座號</th>
-                                    <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 w-32 sticky left-20 top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">姓名</th>
+                                    {/* 欄位寬度調整：強制固定寬度與sticky位置 */}
+                                    <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 sticky left-0 top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '80px', width: '80px', maxWidth: '80px', left: '0px' }}>座號</th>
+                                    <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 sticky top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '80px' }}>姓名</th>
                                     {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} /> ))}
                                 </tr></thead>
                             <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
@@ -1714,20 +1714,24 @@ const App = () => {
                                     <tr key={student.id} className={`group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 w-20 sticky left-0 bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words flex items-center justify-center h-full"
+                                            className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 sticky left-0 bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words align-middle"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
+                                            style={{ minWidth: '80px', width: '80px', maxWidth: '80px', left: '0px' }}
                                         >
                                             {student.id}
                                         </td> 
                                         <td 
                                             onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)}
-                                            className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold w-32 sticky left-20 bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 flex items-center justify-center gap-1 h-full"
+                                            className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold sticky bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 align-middle"
                                             title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"}
+                                            style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '80px' }}
                                         >
-                                            {student.name[0] + 'O' + student.name.slice(2)}
-                                            <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-sm transition-opacity">
-                                                {focusedStudentId === student.id ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                            </span>
+                                            <div className="flex items-center justify-center gap-1">
+                                                {student.name[0] + 'O' + student.name.slice(2)}
+                                                <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-sm transition-opacity">
+                                                    {focusedStudentId === student.id ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                </span>
+                                            </div>
                                         </td> 
                                         {assignmentsForSelectedDate.map((assignment) => {
                                             const assignmentName = assignment.assignmentName;
@@ -1739,7 +1743,7 @@ const App = () => {
                                             const remaining = 3 - clicks;
 
                                             return (
-                                                <td key={`${student.id}-${assignmentName}`} className="px-1 py-4 whitespace-nowrap text-center">
+                                                <td key={`${student.id}-${assignmentName}`} className="px-1 py-4 whitespace-nowrap text-center" style={{ minWidth: '150px' }}>
                                                     <div className="relative inline-block">
                                                         <button
                                                             onClick={() => handleToggleSubmission(assignmentName, student.id, status)}
