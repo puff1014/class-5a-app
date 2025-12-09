@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { 
+    getAuth, 
+    signInAnonymously, 
+    signInWithEmailAndPassword, // 改用 Email 登入
+    signOut, 
+    onAuthStateChanged 
+} from 'firebase/auth';
 import { 
   getFirestore, 
   collection, 
@@ -13,20 +19,24 @@ import {
   getDocs, 
   writeBatch, 
   serverTimestamp, 
-  updateDoc, 
-  arrayRemove, 
-  arrayUnion
+  updateDoc
 } from 'firebase/firestore';
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Copy, Check, RefreshCw, WifiOff, UserX, Lock, Settings, LogOut, FileText, AlertCircle, Eye, EyeOff, Lightbulb } from 'lucide-react';
+import { 
+    BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Check, 
+    RefreshCw, WifiOff, Lock, Settings, LogOut, FileText, AlertCircle, 
+    Eye, EyeOff, Shield, User, Key
+} from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v11.18.31 - 學生清單隱藏鎖定 (Silent Lock)'; 
+const VERSION = 'v12.0.0 - 資安強化版 (Secure Auth)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
 
+// 注意：在正式開發中，這些應該放在 .env 檔案中 (如 process.env.REACT_APP_FIREBASE_API_KEY)
+// 但為了確保您現在能直接運作，暫時保留在此，請務必配合後端的 Security Rules 保護資料
 const firebaseConfig = {
   apiKey: "AIzaSyArwz6gPeW9lNq_8LOfnKYwZmkRN-Wgtb8",
   authDomain: "class-5a-app.firebaseapp.com",
@@ -74,9 +84,6 @@ const getAssignmentCollectionPath = () =>
 const getCategoryCollectionPath = () => 
   `/artifacts/${appId}/public/data/categories`;
 
-const getSettingsDocPath = () =>
-  `/artifacts/${appId}/public/data/settings`; 
-
 // 一般通知視窗
 const CustomAlert = ({ message, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
@@ -93,125 +100,104 @@ const CustomAlert = ({ message, onClose }) => (
     </div>
 );
 
-// 登入畫面組件
-const LoginScreen = ({ onLogin, loadingSettings, errorMsg }) => {
+// 安全登入畫面組件
+const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [mode, setMode] = useState('GUEST'); // 'GUEST' or 'ADMIN'
 
-    const handleSubmit = (e) => {
+    const handleAdminSubmit = (e) => {
         e.preventDefault();
-        onLogin(password);
+        onAdminLogin(email, password);
     };
 
     return (
         <div className="fixed inset-0 bg-[#F0F8FF] flex items-center justify-center z-[10000]">
-            <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md text-center border border-blue-100">
-                <div className="flex justify-center mb-6">
-                    <div className="p-4 rounded-2xl border-2 border-blue-400">
-                        <Lock className="w-16 h-16 text-blue-500" />
-                    </div>
-                </div>
-                <h1 className="text-5xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1>
-                <p className="text-gray-400 text-2xl mb-8 font-medium">請輸入密碼以存取資料</p>
-                
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="請輸入密碼"
-                            className="w-full px-4 py-4 text-3xl text-center border-2 border-blue-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all placeholder-gray-300 text-gray-700"
-                            autoFocus
-                            disabled={loadingSettings}
-                        />
-                    </div>
-                    {errorMsg && (
-                        <p className="text-red-500 text-2xl font-bold animate-pulse">{errorMsg}</p>
-                    )}
-                    <button
-                        type="submit"
-                        disabled={loadingSettings}
-                        className={`w-full py-4 rounded-xl text-white text-3xl font-bold tracking-wider shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2
-                            ${loadingSettings ? 'bg-gray-400 cursor-wait' : 'bg-blue-500 hover:bg-blue-600'}
-                        `}
-                    >
-                        {loadingSettings ? '讀取設定中...' : <><Lock className="w-6 h-6" /> 解鎖</>}
-                    </button>
-                </form>
-                <div className="mt-8 text-gray-400 text-xl">
-                    By 訂正作業系統 {VERSION}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// 密碼設定視窗
-const PasswordSettingsModal = ({ currentSettings, onSave, onClose, isOffline }) => {
-    const [userPwd, setUserPwd] = useState(currentSettings.userPassword);
-    const [adminPwd, setAdminPwd] = useState(currentSettings.adminPassword);
-    const [saving, setSaving] = useState(false);
-
-    const handleSave = async () => {
-        if (!userPwd.trim() || !adminPwd.trim()) {
-            alert("密碼不能為空！");
-            return;
-        }
-        setSaving(true);
-        await onSave(userPwd.trim(), adminPwd.trim());
-        setSaving(false);
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[11000] p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg transform transition-all scale-100 border-4 border-gray-100">
-                <h3 className="text-4xl font-bold text-gray-800 mb-2 flex items-center gap-3">
-                    <Settings className="w-10 h-10 text-gray-600" />
-                    系統密碼設定
-                </h3>
-                <p className="text-gray-500 text-2xl mb-6">修改後，所有使用者下次登入皆需使用新密碼。</p>
-                
-                <div className="space-y-6">
-                    <div>
-                        <label className="block text-2xl font-bold text-gray-700 mb-2">一般模式密碼 (User)</label>
-                        <input 
-                            type="text" 
-                            value={userPwd}
-                            onChange={(e) => setUserPwd(e.target.value)}
-                            className="w-full p-4 border-2 border-gray-300 rounded-xl text-3xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-2xl font-bold text-gray-700 mb-2">管理員密碼 (Admin)</label>
-                        <input 
-                            type="text" 
-                            value={adminPwd}
-                            onChange={(e) => setAdminPwd(e.target.value)}
-                            className="w-full p-4 border-2 border-gray-300 rounded-xl text-3xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                        />
-                    </div>
+            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100">
+                <div className="text-center mb-8">
+                    <h1 className="text-4xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1>
+                    <p className="text-gray-400 text-xl font-medium">請選擇您的身分</p>
                 </div>
 
-                <div className="flex gap-4 mt-8">
-                    <button onClick={onClose} className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl text-3xl font-bold hover:bg-gray-300 transition">取消</button>
+                <div className="flex bg-gray-100 p-1 rounded-xl mb-6">
                     <button 
-                        onClick={handleSave} 
-                        disabled={saving}
-                        className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-3xl font-bold hover:bg-blue-700 transition shadow-md"
+                        onClick={() => setMode('GUEST')}
+                        className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'GUEST' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        {saving ? '儲存中...' : '確認修改'}
+                        學生/家長
+                    </button>
+                    <button 
+                        onClick={() => setMode('ADMIN')}
+                        className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'ADMIN' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        老師 (管理員)
                     </button>
                 </div>
-                {isOffline && <p className="mt-4 text-center text-red-500 font-medium text-xl">目前為離線模式，修改不會儲存到雲端。</p>}
+                
+                {mode === 'ADMIN' ? (
+                    <form onSubmit={handleAdminSubmit} className="space-y-4 animate-fade-in">
+                        <div>
+                            <label className="block text-gray-600 text-lg font-bold mb-1">Email</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="admin@example.com"
+                                className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all"
+                                autoFocus
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-gray-600 text-lg font-bold mb-1">密碼</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="請輸入密碼"
+                                className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all"
+                            />
+                        </div>
+                        {errorMsg && (
+                            <p className="text-red-500 text-lg font-bold">{errorMsg}</p>
+                        )}
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2
+                                ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-red-500 hover:bg-red-600'}
+                            `}
+                        >
+                            {isLoading ? '驗證中...' : <><Key className="w-6 h-6" /> 管理員登入</>}
+                        </button>
+                    </form>
+                ) : (
+                    <div className="space-y-6 animate-fade-in">
+                        <div className="bg-blue-50 p-4 rounded-xl text-blue-800 text-lg">
+                            <p className="font-bold flex items-center gap-2"><Shield className="w-5 h-5"/> 訪客模式說明：</p>
+                            <p className="mt-1">您可以查看所有作業進度，但無法修改作業名稱或刪除紀錄。</p>
+                        </div>
+                        <button
+                            onClick={onGuestLogin}
+                            disabled={isLoading}
+                            className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2
+                                ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-blue-500 hover:bg-blue-600'}
+                            `}
+                        >
+                            {isLoading ? '進入中...' : <><User className="w-6 h-6" /> 進入系統</>}
+                        </button>
+                    </div>
+                )}
+
+                <div className="mt-8 text-center text-gray-400 text-lg">
+                    系統版本：{VERSION}
+                </div>
             </div>
         </div>
     );
 };
 
-// 全班未完成總表 (新增組件)
+// 全班未完成總表
 const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
-    // Filter students who have missing assignments
     const studentsWithMissing = missingStats.filter(s => s.missingCount > 0);
 
     return (
@@ -677,7 +663,13 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
         hover: (draggedItem) => { if (draggedItem.id !== assignment.id) { handleMoveAssignment(draggedItem.id, assignment.id); draggedItem.id = assignment.id; } }
     });
 
-    const handleEditStart = useCallback(() => { if (isGlobalLoading) return; setEditingAssignmentId(assignment.id); setEditingAssignmentName(assignment.assignmentName); }, [assignment.id, assignment.assignmentName, setEditingAssignmentId, setEditingAssignmentName, isGlobalLoading]);
+    const handleEditStart = useCallback(() => { 
+        if (isGlobalLoading) return; 
+        if (authMode !== 'ADMIN') { alert("只有老師可以修改作業名稱。"); return; }
+        setEditingAssignmentId(assignment.id); 
+        setEditingAssignmentName(assignment.assignmentName); 
+    }, [assignment.id, assignment.assignmentName, setEditingAssignmentId, setEditingAssignmentName, isGlobalLoading, authMode]);
+    
     const handleLocalEditSave = useCallback(() => { if (!isEditing || !editingAssignmentName.trim() || isGlobalLoading) return; handleEditSave(assignment.id, editingAssignmentName).finally(() => { setEditingAssignmentId(null); setEditingAssignmentName(''); }); }, [assignment.id, editingAssignmentName, handleEditSave, isEditing, setEditingAssignmentId, setEditingAssignmentName, isGlobalLoading]);
     const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]);
 
@@ -695,7 +687,8 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
                     {isEditing ? (
                         <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-3xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} />
                     ) : <span className={`font-bold ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'} break-words`}>{assignment.assignmentName}</span>}
-                    {!isEditing && (
+                    {/* 只在 Admin 模式下顯示刪除按鈕 */}
+                    {!isEditing && authMode === 'ADMIN' && (
                         <button onClick={handleDeleteClick} disabled={isGlobalLoading} className="absolute -top-3 -right-3 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition duration-150 p-1 rounded-full bg-white shadow-lg" title={deleteButtonTitle}>
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
@@ -741,11 +734,10 @@ const App = () => {
   
   // Auth State for Login Screen
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authMode, setAuthMode] = useState(null); // 'USER' or 'ADMIN'
-  const [systemSettings, setSystemSettings] = useState({ userPassword: '123++', adminPassword: 'tn0728' });
-  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [authMode, setAuthMode] = useState('GUEST'); // 'GUEST' or 'ADMIN'
   const [loginError, setLoginError] = useState('');
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [loadingLogin, setLoadingLogin] = useState(false);
+
   // --- 新增狀態：全班未完成作業清單 ---
   const [showAllMissingModal, setShowAllMissingModal] = useState(false);
   // --- 新增狀態：學生專注模式 (Focused Student ID) ---
@@ -796,22 +788,24 @@ const App = () => {
       const firebaseAuth = getAuth(app);
       setDb(firestore);
       setAuth(firebaseAuth);
+
+      // 監聽登入狀態
       const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
         if (user) {
             setUserId(user.uid);
             setIsAuthReady(true);
-        } else {
-            try {
-                if (initialAuthToken) { 
-                    await signInWithCustomToken(firebaseAuth, initialAuthToken); 
-                } else { 
-                    await signInAnonymously(firebaseAuth); 
-                } 
-            } catch (e) {
-                console.error("Auto-login failed:", e);
-                setAuthTimeout(true); 
+            setIsAuthenticated(true);
+            // 判斷是否為匿名登入 (Guest/User) 還是 Email 登入 (Admin)
+            if (user.isAnonymous) {
+                setAuthMode('GUEST');
+            } else {
+                setAuthMode('ADMIN');
             }
+        } else {
+            setIsAuthenticated(false);
+            setAuthMode('GUEST'); // Default
         }
+        setLoadingLogin(false);
       });
       return () => {
           unsubscribe();
@@ -825,71 +819,56 @@ const App = () => {
       setUserId('guest_user');
       setIsAuthReady(true);
       setLoading(false);
-      setLoadingSettings(false); // In offline mode, settings are static default
+      setIsAuthenticated(true);
+      setAuthMode('GUEST');
   };
 
-  // Fetch System Settings (Passwords)
-  useEffect(() => {
-    if (!isAuthReady || !db || isOffline) {
-        if (isOffline) setLoadingSettings(false);
-        return;
-    }
-    const path = getSettingsDocPath();
-    const docRef = doc(db, path, 'global_config');
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-        if (docSnap.exists()) {
-            setSystemSettings(docSnap.data());
-        } else {
-            // If config doesn't exist, create it with defaults
-            setDoc(docRef, { userPassword: '123++', adminPassword: 'tn0728' });
-        }
-        setLoadingSettings(false);
-    }, (error) => {
-        console.error("Error fetching settings:", error);
-        // Fallback to defaults on error
-        setLoadingSettings(false);
-    });
-    return () => unsubscribe();
-  }, [isAuthReady, db, isOffline]);
-
-  // Handle Login Logic
-  const handleLogin = (inputPassword) => {
-      const trimmedInput = inputPassword.trim();
-      if (trimmedInput === systemSettings.adminPassword) {
-          setIsAuthenticated(true);
-          setAuthMode('ADMIN');
-          setLoginError('');
-      } else if (trimmedInput === systemSettings.userPassword) {
-          setIsAuthenticated(true);
-          setAuthMode('USER');
-          setLoginError('');
-      } else {
-          setLoginError('密碼錯誤，請再試一次。');
-          setTimeout(() => setLoginError(''), 2000);
+  // Handle Login Logic (Firebase Native)
+  const handleAdminLogin = async (email, password) => {
+      setLoadingLogin(true);
+      setLoginError('');
+      try {
+          // 使用 Firebase Authentication 進行真正的驗證
+          await signInWithEmailAndPassword(auth, email, password);
+          // onAuthStateChanged 會處理剩下的事情
+      } catch (error) {
+          console.error("Login failed", error);
+          if (error.code === 'auth/invalid-email') {
+              setLoginError('Email 格式不正確');
+          } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+              setLoginError('帳號或密碼錯誤');
+          } else if (error.code === 'auth/too-many-requests') {
+              setLoginError('嘗試次數過多，請稍後再試');
+          } else {
+              setLoginError('登入失敗：' + error.message);
+          }
+          setLoadingLogin(false);
       }
   };
 
-  const handleLogout = () => {
-      setIsAuthenticated(false);
-      setAuthMode(null);
+  const handleGuestLogin = async () => {
+      setLoadingLogin(true);
+      setLoginError('');
+      try {
+          await signInAnonymously(auth);
+      } catch (error) {
+          console.error("Anonymous login failed", error);
+          setLoginError('訪客登入失敗，請稍後再試。');
+          setLoadingLogin(false);
+      }
+  };
+
+  const handleLogout = async () => {
+      try {
+          await signOut(auth);
+          setIsAuthenticated(false);
+          setAuthMode('GUEST');
+      } catch (e) {
+          console.error("Logout failed", e);
+      }
   };
   
-  const handleUpdatePasswords = async (newUserPwd, newAdminPwd) => {
-      if (isOffline) {
-          setSystemSettings({ userPassword: newUserPwd, adminPassword: newAdminPwd });
-          alert("密碼已更新 (離線暫存)");
-          return;
-      }
-      try {
-          const path = getSettingsDocPath();
-          const docRef = doc(db, path, 'global_config');
-          await setDoc(docRef, { userPassword: newUserPwd, adminPassword: newAdminPwd }, { merge: true });
-          alert("系統密碼已成功更新！");
-      } catch (e) {
-          console.error("Failed to update passwords:", e);
-          alert("密碼更新失敗，請檢查連線。");
-      }
-  };
+  // 原本的密碼管理功能已移除，改由 Firebase Console 管理
 
   useEffect(() => {
     if (isOffline) {
@@ -915,7 +894,7 @@ const App = () => {
     }, (e) => { 
         console.error("Error fetching assignments:", e);
         if (e.code === 'permission-denied') {
-            setAlertMessage("⚠️ 無法讀取雲端資料 (權限不足)。\n系統將顯示空白介面。");
+            setAlertMessage("⚠️ 無法讀取資料。\n請確認您是否已登入，或聯繫管理員。");
         } else {
             setAlertMessage("讀取資料時發生錯誤，請稍後再試。");
             setAuthTimeout(true);
@@ -1007,6 +986,7 @@ const App = () => {
   }, [allAssignmentsByDate, months]);
 
   const handleEditAssignmentName = useCallback(async (assignmentId, newAssignmentName) => {
+    if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以修改資料。"); return; }
     if (isOffline) {
         setAllAssignmentsByDate(prev => {
              const newMap = { ...prev };
@@ -1022,22 +1002,18 @@ const App = () => {
     try {
         const docRef = doc(db, getAssignmentCollectionPath(), assignmentId);
         await setDoc(docRef, { assignmentName: newAssignmentName }, { merge: true });
-    } catch (e) { console.error("Error editing assignment name: ", e); setAlertMessage("編輯作業名稱失敗。"); } finally { setLoading(false); }
-  }, [db, userId, setAlertMessage, isOffline]);
+    } catch (e) { console.error("Error editing assignment name: ", e); setAlertMessage("編輯作業名稱失敗（權限不足或網路錯誤）。"); } finally { setLoading(false); }
+  }, [db, userId, setAlertMessage, isOffline, authMode]);
 
   const handleDeleteAssignment = useCallback(async (assignmentId, assignmentName, isForced = false) => {
+    if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以刪除資料。"); return; }
     const assignmentList = allAssignmentsByDate[selectedDisplayDate] || [];
     const targetAssignment = assignmentList.find(a => a.id === assignmentId);
     if (targetAssignment) {
         const submissionStatus = targetAssignment.submissionStatus || {};
         const hasIncompleteWork = STUDENT_LIST.some(student => submissionStatus[student.id] === false);
         if (hasIncompleteWork && !isForced) { 
-            // FIX: 在 User 模式下，簡化提示訊息，移除強制刪除的指令
-            if (authMode === 'ADMIN') {
-                 alert(`無法刪除作業「${assignmentName}」：\n\n尚有學生未完成此項作業的訂正！\n\n如需【強制刪除】，請在點擊刪除按鈕時按住 Control (Ctrl/Cmd) 鍵。`); 
-            } else {
-                 alert(`無法刪除作業「${assignmentName}」：\n\n尚有學生未完成此項作業的訂正！`); 
-            }
+             alert(`無法刪除作業「${assignmentName}」：\n\n尚有學生未完成此項作業的訂正！\n\n如需【強制刪除】，請在點擊刪除按鈕時按住 Control (Ctrl/Cmd) 鍵。`); 
             return; 
         }
     }
@@ -1063,6 +1039,7 @@ const App = () => {
   }, [db, userId, selectedDisplayDate, setAlertMessage, allAssignmentsByDate, isOffline, authMode]);
 
   const handleBatchAddDefaultAssignments = useCallback(async (targetDate, defaultCategories) => {
+      if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增日期。"); return; }
       if (isOffline) {
            const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName);
            const newAssignments = [];
@@ -1105,7 +1082,7 @@ const App = () => {
           console.error("Error batch adding assignments: ", e);
             if (e.message && e.message.includes("Premature end of stream")) { setAlertMessage("自動新增作業失敗：網路連線中斷，請重新整理頁面。"); } else { setAlertMessage("自動新增作業失敗，請稍後再試。"); }
       } finally { setLoading(false); }
-  }, [db, userId, allAssignmentsByDate, getInitialSubmissionStatus, isOffline]);
+  }, [db, userId, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
   
   const handleNewAssignmentDateChange = useCallback((e) => { const newDate = e.target.value; setNewAssignmentDate(newDate); }, []);
 
@@ -1122,6 +1099,7 @@ const App = () => {
   }, [newAssignmentDate, categories, allAssignmentsByDate, handleBatchAddDefaultAssignments]);
 
     const handleAddNewAssignment = useCallback(async () => {
+        if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增作業。"); return; }
         if (!selectedDisplayDate) { setAlertMessage("請先選擇一個日期。"); return; }
         
         if (isOffline) {
@@ -1154,9 +1132,10 @@ const App = () => {
             const newDocRef = doc(assignmentCollection);
             await setDoc(newDocRef, { assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), });
         } catch (e) { console.error("Error adding new assignment:", e); setAlertMessage("新增單項作業失敗。"); } finally { setLoading(false); }
-    }, [db, userId, selectedDisplayDate, allAssignmentsByDate, getInitialSubmissionStatus, isOffline]);
+    }, [db, userId, selectedDisplayDate, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
   
   const handleMoveAssignment = useCallback(async (dragId, hoverId) => {
+    if (authMode !== 'ADMIN' && !isOffline) return; // 權限控管
     const assignments = assignmentsForSelectedDate;
     const dragIndex = assignments.findIndex(a => a.id === dragId);
     const hoverIndex = assignments.findIndex(a => a.id === hoverId);
@@ -1189,11 +1168,14 @@ const App = () => {
     batch.set(docRef1, { order: hoverAssignment.order }, { merge: true });
     batch.set(docRef2, { order: dragAssignment.order }, { merge: true });
     try { await batch.commit(); } catch (e) { console.error("Error moving assignment:", e); setAlertMessage("調整欄位順序失敗。"); }
-  }, [db, userId, assignmentsForSelectedDate, setAlertMessage, isOffline, selectedDisplayDate]);
+  }, [db, userId, assignmentsForSelectedDate, setAlertMessage, isOffline, selectedDisplayDate, authMode]);
 
 
   // V11.7.0 FIX: 導入 3 次點擊切換 (Green -> Red -> Yellow -> (3 clicks) -> Green)
   const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => {
+    // 這裡開放給 GUEST (學生) 使用，但理想上後端 Security Rules 只允許修改 "自己的" 狀態
+    // 或是只允許 ADMIN 修改。
+    // 為了符合使用情境，我們暫時允許學生操作，但老師可以在後端鎖死。
     const assignmentData = assignmentMap[assignmentName];
     if (!assignmentData) { setAlertMessage(`找不到作業「${assignmentName}」的紀錄。`); return; }
 
@@ -1251,7 +1233,7 @@ const App = () => {
           }, { merge: true }); 
         } catch (e) {
           console.error("Error updating submission status: ", e);
-          setAlertMessage("更新訂正狀態失敗，請檢查網路連線。");
+          setAlertMessage("更新訂正狀態失敗，請檢查網路連線或權限。");
         } finally {
           setLoading(false);
         }
@@ -1259,6 +1241,7 @@ const App = () => {
   }, [db, userId, assignmentMap, unlockClicks, setAlertMessage, isOffline]); 
 
   const handleBatchDelete = useCallback(async (assignmentIds, successMessage, failureMessage) => {
+    if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以執行批次刪除。"); return false; }
     if (isOffline) {
         setAllAssignmentsByDate(prev => {
             const newMap = { ...prev };
@@ -1280,9 +1263,10 @@ const App = () => {
         setAlertMessage(successMessage);
         return true;
     } catch (e) { console.error("Error during batch delete: ", e); setAlertMessage(failureMessage); return false; } finally { setLoading(false); }
-  }, [db, userId, setAlertMessage, isOffline]);
+  }, [db, userId, setAlertMessage, isOffline, authMode]);
 
   const handleDeleteStudentGlobalData = useCallback(async (studentId, studentName) => {
+      if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足。"); return; }
       if (isOffline) {
           setAllAssignmentsByDate(prev => {
               const newMap = { ...prev };
@@ -1321,9 +1305,10 @@ const App = () => {
           await batch.commit();
           setAlertMessage(`成功刪除 ${studentName} 的所有訂正紀錄 (${updateCount} 筆作業文件受到影響)。`);
       } catch (e) { console.error("Error deleting student data:", e); setAlertMessage("刪除學生數據失敗，請檢查權限或連線。"); } finally { setLoading(false); }
-  }, [db, userId, setAlertMessage, isOffline]);
+  }, [db, userId, setAlertMessage, isOffline, authMode]);
 
   const showConfirmation = useCallback((type, data) => {
+      if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足。"); return; }
       let title, message, confirmTitle, confirmColor;
       switch(type) {
           case 'DAILY': title = `🧨 確定刪除 ${selectedDisplayDate} 的所有紀錄嗎？`; message = `此操作將永久移除 ${selectedDisplayDate} 的所有 ${assignmentsForSelectedDate.length} 筆作業紀錄。刪除後不可恢復。`; confirmTitle = '日期'; confirmColor = 'bg-gray-900'; break;
@@ -1332,7 +1317,7 @@ const App = () => {
           default: return;
       }
       setConfirmationModal({ title, message, confirmTitle, confirmColor, action: type, data });
-  }, [selectedDisplayDate, assignmentsForSelectedDate]);
+  }, [selectedDisplayDate, assignmentsForSelectedDate, authMode, isOffline]);
 
   const handleDeleteDateAssignments = useCallback(() => {
     if (assignmentsForSelectedDate.length === 0) { alert(`日期 ${selectedDisplayDate} 沒有任何作業紀錄可以刪除。`); return; }
@@ -1445,6 +1430,7 @@ const App = () => {
 
     // NEW: 優化後的匯入邏輯
     const handleImportData = useCallback(async (e) => {
+        if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以匯入資料。"); return; }
         if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯入。"); return; }
         const file = e.target.files[0]; if (!file) return;
         setLoading(true);
@@ -1559,7 +1545,7 @@ const App = () => {
             }
         };
         reader.readAsText(file);
-    }, [db, userId, setAlertMessage, getInitialSubmissionStatus, allAssignmentsByDate, isOffline]); 
+    }, [db, userId, setAlertMessage, getInitialSubmissionStatus, allAssignmentsByDate, isOffline, authMode]); 
 
   const isGlobalLoading = loading || loadingCategories;
   
@@ -1587,7 +1573,7 @@ const App = () => {
 
   // --- Login Screen Guard ---
   if (!isAuthenticated && !loading && !loadingCategories) {
-      return <LoginScreen onLogin={handleLogin} loadingSettings={loadingSettings} errorMsg={loginError} />;
+      return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
   }
 
   if (error) {
@@ -1607,8 +1593,6 @@ const App = () => {
     <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
       {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
       {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={STUDENT_LIST.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} /> )}
-      {showSettingsModal && ( <PasswordSettingsModal currentSettings={systemSettings} onSave={handleUpdatePasswords} onClose={() => setShowSettingsModal(false)} isOffline={isOffline} /> )}
-      {/* --- 新增全班未完成總表 Modal --- */}
       {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
 
       <div className="bg-white shadow-xl w-full flex flex-col h-full">
@@ -1618,21 +1602,13 @@ const App = () => {
                   ⚠️ 目前為離線演示模式 (Guest Mode)
               </div>
           )}
-          {authMode === 'ADMIN' && (
-              <button 
-                onClick={() => setShowSettingsModal(true)}
-                className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold transition z-20"
-                title="修改系統密碼"
-              >
-                  <Settings className="w-5 h-5" /> 設定
-              </button>
-          )}
+          
            <button 
                 onClick={handleLogout}
                 className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20"
                 title="登出系統"
             >
-                <LogOut className="w-5 h-5" /> 登出 {authMode === 'ADMIN' ? '(Admin)' : '(User)'}
+                <LogOut className="w-5 h-5" /> 登出 {authMode === 'ADMIN' ? '(老師)' : '(訪客)'}
             </button>
 
           <div className={`flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2 ${isOffline ? 'mt-8' : ''}`}><span className="text-orange-500 text-6xl mr-3">🐻‍❄️</span><span className="text-5xl">五年甲班訂正作業表</span><span className="text-green-600 text-6xl ml-3">🐼</span></div>
