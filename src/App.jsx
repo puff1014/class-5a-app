@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v12.0.1 - 優化載入體驗 (Silent Auth)'; 
+const VERSION = 'v12.0.2 - 顏色優化版 (Color Gradient)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -336,11 +336,11 @@ const MISSING_COLOR_TIERS = [
     { min: 40, max: 42, colors: { bg: 'bg-purple-600', border: 'border-purple-800', text: 'text-white', countText: 'text-white' }, label: '40-42項' },
     { min: 43, max: 45, colors: { bg: 'bg-violet-600', border: 'border-violet-800', text: 'text-white', countText: 'text-white' }, label: '43-45項' },
 
-    // 第四排 (新顏色)：靛藍/青/深鴨綠色系 (46-60)
-    { min: 46, max: 48, colors: { bg: 'bg-indigo-300', border: 'border-indigo-500', text: 'text-gray-900', countText: 'text-gray-900' }, label: '46-48項' },
+    // 第四排 (新顏色)：紫/靛藍/藍/天藍/深鴨綠色系 (46-60)
+    { min: 46, max: 48, colors: { bg: 'bg-violet-300', border: 'border-violet-500', text: 'text-gray-900', countText: 'text-gray-900' }, label: '46-48項' },
     { min: 49, max: 51, colors: { bg: 'bg-indigo-600', border: 'border-indigo-800', text: 'text-white', countText: 'text-white' }, label: '49-51項' },
-    { min: 52, max: 54, colors: { bg: 'bg-cyan-600', border: 'border-cyan-800', text: 'text-white', countText: 'text-white' }, label: '52-54項' },
-    { min: 55, max: 57, colors: { bg: 'bg-teal-600', border: 'border-teal-800', text: 'text-white', countText: 'text-white' }, label: '55-57項' },
+    { min: 52, max: 54, colors: { bg: 'bg-blue-600', border: 'border-blue-800', text: 'text-white', countText: 'text-white' }, label: '52-54項' },
+    { min: 55, max: 57, colors: { bg: 'bg-sky-600', border: 'border-sky-800', text: 'text-white', countText: 'text-white' }, label: '55-57項' },
     { min: 58, max: 60, colors: { bg: 'bg-teal-800', border: 'border-teal-950', text: 'text-white', countText: 'text-white' }, label: '58-60項' },
 
     // 第五排 (原第四排顏色)：灰/黑/深淵色系 (61-73+)
