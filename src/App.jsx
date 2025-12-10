@@ -26,11 +26,11 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { 
     BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Check, 
     RefreshCw, WifiOff, Lock, Settings, LogOut, FileText, AlertCircle, 
-    Eye, EyeOff, Shield, User, Key
+    Eye, EyeOff, Shield, User, Key, Edit
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v12.0.2 - 顏色優化版 (Color Gradient)'; 
+const VERSION = 'v12.1.0 - 日期修改功能 (Date Edit)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -1263,6 +1263,67 @@ const App = () => {
     }
   }, [db, userId, assignmentMap, unlockClicks, setAlertMessage, isOffline]); 
 
+  // 新增：修改當前日期的功能
+  const handleEditCurrentDate = useCallback(async () => {
+    if (authMode !== 'ADMIN' || !selectedDisplayDate) return;
+    
+    // Simple validation using prompt
+    const newDate = prompt("請輸入新的日期 (格式: YYYY-MM-DD)", selectedDisplayDate);
+    
+    // Check if cancelled or unchanged
+    if (!newDate || newDate === selectedDisplayDate) return;
+    
+    // Basic format check
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (!datePattern.test(newDate)) {
+        alert("日期格式不正確，請使用 YYYY-MM-DD 格式。");
+        return;
+    }
+
+    // Check availability
+    if (allAssignmentsByDate[newDate]) {
+        alert(`日期 ${newDate} 已經存在作業資料，無法直接修改日期至此日。請手動遷移或刪除目標日期資料。`);
+        return;
+    }
+
+    if (isOffline) {
+         setAllAssignmentsByDate(prev => {
+             const newMap = { ...prev };
+             // Move data
+             newMap[newDate] = newMap[selectedDisplayDate].map(a => ({...a, assignmentDate: newDate}));
+             delete newMap[selectedDisplayDate];
+             return newMap;
+         });
+         setSelectedDisplayDate(newDate);
+         setAlertMessage(`[離線] 日期已修改為 ${newDate}`);
+         return;
+    }
+
+    if (!db || !userId) return;
+    setLoading(true);
+
+    try {
+        const batch = writeBatch(db);
+        const assignments = allAssignmentsByDate[selectedDisplayDate] || [];
+        const path = getAssignmentCollectionPath();
+        
+        assignments.forEach(assignment => {
+            const docRef = doc(db, path, assignment.id);
+            batch.update(docRef, { assignmentDate: newDate });
+        });
+
+        await batch.commit();
+        setSelectedDisplayDate(newDate); // Update UI selection immediately
+        setAlertMessage(`日期已成功修改為 ${newDate}`);
+    } catch(e) {
+        console.error("Error modifying date:", e);
+        setAlertMessage("修改日期失敗，請檢查網路或權限。");
+    } finally {
+        setLoading(false);
+    }
+
+  }, [authMode, selectedDisplayDate, allAssignmentsByDate, isOffline, db, userId]);
+
   const handleBatchDelete = useCallback(async (assignmentIds, successMessage, failureMessage) => {
     if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以執行批次刪除。"); return false; }
     if (isOffline) {
@@ -1702,7 +1763,24 @@ const App = () => {
             </div>
             
              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-5xl font-bold text-gray-800 flex items-center"><span className="text-gray-500 mr-3 text-5xl">📋</span>{selectedDisplayDate ? <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span> : '請選擇日期'}</h2>
+                <h2 className="text-5xl font-bold text-gray-800 flex items-center">
+                    <span className="text-gray-500 mr-3 text-5xl">📋</span>
+                    {selectedDisplayDate ? (
+                        <div className="flex items-center gap-3">
+                            <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span>
+                            {authMode === 'ADMIN' && (
+                                <button 
+                                    onClick={handleEditCurrentDate}
+                                    className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full text-gray-600 hover:text-gray-800 transition shadow-sm"
+                                    title="修改此日期"
+                                    disabled={isGlobalLoading}
+                                >
+                                    <Edit className="w-6 h-6" />
+                                </button>
+                            )}
+                        </div>
+                    ) : '請選擇日期'}
+                </h2>
                  <div className="flex items-center gap-4">
                     {/* Show Reset View button if focused mode is active */}
                     {focusedStudentId && (
