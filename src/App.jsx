@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v12.3.0 - 歡樂慶祝版 (Celebration Update)'; 
+const VERSION = 'v12.4.0 - 絢麗煙火版 (Fireworks Update)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -46,15 +46,16 @@ const firebaseConfig = {
   measurementId: "G-8VGE0WKD01"
 };
 
-// --- 音效與圖片資源設定 (您可以替換這裡的網址) ---
+// --- 音效與圖片資源設定 ---
 const ASSETS = {
-    // 單次鼓勵 (約3秒)
+    // 單次鼓勵 (顯示 1 秒)
     SINGLE_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 輕快叮聲
     SINGLE_IMAGE: 'https://cdn-icons-png.flaticon.com/512/1933/1933869.png', // 獎盃/星星圖案
     
-    // 全部完成慶祝 (約6-8秒)
+    // 全部完成慶祝 (顯示 3 秒，滿版煙火)
     ALL_CLEAR_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3', // 勝利歡呼 fanfare
-    ALL_CLEAR_IMAGE: 'https://cdn-icons-png.flaticon.com/512/3151/3151249.png', // 煙火/派對圖案
+    // 使用煙火 GIF 連結
+    ALL_CLEAR_IMAGE: 'https://media.giphy.com/media/26tOZ42MgW8oaBd84/giphy.gif', 
 };
 
 // 五年甲班學生名單
@@ -92,18 +93,22 @@ const getAssignmentCollectionPath = () =>
 const getCategoryCollectionPath = () => 
   `/artifacts/${appId}/public/data/categories`;
 
-// --- 新增：獎勵回饋元件 ---
+// --- 新增：獎勵回饋元件 (已更新邏輯) ---
 const RewardOverlay = ({ type, onClose }) => {
     const audioRef = useRef(null);
 
     useEffect(() => {
         // 設定音效來源
         const soundUrl = type === 'ALL_CLEAR' ? ASSETS.ALL_CLEAR_SOUND : ASSETS.SINGLE_SOUND;
-        const duration = type === 'ALL_CLEAR' ? 8000 : 3000; // 8秒 或 3秒
+        
+        // --- 修改點 1 & 2: 設定顯示時間 ---
+        // 單次鼓勵: 1000ms (1秒)
+        // 全部完成: 3000ms (3秒)
+        const duration = type === 'ALL_CLEAR' ? 3000 : 1000;
 
         // 播放音效
         const audio = new Audio(soundUrl);
-        audio.volume = 0.6; // 音量適中
+        audio.volume = 0.6; 
         audio.play().catch(e => console.log("Audio play failed (interaction needed):", e));
         audioRef.current = audio;
 
@@ -115,22 +120,44 @@ const RewardOverlay = ({ type, onClose }) => {
         return () => {
             clearTimeout(timer);
             if (audioRef.current) {
-                audioRef.current.pause();
+                audioRef.current.pause(); // 視窗關閉時停止音樂
                 audioRef.current = null;
             }
         };
     }, [type, onClose]);
 
+    // --- 修改點 2: 針對「全部完成」使用滿版樣式 ---
+    if (type === 'ALL_CLEAR') {
+        return (
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black animate-fade-in">
+                {/* 滿版背景圖片 (煙火) */}
+                <img 
+                    src={ASSETS.ALL_CLEAR_IMAGE} 
+                    alt="Celebration" 
+                    className="absolute inset-0 w-full h-full object-cover opacity-90"
+                />
+                
+                {/* 前景文字 */}
+                <div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in">
+                    <h2 className="text-7xl md:text-9xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] tracking-widest border-text-stroke text-center leading-tight">
+                        🎉 全部完成！<br/>太棒了！ 🎉
+                    </h2>
+                </div>
+            </div>
+        );
+    }
+
+    // 單次鼓勵 (維持原本的 Modal 樣式)
     return (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-60 animate-fade-in pointer-events-none">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-40 animate-fade-in pointer-events-none">
             <div className="flex flex-col items-center justify-center animate-bounce-in transform scale-125">
                 <img 
-                    src={type === 'ALL_CLEAR' ? ASSETS.ALL_CLEAR_IMAGE : ASSETS.SINGLE_IMAGE} 
+                    src={ASSETS.SINGLE_IMAGE} 
                     alt="Reward" 
-                    className={`object-contain drop-shadow-2xl ${type === 'ALL_CLEAR' ? 'w-96 h-96 animate-pulse' : 'w-64 h-64'}`}
+                    className="w-64 h-64 object-contain drop-shadow-2xl"
                 />
-                <h2 className="mt-8 text-6xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] tracking-wider">
-                    {type === 'ALL_CLEAR' ? '🎉 全部完成！太棒了！ 🎉' : '👍 很棒！繼續保持！'}
+                <h2 className="mt-4 text-6xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] tracking-wider">
+                    👍 很棒！
                 </h2>
             </div>
         </div>
