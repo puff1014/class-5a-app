@@ -26,11 +26,11 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { 
     BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Check, 
     RefreshCw, WifiOff, Lock, Settings, LogOut, FileText, AlertCircle, 
-    Eye, EyeOff, Shield, User, Key, Edit
+    Eye, EyeOff, Shield, User, Key, Edit, Pencil
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v12.1.0 - 日期修改功能 (Date Edit)'; 
+const VERSION = 'v12.2.0 - 日期標籤直接編輯 (Tab Direct Edit)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -720,12 +720,39 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     );
 };
 
-const DateTab = ({ date, isSelected, onClick }) => {
+// --- Update DateTab to accept onEdit and authMode ---
+const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => {
     const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+    
+    // --- 新增：處理雙擊修改 ---
+    const handleDoubleClick = (e) => {
+        if (authMode === 'ADMIN' && isSelected && onEdit) {
+            e.stopPropagation(); // 避免觸發單擊的切換
+            onEdit();
+        }
+    };
+
     return (
-        <button onClick={() => onClick(date)} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}>
-            {formattedDate}
-        </button>
+        <div className="relative group">
+            <button 
+                onClick={() => onClick(date)} 
+                onDoubleClick={handleDoubleClick} // 綁定雙擊事件
+                className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
+                title={authMode === 'ADMIN' && isSelected ? "雙擊以修改日期" : ""}
+            >
+                {formattedDate}
+                {/* --- 新增：如果是管理員且被選中，顯示小鉛筆圖示 --- */}
+                {isSelected && authMode === 'ADMIN' && (
+                    <span 
+                        onClick={(e) => { e.stopPropagation(); onEdit(); }} 
+                        className="inline-flex items-center justify-center p-1 bg-white/20 rounded-full hover:bg-white/40 cursor-pointer transition-colors"
+                        title="點擊修改日期"
+                    >
+                        <Pencil className="w-4 h-4 text-white" />
+                    </span>
+                )}
+            </button>
+        </div>
     );
 };
 
@@ -1264,14 +1291,17 @@ const App = () => {
   }, [db, userId, assignmentMap, unlockClicks, setAlertMessage, isOffline]); 
 
   // 新增：修改當前日期的功能
-  const handleEditCurrentDate = useCallback(async () => {
-    if (authMode !== 'ADMIN' || !selectedDisplayDate) return;
+  const handleEditCurrentDate = useCallback(async (targetOldDate) => {
+    // 確保傳入的 targetOldDate 是字串，如果沒傳入則預設使用當前選中的日期
+    const oldDate = typeof targetOldDate === 'string' ? targetOldDate : selectedDisplayDate;
+
+    if (authMode !== 'ADMIN' || !oldDate) return;
     
     // Simple validation using prompt
-    const newDate = prompt("請輸入新的日期 (格式: YYYY-MM-DD)", selectedDisplayDate);
+    const newDate = prompt(`請輸入新的日期以取代 ${oldDate} (格式: YYYY-MM-DD)`, oldDate);
     
     // Check if cancelled or unchanged
-    if (!newDate || newDate === selectedDisplayDate) return;
+    if (!newDate || newDate === oldDate) return;
     
     // Basic format check
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -1290,8 +1320,8 @@ const App = () => {
          setAllAssignmentsByDate(prev => {
              const newMap = { ...prev };
              // Move data
-             newMap[newDate] = newMap[selectedDisplayDate].map(a => ({...a, assignmentDate: newDate}));
-             delete newMap[selectedDisplayDate];
+             newMap[newDate] = newMap[oldDate].map(a => ({...a, assignmentDate: newDate}));
+             delete newMap[oldDate];
              return newMap;
          });
          setSelectedDisplayDate(newDate);
@@ -1304,17 +1334,24 @@ const App = () => {
 
     try {
         const batch = writeBatch(db);
-        const assignments = allAssignmentsByDate[selectedDisplayDate] || [];
+        const assignments = allAssignmentsByDate[oldDate] || [];
         const path = getAssignmentCollectionPath();
         
+        if (assignments.length === 0) {
+             setAlertMessage("該日期沒有作業資料可供移動。");
+             setLoading(false);
+             return;
+        }
+
         assignments.forEach(assignment => {
             const docRef = doc(db, path, assignment.id);
             batch.update(docRef, { assignmentDate: newDate });
         });
 
         await batch.commit();
-        setSelectedDisplayDate(newDate); // Update UI selection immediately
-        setAlertMessage(`日期已成功修改為 ${newDate}`);
+        // 更新當前顯示日期到新日期
+        setSelectedDisplayDate(newDate); 
+        setAlertMessage(`日期已成功從 ${oldDate} 修改為 ${newDate}`);
     } catch(e) {
         console.error("Error modifying date:", e);
         setAlertMessage("修改日期失敗，請檢查網路或權限。");
@@ -1708,8 +1745,19 @@ const App = () => {
                 <label className="font-semibold text-gray-700">月份：</label>
                 <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading} style={{ backgroundColor: months.find(m => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
             </div>
+            {/* 更新 DateTab 渲染方式 */}
             <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2">
-                {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} /> ))}
+                {displayedDates.map(date => ( 
+                    <DateTab 
+                        key={date} 
+                        date={date} 
+                        isSelected={date === selectedDisplayDate} 
+                        onClick={setSelectedDisplayDate} 
+                        // --- 新增：將修改日期的功能傳給 DateTab ---
+                        onEdit={() => handleEditCurrentDate(date)} 
+                        authMode={authMode}
+                    /> 
+                ))}
             </div>
             
             <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -1768,9 +1816,10 @@ const App = () => {
                     {selectedDisplayDate ? (
                         <div className="flex items-center gap-3">
                             <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span>
+                            {/* --- 新增：保留標題旁的編輯按鈕 --- */}
                             {authMode === 'ADMIN' && (
                                 <button 
-                                    onClick={handleEditCurrentDate}
+                                    onClick={() => handleEditCurrentDate(selectedDisplayDate)}
                                     className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full text-gray-600 hover:text-gray-800 transition shadow-sm"
                                     title="修改此日期"
                                     disabled={isGlobalLoading}
