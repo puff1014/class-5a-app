@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
     getAuth, 
     signInAnonymously, 
-    signInWithEmailAndPassword, // 改用 Email 登入
+    signInWithEmailAndPassword, 
     signOut, 
     onAuthStateChanged 
 } from 'firebase/auth';
@@ -26,17 +26,16 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { 
     BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Check, 
     RefreshCw, WifiOff, Lock, Settings, LogOut, FileText, AlertCircle, 
-    Eye, EyeOff, Shield, User, Key, Edit, Pencil
+    Eye, EyeOff, Shield, User, Key, Edit, Pencil, Star, PartyPopper
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v12.2.0 - 日期標籤直接編輯 (Tab Direct Edit)'; 
+const VERSION = 'v12.3.0 - 歡樂慶祝版 (Celebration Update)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
 
-// 注意：在正式開發中，這些應該放在 .env 檔案中 (如 process.env.REACT_APP_FIREBASE_API_KEY)
-// 但為了確保您現在能直接運作，暫時保留在此，請務必配合後端的 Security Rules 保護資料
+// 注意：在正式開發中，這些應該放在 .env 檔案中
 const firebaseConfig = {
   apiKey: "AIzaSyArwz6gPeW9lNq_8LOfnKYwZmkRN-Wgtb8",
   authDomain: "class-5a-app.firebaseapp.com",
@@ -47,7 +46,16 @@ const firebaseConfig = {
   measurementId: "G-8VGE0WKD01"
 };
 
-const initialAuthToken = null;
+// --- 音效與圖片資源設定 (您可以替換這裡的網址) ---
+const ASSETS = {
+    // 單次鼓勵 (約3秒)
+    SINGLE_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 輕快叮聲
+    SINGLE_IMAGE: 'https://cdn-icons-png.flaticon.com/512/1933/1933869.png', // 獎盃/星星圖案
+    
+    // 全部完成慶祝 (約6-8秒)
+    ALL_CLEAR_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3', // 勝利歡呼 fanfare
+    ALL_CLEAR_IMAGE: 'https://cdn-icons-png.flaticon.com/512/3151/3151249.png', // 煙火/派對圖案
+};
 
 // 五年甲班學生名單
 const STUDENT_LIST = [
@@ -83,6 +91,51 @@ const getAssignmentCollectionPath = () =>
 
 const getCategoryCollectionPath = () => 
   `/artifacts/${appId}/public/data/categories`;
+
+// --- 新增：獎勵回饋元件 ---
+const RewardOverlay = ({ type, onClose }) => {
+    const audioRef = useRef(null);
+
+    useEffect(() => {
+        // 設定音效來源
+        const soundUrl = type === 'ALL_CLEAR' ? ASSETS.ALL_CLEAR_SOUND : ASSETS.SINGLE_SOUND;
+        const duration = type === 'ALL_CLEAR' ? 8000 : 3000; // 8秒 或 3秒
+
+        // 播放音效
+        const audio = new Audio(soundUrl);
+        audio.volume = 0.6; // 音量適中
+        audio.play().catch(e => console.log("Audio play failed (interaction needed):", e));
+        audioRef.current = audio;
+
+        // 設定自動關閉計時器
+        const timer = setTimeout(() => {
+            onClose();
+        }, duration);
+
+        return () => {
+            clearTimeout(timer);
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+            }
+        };
+    }, [type, onClose]);
+
+    return (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-60 animate-fade-in pointer-events-none">
+            <div className="flex flex-col items-center justify-center animate-bounce-in transform scale-125">
+                <img 
+                    src={type === 'ALL_CLEAR' ? ASSETS.ALL_CLEAR_IMAGE : ASSETS.SINGLE_IMAGE} 
+                    alt="Reward" 
+                    className={`object-contain drop-shadow-2xl ${type === 'ALL_CLEAR' ? 'w-96 h-96 animate-pulse' : 'w-64 h-64'}`}
+                />
+                <h2 className="mt-8 text-6xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] tracking-wider">
+                    {type === 'ALL_CLEAR' ? '🎉 全部完成！太棒了！ 🎉' : '👍 很棒！繼續保持！'}
+                </h2>
+            </div>
+        </div>
+    );
+};
 
 // 一般通知視窗
 const CustomAlert = ({ message, onClose }) => (
@@ -259,7 +312,7 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                 </div>
                 
                 <div className="mt-4 pt-4 border-t border-gray-200 text-right">
-                     <button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">
+                      <button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">
                         關閉視窗
                     </button>
                 </div>
@@ -268,7 +321,6 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
     );
 };
 
-// ... ConfirmationModal component ...
 const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, confirmColor }) => {
     const [isAltPressed, setIsAltPressed] = useState(false);
     useEffect(() => {
@@ -313,7 +365,6 @@ const getTodayDate = () => {
     return `${year}-${month}-${day}`;
 };
 
-// ... MISSING_COLOR_TIERS ...
 const MISSING_COLOR_TIERS = [
     // 第一排：藍綠色系 (1-15)
     { min: 1, max: 3, colors: { bg: 'bg-blue-300', border: 'border-blue-500', text: 'text-gray-900', countText: 'text-gray-900' }, label: '1-3項' },
@@ -380,7 +431,6 @@ const MissingColorExplanation = () => {
     );
 };
 
-// ... MonthlyStudentStats (已恢復並優化為無橫向捲動) ...
 const MonthlyStudentStats = ({ monthlyStats, months }) => {
     const studentIds = useMemo(() => Object.keys(monthlyStats).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)), [monthlyStats]);
     if (studentIds.length === 0) return null;
@@ -390,7 +440,6 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
             <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">
                 <span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span>
             </h2> 
-            {/* FIX: 移除 overflow-hidden 以確保 sticky 表頭能正確黏附於視窗頂端 (或上層捲動容器) */}
             <div className="w-full relative border border-gray-300 rounded-lg shadow-lg">
                 <table className="w-full divide-y divide-gray-300 table-fixed">
                     <thead className="bg-gray-200">
@@ -436,7 +485,6 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
     );
 };
 
-// ... MissingDetailsModal ...
 const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStudentGlobalData, db, userId, allAssignmentsByDate, setAlertMessage, isOffline, authMode }) => {
     const [selectedItemIds, setSelectedItemIds] = useState([]);
     const stat = missingStats.find(s => s.id === student.id);
@@ -475,7 +523,6 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
         if (selectedItemIds.length === detailedMissingItems.length) { setSelectedItemIds([]); } else { setSelectedItemIds(detailedMissingItems.map(item => item.assignmentId)); }
     }, [selectedItemIds.length, detailedMissingItems]);
     
-    // 修正：檢查 Alt 鍵而不是 Shift 鍵
     const handleGlobalDeleteClick = useCallback((e) => {
         if (e.altKey) { handleDeleteStudentGlobalData(student.id, name); } else { alert(`請按住 Alt 鍵，才能確認永久刪除 ${name} 的所有紀錄！`); }
     }, [student.id, name, handleDeleteStudentGlobalData]);
@@ -483,7 +530,6 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
     const handleBatchDeleteSelectedItems = useCallback(async (e) => {
         if (selectedItemIds.length === 0) { alert("請先勾選至少一項要標記為『已補交』的作業紀錄。"); return; }
         
-        // 隱藏鎖定：恢復需按住 CTRL 才能執行，但移除提示視窗，避免學生發現
         if (!e.ctrlKey && !e.metaKey) { 
             return; 
         }
@@ -509,7 +555,6 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
 
     if (!hasMissingItems) return null;
 
-    // FIX: 根據 authMode 決定是否顯示「按住 Ctrl」的提示 title
     const batchButtonTitle = authMode === 'ADMIN' 
         ? "按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)" 
         : undefined;
@@ -559,7 +604,6 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
     );
 };
 
-// ... useCategories ...
 const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline) => {
     const [categories, setCategories] = useState([]);
     const [loadingCategories, setLoadingCategories] = useState(true);
@@ -596,7 +640,6 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline) => {
                 setCategories(loadedCategories);
                 setLoadingCategories(false); 
             }, (e) => { 
-                // Ignore permission errors for categories initially, as main content is more critical
                 console.error("Error fetching categories:", e); 
                 if (e.code !== 'permission-denied') {
                     setAlertMessage("讀取作業項目清單時發生錯誤。"); 
@@ -675,7 +718,6 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline) => {
     return { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus };
 };
 
-// ... AssignmentHeader ...
 const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment, handleEditSave, handleMoveAssignment, setEditingAssignmentId, setEditingAssignmentName, editingAssignmentId, editingAssignmentName, authMode }) => {
     const isEditing = editingAssignmentId === assignment.id;
     const [{ isDragging }, drag] = useDrag({ type: ItemTypes.ASSIGNMENT, item: { id: assignment.id, type: ItemTypes.ASSIGNMENT }, collect: (monitor) => ({ isDragging: monitor.isDragging() }) });
@@ -694,21 +736,17 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     const handleLocalEditSave = useCallback(() => { if (!isEditing || !editingAssignmentName.trim() || isGlobalLoading) return; handleEditSave(assignment.id, editingAssignmentName).finally(() => { setEditingAssignmentId(null); setEditingAssignmentName(''); }); }, [assignment.id, editingAssignmentName, handleEditSave, isEditing, setEditingAssignmentId, setEditingAssignmentName, isGlobalLoading]);
     const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]);
 
-    // FIX: 根據 authMode 決定是否顯示操作提示 title
     const deleteButtonTitle = authMode === 'ADMIN' 
         ? "點擊以刪除此項目 (Ctrl/Cmd 可強制刪除)" 
         : undefined;
 
     return (
-        // 移除 w-28 等固定寬度，使用 w-auto
         <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-2 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100 break-words`}>
-            {/* 移除 min-w-[120px], 改回 min-w-[150px] 以確保捲動 */}
             <div className="flex flex-col items-center justify-center group relative min-w-[150px]">
                 <div className={`relative p-2 rounded-xl shadow-md transition duration-100 border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}>
                     {isEditing ? (
                         <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-3xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} />
                     ) : <span className={`font-bold ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'} break-words`}>{assignment.assignmentName}</span>}
-                    {/* 只在 Admin 模式下顯示刪除按鈕 */}
                     {!isEditing && authMode === 'ADMIN' && (
                         <button onClick={handleDeleteClick} disabled={isGlobalLoading} className="absolute -top-3 -right-3 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition duration-150 p-1 rounded-full bg-white shadow-lg" title={deleteButtonTitle}>
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -720,14 +758,12 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
     );
 };
 
-// --- Update DateTab to accept onEdit and authMode ---
 const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => {
     const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
     
-    // --- 新增：處理雙擊修改 ---
     const handleDoubleClick = (e) => {
         if (authMode === 'ADMIN' && isSelected && onEdit) {
-            e.stopPropagation(); // 避免觸發單擊的切換
+            e.stopPropagation();
             onEdit();
         }
     };
@@ -736,12 +772,11 @@ const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => {
         <div className="relative group">
             <button 
                 onClick={() => onClick(date)} 
-                onDoubleClick={handleDoubleClick} // 綁定雙擊事件
+                onDoubleClick={handleDoubleClick} 
                 className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}
                 title={authMode === 'ADMIN' && isSelected ? "雙擊以修改日期" : ""}
             >
                 {formattedDate}
-                {/* --- 新增：如果是管理員且被選中，顯示小鉛筆圖示 --- */}
                 {isSelected && authMode === 'ADMIN' && (
                     <span 
                         onClick={(e) => { e.stopPropagation(); onEdit(); }} 
@@ -760,14 +795,12 @@ const ProtectedButton = ({ onClick, disabled, className, title, children }) => {
     return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> );
 };
 
-
-// Main Application Component
 const App = () => {
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [isOffline, setIsOffline] = useState(false); // New state for offline mode
+  const [isOffline, setIsOffline] = useState(false); 
   const [allAssignmentsByDate, setAllAssignmentsByDate] = useState({});
   const [selectedDisplayDate, setSelectedDisplayDate] = useState(getTodayDate()); 
   const [loading, setLoading] = useState(true);
@@ -778,23 +811,22 @@ const App = () => {
   const [editingAssignmentName, setEditingAssignmentName] = useState('');
   const [missingStudent, setMissingStudent] = useState(null);
   const [newAssignmentDate, setNewAssignmentDate] = useState(getTodayDate()); 
-  const [authTimeout, setAuthTimeout] = useState(false); // Track if auth is taking too long
+  const [authTimeout, setAuthTimeout] = useState(false); 
   
-  // Auth State for Login Screen
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authMode, setAuthMode] = useState('GUEST'); // 'GUEST' or 'ADMIN'
+  const [authMode, setAuthMode] = useState('GUEST'); 
   const [loginError, setLoginError] = useState('');
   const [loadingLogin, setLoadingLogin] = useState(false);
 
-  // --- 新增狀態：全班未完成作業清單 ---
   const [showAllMissingModal, setShowAllMissingModal] = useState(false);
-  // --- 新增狀態：學生專注模式 (Focused Student ID) ---
   const [focusedStudentId, setFocusedStudentId] = useState(null);
 
-  // 智慧日期偵測
+  // --- 新增狀態：獎勵觸發 ---
+  const [rewardState, setRewardState] = useState(null); // { type: 'SINGLE' | 'ALL_CLEAR' }
+
   const { defaultSemester, defaultMonth } = useMemo(() => {
     const today = new Date();
-    const m = today.getMonth() + 1; // 1-12
+    const m = today.getMonth() + 1; 
     const monthStr = String(m).padStart(2, '0');
     let sem = 'S1';
     if (m >= 2 && m <= 7) { sem = 'S2'; }
@@ -824,7 +856,6 @@ const App = () => {
   const { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline); 
 
   useEffect(() => {
-    // Timeout check for auth - if too long, show offline option
     const timer = setTimeout(() => {
          if (loading) setAuthTimeout(true);
     }, 3000);
@@ -837,13 +868,11 @@ const App = () => {
       setDb(firestore);
       setAuth(firebaseAuth);
 
-      // 監聽登入狀態
       const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
         if (user) {
             setUserId(user.uid);
             setIsAuthReady(true);
             setIsAuthenticated(true);
-            // 判斷是否為匿名登入 (Guest/User) 還是 Email 登入 (Admin)
             if (user.isAnonymous) {
                 setAuthMode('GUEST');
             } else {
@@ -851,7 +880,7 @@ const App = () => {
             }
         } else {
             setIsAuthenticated(false);
-            setAuthMode('GUEST'); // Default
+            setAuthMode('GUEST'); 
         }
         setLoadingLogin(false);
       });
@@ -871,14 +900,11 @@ const App = () => {
       setAuthMode('GUEST');
   };
 
-  // Handle Login Logic (Firebase Native)
   const handleAdminLogin = async (email, password) => {
       setLoadingLogin(true);
       setLoginError('');
       try {
-          // 使用 Firebase Authentication 進行真正的驗證
           await signInWithEmailAndPassword(auth, email, password);
-          // onAuthStateChanged 會處理剩下的事情
       } catch (error) {
           console.error("Login failed", error);
           if (error.code === 'auth/invalid-email') {
@@ -916,8 +942,6 @@ const App = () => {
       }
   };
   
-  // 原本的密碼管理功能已移除，改由 Firebase Console 管理
-
   useEffect(() => {
     if (isOffline) {
         setLoading(false);
@@ -941,10 +965,8 @@ const App = () => {
       if (!loadingCategories) { setLoading(false); }
     }, (e) => { 
         console.error("Error fetching assignments:", e);
-        // 修改：針對 permission-denied 進行靜默處理或僅警告，不顯示彈窗
         if (e.code === 'permission-denied') {
             console.warn("Permission denied (transient) - 資料存取被拒絕，可能是登入狀態尚未同步，若資料可見則請忽略。");
-            // setAlertMessage("⚠️ 無法讀取資料..."); // 已移除此行以避免干擾
         } else {
             setAlertMessage("讀取資料時發生錯誤，請稍後再試。");
             setAuthTimeout(true);
@@ -1185,7 +1207,7 @@ const App = () => {
     }, [db, userId, selectedDisplayDate, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
   
   const handleMoveAssignment = useCallback(async (dragId, hoverId) => {
-    if (authMode !== 'ADMIN' && !isOffline) return; // 權限控管
+    if (authMode !== 'ADMIN' && !isOffline) return; 
     const assignments = assignmentsForSelectedDate;
     const dragIndex = assignments.findIndex(a => a.id === dragId);
     const hoverIndex = assignments.findIndex(a => a.id === hoverId);
@@ -1198,7 +1220,6 @@ const App = () => {
               const dragItem = currentList[dragIndex];
               const hoverItem = currentList[hoverIndex];
               
-              // Swap orders logic roughly
               currentList[dragIndex] = { ...dragItem, order: hoverItem.order };
               currentList[hoverIndex] = { ...hoverItem, order: dragItem.order };
               
@@ -1221,11 +1242,8 @@ const App = () => {
   }, [db, userId, assignmentsForSelectedDate, setAlertMessage, isOffline, selectedDisplayDate, authMode]);
 
 
-  // V11.7.0 FIX: 導入 3 次點擊切換 (Green -> Red -> Yellow -> (3 clicks) -> Green)
+  // --- 優化後的切換邏輯，整合獎勵判斷 ---
   const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => {
-    // 這裡開放給 GUEST (學生) 使用，但理想上後端 Security Rules 只允許修改 "自己的" 狀態
-    // 或是只允許 ADMIN 修改。
-    // 為了符合使用情境，我們暫時允許學生操作，但老師可以在後端鎖死。
     const assignmentData = assignmentMap[assignmentName];
     if (!assignmentData) { setAlertMessage(`找不到作業「${assignmentName}」的紀錄。`); return; }
 
@@ -1235,24 +1253,51 @@ const App = () => {
     let shouldUpdateDb = true;
 
     if (currentStatus === true || currentStatus === undefined) {
-        newStatus = false; // 準時 (Green) -> 未訂正 (Red X)
+        newStatus = false; // Green -> Red
         setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; });
     } else if (currentStatus === false) {
-        newStatus = 'late'; // 未訂正 (Red X) -> 遲繳 (Yellow Check)
+        newStatus = 'late'; // Red -> Yellow
         setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; });
-    } else { // 'late' (Yellow)
+    } else { // 'late'
         const currentCount = unlockClicks[cellKey] || 0;
         if (currentCount < 2) {
              setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 }));
              shouldUpdateDb = false; 
              return;
         } else {
-             newStatus = true; // 遲繳 (Yellow) -> 準時 (Green)
+             newStatus = true; // Yellow -> Green
              setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; });
         }
     }
 
     if (shouldUpdateDb) {
+        // --- 新增：獎勵判斷邏輯 ---
+        // 1. 如果新狀態是 'late' (表示從 Red 缺交變為 Yellow 已交)，檢查缺交數是否歸零
+        // 2. 如果新狀態是 'true' (表示從 Yellow 遲交變為 Green 完成)，給予單次鼓勵
+        
+        // 即時計算該學生目前的缺交總數 (計算 false 的數量)
+        let currentMissingCount = 0;
+        Object.keys(allAssignmentsByDate).forEach(date => {
+            const assignments = allAssignmentsByDate[date];
+            assignments.forEach(a => {
+                if (a.submissionStatus[studentId] === false) currentMissingCount++;
+            });
+        });
+
+        if (newStatus === 'late' && currentStatus === false) {
+            // 從紅燈(缺交)變黃燈(已交)
+            // 如果原本缺交數是 1，扣掉這一個就變 0，觸發全部完成
+            if (currentMissingCount === 1) {
+                setRewardState({ type: 'ALL_CLEAR' });
+            } else {
+                setRewardState({ type: 'SINGLE' });
+            }
+        } else if (newStatus === true && currentStatus === 'late') {
+            // 從黃燈(遲交)變綠燈(完成) -> 給予單次鼓勵
+            setRewardState({ type: 'SINGLE' });
+        }
+        // --- 結束獎勵判斷 ---
+
         if (isOffline) {
              setAllAssignmentsByDate(prev => {
                  const newMap = { ...prev };
@@ -1288,29 +1333,23 @@ const App = () => {
           setLoading(false);
         }
     }
-  }, [db, userId, assignmentMap, unlockClicks, setAlertMessage, isOffline]); 
+  }, [db, userId, assignmentMap, unlockClicks, setAlertMessage, isOffline, allAssignmentsByDate]); 
 
-  // 新增：修改當前日期的功能
   const handleEditCurrentDate = useCallback(async (targetOldDate) => {
-    // 確保傳入的 targetOldDate 是字串，如果沒傳入則預設使用當前選中的日期
     const oldDate = typeof targetOldDate === 'string' ? targetOldDate : selectedDisplayDate;
 
     if (authMode !== 'ADMIN' || !oldDate) return;
     
-    // Simple validation using prompt
     const newDate = prompt(`請輸入新的日期以取代 ${oldDate} (格式: YYYY-MM-DD)`, oldDate);
     
-    // Check if cancelled or unchanged
     if (!newDate || newDate === oldDate) return;
     
-    // Basic format check
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
     if (!datePattern.test(newDate)) {
         alert("日期格式不正確，請使用 YYYY-MM-DD 格式。");
         return;
     }
 
-    // Check availability
     if (allAssignmentsByDate[newDate]) {
         alert(`日期 ${newDate} 已經存在作業資料，無法直接修改日期至此日。請手動遷移或刪除目標日期資料。`);
         return;
@@ -1319,7 +1358,6 @@ const App = () => {
     if (isOffline) {
          setAllAssignmentsByDate(prev => {
              const newMap = { ...prev };
-             // Move data
              newMap[newDate] = newMap[oldDate].map(a => ({...a, assignmentDate: newDate}));
              delete newMap[oldDate];
              return newMap;
@@ -1349,7 +1387,6 @@ const App = () => {
         });
 
         await batch.commit();
-        // 更新當前顯示日期到新日期
         setSelectedDisplayDate(newDate); 
         setAlertMessage(`日期已成功從 ${oldDate} 修改為 ${newDate}`);
     } catch(e) {
@@ -1549,7 +1586,6 @@ const App = () => {
         } catch (e) { console.error("Export failed:", e); setAlertMessage("匯出資料失敗。"); } finally { setLoading(false); }
     }, [db, userId, setAlertMessage, isOffline, allAssignmentsByDate]);
 
-    // NEW: 優化後的匯入邏輯
     const handleImportData = useCallback(async (e) => {
         if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以匯入資料。"); return; }
         if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯入。"); return; }
@@ -1562,7 +1598,6 @@ const App = () => {
                 if (!Array.isArray(json)) { setAlertMessage("檔案格式錯誤：JSON 內容必須是作業紀錄陣列。"); return; }
                 
                 if (isOffline) {
-                    // Offline import logic
                     let importedCount = 0;
                     const newMap = { ...allAssignmentsByDate };
                     
@@ -1571,7 +1606,6 @@ const App = () => {
                         const name = (item.assignmentName || "未命名作業").trim();
                         if (!newMap[date]) newMap[date] = [];
                         
-                        // Check duplicate
                         if (!newMap[date].some(a => a.assignmentName === name)) {
                             newMap[date].push({
                                 ...item,
@@ -1596,7 +1630,6 @@ const App = () => {
                 let duplicateCount = 0;
                 const itemsToAdd = [];
 
-                // 建立現有資料的快速查找 Set (Key: 日期_名稱)
                 const existingKeys = new Set();
                 Object.entries(allAssignmentsByDate).forEach(([dateKey, assignments]) => {
                     assignments.forEach(a => {
@@ -1604,13 +1637,11 @@ const App = () => {
                     });
                 });
 
-                // 第一步：過濾出需要新增的資料
                 json.forEach(item => {
                     const date = item.assignmentDate || getTodayDate();
                     const name = (item.assignmentName || "未命名作業").trim();
                     const uniqueKey = `${date}_${name}`;
 
-                    // 檢查是否重複
                     if (existingKeys.has(uniqueKey)) {
                         duplicateCount++;
                         return; 
@@ -1625,10 +1656,9 @@ const App = () => {
                     };
                     
                     itemsToAdd.push(dataToImport);
-                    existingKeys.add(uniqueKey); // 標記為已存在，防止同批次內重複
+                    existingKeys.add(uniqueKey); 
                 });
 
-                // 第二步：分批寫入
                 if (itemsToAdd.length > 0) {
                     const CHUNK_SIZE = 450;
                     const chunks = [];
@@ -1692,7 +1722,6 @@ const App = () => {
     );
   }
 
-  // --- Login Screen Guard ---
   if (!isAuthenticated && !loading && !loadingCategories) {
       return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
   }
@@ -1712,6 +1741,14 @@ const App = () => {
   return (
     <DndProvider backend={HTML5Backend}>
     <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
+      {/* --- 新增：顯示獎勵畫面 --- */}
+      {rewardState && (
+          <RewardOverlay 
+              type={rewardState.type} 
+              onClose={() => setRewardState(null)} 
+          />
+      )}
+
       {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
       {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={STUDENT_LIST.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} /> )}
       {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
@@ -1745,7 +1782,7 @@ const App = () => {
                 <label className="font-semibold text-gray-700">月份：</label>
                 <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading} style={{ backgroundColor: months.find(m => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
             </div>
-            {/* 更新 DateTab 渲染方式 */}
+            
             <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2">
                 {displayedDates.map(date => ( 
                     <DateTab 
@@ -1753,7 +1790,6 @@ const App = () => {
                         date={date} 
                         isSelected={date === selectedDisplayDate} 
                         onClick={setSelectedDisplayDate} 
-                        // --- 新增：將修改日期的功能傳給 DateTab ---
                         onEdit={() => handleEditCurrentDate(date)} 
                         authMode={authMode}
                     /> 
@@ -1780,7 +1816,6 @@ const App = () => {
                     <Download className="h-6 w-6 mr-1" />匯出
                 </button>
 
-                {/* --- 新增按鈕：開啟全班未完成總表 --- */}
                  <button 
                     onClick={() => setShowAllMissingModal(true)} 
                     className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 transition duration-150 shadow-md flex items-center justify-center`} 
@@ -1816,7 +1851,6 @@ const App = () => {
                     {selectedDisplayDate ? (
                         <div className="flex items-center gap-3">
                             <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span>
-                            {/* --- 新增：保留標題旁的編輯按鈕 --- */}
                             {authMode === 'ADMIN' && (
                                 <button 
                                     onClick={() => handleEditCurrentDate(selectedDisplayDate)}
@@ -1831,7 +1865,6 @@ const App = () => {
                     ) : '請選擇日期'}
                 </h2>
                  <div className="flex items-center gap-4">
-                    {/* Show Reset View button if focused mode is active */}
                     {focusedStudentId && (
                         <button 
                             onClick={() => setFocusedStudentId(null)}
@@ -1846,14 +1879,11 @@ const App = () => {
 
             {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
             
-            {/* 修正主表格： overflow-x-auto 強制顯示橫向捲動，inner div 設定 min-w-max 以防止內容擠壓 */}
             <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-y-auto overflow-x-auto h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
                 <div className="pb-4 min-w-max">
                     {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
-                        // 移除 table-fixed 讓欄位依內容自然寬度展開
                         <table className="divide-y divide-gray-300 w-full">
                             <thead className="bg-gray-100 sticky top-0 z-[70]"><tr>
-                                    {/* 欄位寬度調整：強制固定寬度與sticky位置 */}
                                     <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 sticky left-0 top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '80px', width: '80px', maxWidth: '80px', left: '0px' }}>座號</th>
                                     <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 sticky top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '80px' }}>姓名</th>
                                     {assignmentsForSelectedDate.map((assignment) => ( <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} authMode={authMode} /> ))}
@@ -1938,7 +1968,6 @@ const App = () => {
                     })}
                 </div>
             </div>
-            {/* 恢復並顯示 MonthlyStudentStats，確保它在最下方但不產生橫向捲動 */}
             <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
         </div>
       </div>
