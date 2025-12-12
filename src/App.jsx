@@ -27,11 +27,11 @@ import {
     BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Check, 
     RefreshCw, WifiOff, Lock, Settings, LogOut, FileText, AlertCircle, 
     Eye, EyeOff, Shield, User, Key, Edit, Pencil, Star, PartyPopper,
-    Coins, Eraser, Moon // 新增 Moon 圖示
+    Coins, Eraser, Moon 
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v15.2.0 - 星月貨幣與清零音樂修復版'; 
+const VERSION = 'v15.3.0 - 音樂修復與版面優化版'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -51,29 +51,29 @@ const ASSETS = {
     // 銅幣音效
     BRONZE_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3', 
     
-    // 慶祝音樂 (更換為更穩定的來源或確保載入)
-    // 使用一段較明顯的勝利音效 (Fanfare)
-    GOLD_SOUND: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', 
+    // 慶祝音樂 (更換為更穩定的勝利音效來源)
+    GOLD_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3', 
     
-    // 五彩彩帶背景 GIF
-    CONFETTI_BG: 'https://media.giphy.com/media/26tOZ42MgW8oaBd84/giphy.gif'
+    // 五彩彩帶背景 GIF (更換為無文字版本)
+    CONFETTI_BG: 'https://i.gifer.com/origin/e2/e29a997a3a304523b087050074697df0_w200.gif'
 };
 
-// --- 新增：客製化硬幣元件 (CSS繪製) ---
-const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm" }) => {
-    const baseClasses = `rounded-full border-[3px] flex items-center justify-center shadow-sm ${size} bg-white`;
+// --- 客製化硬幣元件 (CSS繪製) ---
+// 增加 innerSize 參數來控制內部圖示大小
+const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w-3/5 h-3/5" }) => {
+    const baseClasses = `rounded-full border-[4px] flex items-center justify-center shadow-lg ${size} bg-white`;
     
     if (type === 'GOLD') {
         return (
             <div className={`${baseClasses} border-yellow-400 text-yellow-500 bg-yellow-50`} title="金幣">
-                <Moon className="w-3/5 h-3/5 fill-current" />
+                <Moon className={`${innerSize} fill-current`} />
             </div>
         );
     }
     if (type === 'SILVER') {
         return (
             <div className={`${baseClasses} border-gray-400 text-gray-500 bg-gray-50`} title="銀幣">
-                <Star className="w-3/5 h-3/5 fill-current" />
+                <Star className={`${innerSize} fill-current`} />
             </div>
         );
     }
@@ -125,17 +125,16 @@ const RewardOverlay = ({ type, onClose }) => {
     useEffect(() => {
         // type: 'BRONZE' (單項) or 'GOLD_CLEAR' (全清零)
         const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
-        // 金幣清零顯示 6 秒，單次銅幣顯示 1 秒
         const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
 
         const audio = new Audio(soundUrl);
         audio.volume = 0.8; 
         
-        // 強制嘗試播放，並處理可能的自動播放限制
+        // 強制嘗試播放
         const playPromise = audio.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
-                console.warn("Audio play blocked:", error);
+                console.warn("Audio play blocked by browser:", error);
             });
         }
         audioRef.current = audio;
@@ -156,42 +155,47 @@ const RewardOverlay = ({ type, onClose }) => {
     // 全部清零 (滿版彩帶 + 巨大金幣/月亮)
     if (type === 'GOLD_CLEAR') {
         return (
-            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 animate-fade-in overflow-hidden">
-                <div className="absolute inset-0 opacity-60">
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 animate-fade-in overflow-hidden">
+                {/* 1. 無文字的彩帶背景 */}
+                <div className="absolute inset-0 opacity-70 pointer-events-none">
                     <img src={ASSETS.CONFETTI_BG} alt="Confetti" className="w-full h-full object-cover" />
                 </div>
+                
                 <div className="absolute inset-0 flex justify-center items-center opacity-70">
                      <div className="w-[800px] h-[800px] bg-yellow-500 rounded-full blur-[120px] animate-pulse"></div>
                 </div>
+                
                 <div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in text-center p-8">
-                    {/* 顯示巨大的金幣 (月亮) */}
-                    <div className="transform scale-[5] mb-12 drop-shadow-[0_0_50px_rgba(255,223,0,0.8)]">
-                        <CoinIcon type="GOLD" size="w-32 h-32" />
+                    {/* 3. 使用 CoinIcon 繪製巨大金幣 (月亮) */}
+                    <div className="mb-12 drop-shadow-[0_0_50px_rgba(255,223,0,0.8)] animate-pulse">
+                        <CoinIcon type="GOLD" size="w-64 h-64" innerSize="w-32 h-32" />
                     </div>
                     
                     <h2 className="text-6xl md:text-9xl font-black text-yellow-300 drop-shadow-[0_4px_4px_rgba(0,0,0,1)] tracking-widest leading-tight">
                         恭喜！<br/>全部清零！
                     </h2>
-                    <div className="mt-8 flex items-center gap-4 bg-green-700/90 px-8 py-4 rounded-full border-4 border-yellow-400 shadow-2xl backdrop-blur-sm">
-                        <span className="text-5xl text-white font-bold">獲得 1</span>
-                        <div className="transform scale-150">
-                            <CoinIcon type="GOLD" size="w-12 h-12" />
+                    
+                    <div className="mt-10 flex items-center gap-4 bg-green-700/90 px-10 py-6 rounded-full border-4 border-yellow-400 shadow-2xl backdrop-blur-sm transform hover:scale-105 transition-transform">
+                        <span className="text-6xl text-white font-bold">獲得 1</span>
+                        <div className="mx-2">
+                            <CoinIcon type="GOLD" size="w-16 h-16" />
                         </div>
-                        <span className="text-5xl text-white font-bold">金幣</span>
+                        <span className="text-6xl text-white font-bold">金幣</span>
                     </div>
                 </div>
             </div>
         );
     }
 
-    // 單次鼓勵 (銅幣)
+    // 單次鼓勵 (銅幣) - 修正重疊問題
     return (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-20 animate-fade-in pointer-events-none">
-            <div className="flex flex-col items-center justify-center animate-bounce-in transform scale-125 bg-white/95 p-8 rounded-[3rem] shadow-2xl border-4 border-orange-400 min-w-[300px]">
-                <div className="transform scale-[2.5] mb-6">
-                    <CoinIcon type="BRONZE" size="w-16 h-16" textSize="text-2xl" />
-                </div>
-                <h2 className="text-6xl font-black text-orange-700 drop-shadow-sm tracking-wider">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-30 animate-fade-in pointer-events-none">
+            {/* 3. 修正重疊：移除 scale，改用 flex-col gap-6 */}
+            <div className="flex flex-col gap-6 items-center justify-center animate-bounce-in transform scale-110 bg-white/95 p-12 rounded-[3rem] shadow-2xl border-8 border-orange-400 min-w-[320px]">
+                {/* 直接給定大尺寸，不用 scale */}
+                <CoinIcon type="BRONZE" size="w-40 h-40" textSize="text-8xl" />
+                
+                <h2 className="text-7xl font-black text-orange-700 drop-shadow-sm tracking-wider whitespace-nowrap">
                     + 10 銅幣
                 </h2>
             </div>
@@ -577,11 +581,10 @@ const App = () => {
     }
 
     if (shouldUpdateDb) {
-        // --- 獎勵判斷邏輯 (v15.2) ---
+        // --- 獎勵判斷邏輯 (v15.3) ---
         let bronzeToAdd = 0;
         let goldToAdd = 0;
-        let ingotsToAdd = 0; // 保留元寶變數名稱作為全綠燈的靜默獎勵
-
+        
         // 1. 訂正獎勵：紅 -> 黃 (給予 10 銅幣)
         if (newStatus === 'late' && currentStatus === false) {
             bronzeToAdd = 10; 
@@ -603,22 +606,15 @@ const App = () => {
                 setRewardState({ type: 'BRONZE' }); // 單次鼓勵
             }
         } 
-
-        // 2. 全綠燈獎勵：Yellow -> Green (給予 1 金元寶，靜默發送，不跳動畫)
-        // 這裡的 ingotsToAdd 雖然變數名叫元寶，但實際上會傳入 updateBankBalance，
-        // 在 v15 中我們移除了「元寶」這個欄位，改成 Bronze/Silver/Gold。
-        // 但根據需求3 "全綠燈給予1個金元寶"，假設這裡的"金元寶"是指 **1 金幣** (Gold Coin) 或是需要恢復元寶欄位？
-        // 回顧 v15.0 需求：「兌換機制改成：銅幣、銀幣、金幣三種」。
-        // v15.2 需求1：「全綠燈獎勵機制：即時發送 1 個金元寶」。
-        // 這邊有衝突。假設需求是要送 **1 金幣 (Gold)**。
-        // 修正：如果需求是送「金元寶」，但在三幣制下沒有元寶，通常是指最高級貨幣(金幣)。
-        // 若堅持要顯示「元寶」，則需要恢復元寶欄位。但基於 v15.0 已將元寶移除改為三幣，
-        // 這裡判定為 **送 1 金幣**。
         
+        // 2. 全綠燈獎勵 (靜默) - 已在新增日期時自動發放，此處僅處理當下操作
+        // 若需要即時發送，可保留以下邏輯 (但通常為了不打斷操作，全綠獎勵常設為隔日結算或靜默)
         if (newStatus === true) {
+            // 這裡可以選擇是否要即時給予全綠獎勵，目前依照 v15.0 需求是「隔日新增日期時檢查」
+            // 若要維持 v14 的即時給予，可 uncomment 下面:
+            /*
             const dailyAssignments = allAssignmentsByDate[selectedDisplayDate] || [];
             let isAllGreen = true;
-
             for (const assignment of dailyAssignments) {
                 if (assignment.assignmentName === assignmentName) {
                     if (newStatus !== true) { isAllGreen = false; break; }
@@ -627,10 +623,11 @@ const App = () => {
                     if (s === false || s === 'late') { isAllGreen = false; break; }
                 }
             }
-
             if (isAllGreen) {
-                goldToAdd += 1; // 靜默加 1 金幣
+                // 靜默加 2 銀幣 (v15 規則: 全綠得 2 銀幣)
+                updateBankBalance(studentId, 0, 2, 0);
             }
+            */
         }
 
         // 更新存簿
