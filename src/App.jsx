@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v15.0.0 - 三幣制與昨日全綠獎勵版'; 
+const VERSION = 'v15.1.0 - 金屬貨幣與進階匯率版'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -46,18 +46,21 @@ const firebaseConfig = {
   measurementId: "G-8VGE0WKD01"
 };
 
-// --- 音效與圖片資源設定 (全面更新) ---
+// --- 音效與圖片資源設定 (金屬質感圖示) ---
 const ASSETS = {
-    // 銅幣 (訂正獎勵)
-    BRONZE_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3', // 叮聲
-    BRONZE_IMAGE: 'https://cdn-icons-png.flaticon.com/512/2529/2529396.png', // 銅幣圖案
+    // 銅幣 (古銅色)
+    BRONZE_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3', 
+    BRONZE_IMAGE: 'https://cdn-icons-png.flaticon.com/512/2529/2529396.png', 
     
-    // 銀幣 (昨日全綠獎勵) - 這裡僅用圖案，顯示在 Modal 或存簿
-    SILVER_IMAGE: 'https://cdn-icons-png.flaticon.com/512/2529/2529343.png', // 銀幣圖案
+    // 銀幣 (銀色)
+    SILVER_IMAGE: 'https://cdn-icons-png.flaticon.com/512/2529/2529343.png', 
 
-    // 金幣 (全部清零獎勵)
-    GOLD_SOUND: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', // 歡呼聲
-    GOLD_IMAGE: 'https://cdn-icons-png.flaticon.com/512/2529/2529308.png', // 金幣圖案
+    // 金幣 (金色)
+    GOLD_SOUND: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', // 慶祝音樂
+    GOLD_IMAGE: 'https://cdn-icons-png.flaticon.com/512/2529/2529308.png', 
+    
+    // 金元寶 (全部清零圖案)
+    INGOT_IMAGE: 'https://cdn-icons-png.flaticon.com/512/1973/1973824.png',
     
     // 五彩彩帶背景 GIF
     CONFETTI_BG: 'https://media.giphy.com/media/26tOZ42MgW8oaBd84/giphy.gif'
@@ -103,7 +106,7 @@ const RewardOverlay = ({ type, onClose }) => {
     useEffect(() => {
         // type: 'BRONZE' (單項) or 'GOLD_CLEAR' (全清零)
         const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
-        // 金幣清零顯示 6 秒，單次銅幣顯示 1 秒
+        // 全部清零顯示 6 秒，單次顯示 1 秒
         const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
 
         const audio = new Audio(soundUrl);
@@ -124,7 +127,7 @@ const RewardOverlay = ({ type, onClose }) => {
         };
     }, [type, onClose]);
 
-    // 全部清零 (金幣獎勵)
+    // 全部清零 (金幣+金元寶動畫)
     if (type === 'GOLD_CLEAR') {
         return (
             <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 animate-fade-in overflow-hidden">
@@ -135,12 +138,13 @@ const RewardOverlay = ({ type, onClose }) => {
                      <div className="w-[800px] h-[800px] bg-yellow-500 rounded-full blur-[120px] animate-pulse"></div>
                 </div>
                 <div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in text-center p-8">
-                    <img src={ASSETS.GOLD_IMAGE} alt="Gold Coin" className="w-96 h-96 object-contain drop-shadow-[0_0_50px_rgba(255,223,0,0.9)] mb-8 animate-bounce" />
+                    {/* 顯示金元寶作為清零象徵 */}
+                    <img src={ASSETS.INGOT_IMAGE} alt="Gold Ingot" className="w-96 h-96 object-contain drop-shadow-[0_0_50px_rgba(255,223,0,0.9)] mb-8 animate-bounce" />
                     <h2 className="text-6xl md:text-9xl font-black text-yellow-300 drop-shadow-[0_4px_4px_rgba(0,0,0,1)] tracking-widest leading-tight">
                         恭喜！<br/>全部清零！
                     </h2>
-                    <p className="mt-6 text-5xl text-white font-bold bg-green-700 px-8 py-4 rounded-full border-4 border-yellow-400 shadow-xl">
-                        獲得 1 金幣
+                    <p className="mt-6 text-5xl text-white font-bold bg-green-700 px-8 py-4 rounded-full border-4 border-yellow-400 shadow-xl flex items-center gap-3">
+                        獲得 1 <img src={ASSETS.GOLD_IMAGE} className="w-12 h-12" alt="Gold Coin"/> 金幣
                     </p>
                 </div>
             </div>
@@ -160,7 +164,7 @@ const RewardOverlay = ({ type, onClose }) => {
     );
 };
 
-// --- 學生存簿 Hook (三幣制) ---
+// --- 學生存簿 Hook (新匯率邏輯) ---
 const useStudentBank = (db, userId, isAuthReady, isOffline) => {
     const [bankData, setBankData] = useState({});
     
@@ -183,7 +187,7 @@ const useStudentBank = (db, userId, isAuthReady, isOffline) => {
         return () => unsubscribe();
     }, [isAuthReady, db, isOffline]);
 
-    // 更新餘額 (通用函數)
+    // 更新餘額
     const updateBankBalance = useCallback(async (studentId, addBronze, addSilver, addGold) => {
         const calculateNewBalance = (current, adds) => {
             let newBronze = (current.bronze || 0) + adds.bronze;
@@ -195,7 +199,20 @@ const useStudentBank = (db, userId, isAuthReady, isOffline) => {
             if (adds.silver === 'RESET') newSilver = 0;
             if (adds.gold === 'RESET') newGold = 0;
 
-            // 防止負數
+            // 自動進位邏輯 (非歸零時執行)
+            if (adds.bronze !== 'RESET' && adds.silver !== 'RESET' && adds.gold !== 'RESET') {
+                // 100 銅幣 -> 1 銀幣
+                while (newBronze >= 100) {
+                    newBronze -= 100;
+                    newSilver += 1;
+                }
+                // 10 銀幣 -> 1 金幣
+                while (newSilver >= 10) {
+                    newSilver -= 10;
+                    newGold += 1;
+                }
+            }
+            
             return {
                 bronze: Math.max(0, newBronze),
                 silver: Math.max(0, newSilver),
@@ -240,12 +257,12 @@ const useStudentBank = (db, userId, isAuthReady, isOffline) => {
     return { bankData, updateBankBalance };
 };
 
-// --- 學生存簿 Modal (歸零按鈕) ---
+// --- 學生存簿 Modal (顯示三種貨幣) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance }) => {
     const sortedStudents = [...STUDENT_LIST].sort((a, b) => {
         const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 };
         const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 };
-        // 排序：金 -> 銀 -> 銅
+        // 排序優先級：金 -> 銀 -> 銅 -> 座號
         if (bankA.gold !== bankB.gold) return bankB.gold - bankA.gold;
         if (bankA.silver !== bankB.silver) return bankB.silver - bankA.silver;
         if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze;
@@ -269,9 +286,21 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance }) => {
                         <img src={ASSETS.GOLD_IMAGE} className="w-12 h-12 mr-3" alt="Icon" />
                         訂正存簿
                     </h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200">
-                        <X className="w-8 h-8" />
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <div className="text-xl text-gray-600 font-bold bg-gray-100 px-4 py-2 rounded-lg border border-gray-300 flex items-center gap-3">
+                            <span>匯率說明：</span>
+                            <span className="flex items-center text-orange-700"><img src={ASSETS.BRONZE_IMAGE} className="w-6 h-6 mr-1"/>100</span>
+                            ➔
+                            <span className="flex items-center text-gray-500"><img src={ASSETS.SILVER_IMAGE} className="w-6 h-6 mr-1"/>1</span>
+                            ，
+                            <span className="flex items-center text-gray-500"><img src={ASSETS.SILVER_IMAGE} className="w-6 h-6 mr-1"/>10</span>
+                            ➔
+                            <span className="flex items-center text-yellow-600"><img src={ASSETS.GOLD_IMAGE} className="w-6 h-6 mr-1"/>1</span>
+                        </div>
+                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+                            <X className="w-8 h-8" />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-auto bg-green-50 rounded-xl p-4 border border-green-100">
@@ -338,7 +367,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance }) => {
     );
 };
 
-// ... (Standard Components: Alert, Login, etc. remain unchanged)
+// ... (Standard Components)
 const CustomAlert = ({ message, onClose }) => ( <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"> <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> <h3 className="text-4xl font-semibold text-gray-800 mb-4">通知</h3> <p className="text-3xl text-gray-600 mb-6">{message}</p> <button onClick={onClose} className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-4xl">確定</button> </div> </div> );
 const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => { const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [mode, setMode] = useState('GUEST'); const handleAdminSubmit = (e) => { e.preventDefault(); onAdminLogin(email, password); }; return ( <div className="fixed inset-0 bg-[#F0F8FF] flex items-center justify-center z-[10000]"> <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100"> <div className="text-center mb-8"> <h1 className="text-4xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1> <p className="text-gray-400 text-xl font-medium">請選擇您的身分</p> </div> <div className="flex bg-gray-100 p-1 rounded-xl mb-6"> <button onClick={() => setMode('GUEST')} className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'GUEST' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>學生/家長</button> <button onClick={() => setMode('ADMIN')} className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'ADMIN' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:text-gray-700'}`}>老師 (管理員)</button> </div> {mode === 'ADMIN' ? ( <form onSubmit={handleAdminSubmit} className="space-y-4 animate-fade-in"> <div><label className="block text-gray-600 text-lg font-bold mb-1">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all" autoFocus /></div> <div><label className="block text-gray-600 text-lg font-bold mb-1">密碼</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="請輸入密碼" className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all" /></div> {errorMsg && (<p className="text-red-500 text-lg font-bold">{errorMsg}</p>)} <button type="submit" disabled={isLoading} className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-red-500 hover:bg-red-600'}`}>{isLoading ? '驗證中...' : <><Key className="w-6 h-6" /> 管理員登入</>}</button> </form> ) : ( <div className="space-y-6 animate-fade-in"> <div className="bg-blue-50 p-4 rounded-xl text-blue-800 text-lg"><p className="font-bold flex items-center gap-2"><Shield className="w-5 h-5"/> 訪客模式說明：</p><p className="mt-1">您可以查看所有作業進度，但無法修改作業名稱或刪除紀錄。</p></div> <button onClick={onGuestLogin} disabled={isLoading} className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-blue-500 hover:bg-blue-600'}`}>{isLoading ? '進入中...' : <><User className="w-6 h-6" /> 進入系統</>}</button> </div> )} <div className="mt-8 text-center text-gray-400 text-lg">系統版本：{VERSION}</div> </div> </div> ); };
 const AllMissingAssignmentsModal = ({ missingStats, onClose }) => { const studentsWithMissing = missingStats.filter(s => s.missingCount > 0); return ( <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4"> <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200"> <div className="flex justify-between items-center mb-6 border-b pb-4"><h3 className="text-4xl font-bold text-gray-800 flex items-center"><AlertCircle className="w-10 h-10 text-red-500 mr-3" />全班未完成作業總表</h3><button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200"><X className="w-8 h-8" /></button></div> <div className="flex-1 overflow-auto"> {studentsWithMissing.length === 0 ? (<div className="h-full flex flex-col items-center justify-center text-gray-400"><Check className="w-24 h-24 mb-4 text-green-400" /><p className="text-4xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p></div>) : ( <table className="min-w-full divide-y divide-gray-300"> <thead className="bg-gray-100 sticky top-0 z-10"><tr><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th><th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th></tr></thead> <tbody className="bg-white divide-y divide-gray-200">{studentsWithMissing.map((student) => (<tr key={student.id} className="hover:bg-red-50 transition duration-100"><td className="px-4 py-4 text-2xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td><td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td><td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td><td className="px-6 py-4 text-xl text-gray-700"><ul className="list-disc list-inside space-y-1">{[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW')).map((detail, idx) => (<li key={idx} className="flex items-start"><span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span><span className="font-mono font-medium text-gray-400 text-lg">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span></li>))}</ul></td></tr>))}</tbody> </table> )} </div> <div className="mt-4 pt-4 border-t border-gray-200 text-right"><button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">關閉視窗</button></div> </div> </div> ); };
