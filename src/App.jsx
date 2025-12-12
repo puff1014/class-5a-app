@@ -29,11 +29,11 @@ import {
     BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Check, 
     RefreshCw, WifiOff, Lock, Settings, LogOut, FileText, AlertCircle, 
     Eye, EyeOff, Shield, User, Key, Edit, Pencil, Star, PartyPopper,
-    Coins, Trophy // 新增圖示
+    Coins, Trophy 
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v13.0.0 - 金幣存簿版 (Student Bank System)'; 
+const VERSION = 'v13.1.0 - 訂正存簿優化版 (Correction Bank Optimized)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -52,16 +52,14 @@ const firebaseConfig = {
 // --- 音效與圖片資源設定 ---
 const ASSETS = {
     // 單次鼓勵 (金幣) - 顯示 1 秒
-    // 改為金幣掉落聲
-    SINGLE_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3', 
-    // 金幣圖案
+    SINGLE_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3', // 金幣聲
+    // 金幣圖案 (參考圖三)
     SINGLE_IMAGE: 'https://cdn-icons-png.flaticon.com/512/217/217853.png', 
     
     // 全部完成慶祝 (元寶) - 顯示 3 秒
-    // 慶祝聲
-    ALL_CLEAR_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3', 
-    // 金元寶圖案 (使用 Icon 或圖片)
-    ALL_CLEAR_IMAGE: 'https://cdn-icons-png.flaticon.com/512/281/281053.png', // 金元寶圖示
+    ALL_CLEAR_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3', // 慶祝聲
+    // 金元寶圖案 (參考圖四)
+    ALL_CLEAR_IMAGE: 'https://cdn-icons-png.flaticon.com/512/281/281053.png', 
 };
 
 // 五年甲班學生名單
@@ -102,16 +100,13 @@ const getCategoryCollectionPath = () =>
 const getBankCollectionPath = () =>
   `/artifacts/${appId}/public/data/student_bank`;
 
-// --- 新增：獎勵回饋元件 ---
+// --- 獎勵回饋元件 ---
 const RewardOverlay = ({ type, onClose }) => {
     const audioRef = useRef(null);
 
     useEffect(() => {
         // 設定音效來源
         const soundUrl = type === 'ALL_CLEAR' ? ASSETS.ALL_CLEAR_SOUND : ASSETS.SINGLE_SOUND;
-        
-        // 單次鼓勵: 1000ms (1秒)
-        // 全部完成: 3000ms (3秒)
         const duration = type === 'ALL_CLEAR' ? 3000 : 1000;
 
         // 播放音效
@@ -137,12 +132,12 @@ const RewardOverlay = ({ type, onClose }) => {
     if (type === 'ALL_CLEAR') {
         return (
             <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 animate-fade-in">
-                {/* 背景裝飾 (煙火/光芒) */}
+                {/* 背景裝飾 */}
                 <div className="absolute inset-0 overflow-hidden flex justify-center items-center opacity-50">
                      <div className="w-[800px] h-[800px] bg-yellow-400 rounded-full blur-[100px] animate-pulse"></div>
                 </div>
                 
-                {/* 前景內容 */}
+                {/* 前景內容：金元寶 */}
                 <div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in text-center p-8">
                     <img 
                         src={ASSETS.ALL_CLEAR_IMAGE} 
@@ -170,16 +165,15 @@ const RewardOverlay = ({ type, onClose }) => {
                     className="w-48 h-48 object-contain drop-shadow-xl mb-2"
                 />
                 <h2 className="text-5xl font-black text-yellow-600 drop-shadow-sm tracking-wider">
-                    獲得 3 金幣
+                    + 3 金幣
                 </h2>
             </div>
         </div>
     );
 };
 
-// --- 新增：學生存簿 Modal ---
+// --- 學生存簿 Modal ---
 const StudentBankModal = ({ bankData, onClose }) => {
-    // 排序：元寶多 -> 金幣多 -> 座號小
     const sortedStudents = [...STUDENT_LIST].sort((a, b) => {
         const bankA = bankData[a.id] || { coins: 0, ingots: 0 };
         const bankB = bankData[b.id] || { coins: 0, ingots: 0 };
@@ -194,7 +188,7 @@ const StudentBankModal = ({ bankData, onClose }) => {
                 <div className="flex justify-between items-center mb-6 border-b border-yellow-200 pb-4">
                     <h3 className="text-4xl font-bold text-gray-800 flex items-center">
                         <span className="text-5xl mr-3">💰</span>
-                        學生財富存簿
+                        訂正存簿
                     </h3>
                     <div className="flex items-center gap-4">
                         <div className="text-xl text-gray-500 font-bold bg-gray-100 px-4 py-2 rounded-lg">
@@ -260,10 +254,7 @@ const StudentBankModal = ({ bankData, onClose }) => {
     );
 };
 
-// ... (Rest of the standard components: Alert, Login, Confirm, DateTab etc. remain largely the same) ...
-// 為了節省篇幅，這部分沿用之前的組件，僅在下方 App 組件中整合存簿邏輯。
-
-// 一般通知視窗
+// ... (Other components remain the same as previous versions)
 const CustomAlert = ({ message, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
         <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100">
@@ -275,7 +266,6 @@ const CustomAlert = ({ message, onClose }) => (
 );
 
 const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
-    // ... (LoginScreen code remains the same as v12.4.0) ...
      const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [mode, setMode] = useState('GUEST'); 
@@ -315,7 +305,6 @@ const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
     );
 };
 
-// ... (AllMissingAssignmentsModal, ConfirmationModal, DateTab, ProtectedButton, etc. are identical to previous version, condensed here for brevity)
 const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
     const studentsWithMissing = missingStats.filter(s => s.missingCount > 0);
     return (
@@ -353,7 +342,7 @@ const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, 
         </div>
     );
 };
-// ... (MissingDetailsModal and helpers also remain same)
+
 const getTodayDate = () => {
     const d = new Date(); const year = d.getFullYear(); const month = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`;
 };
@@ -389,16 +378,12 @@ const getMissingColorClasses = (count) => { if (count === 0) return { bg: 'bg-wh
 
 const MissingColorExplanation = () => { const legendTiers = MISSING_COLOR_TIERS.map(tier => ({ count: tier.label, classes: tier.colors })); return (<div className="mt-8 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200"><h3 className="text-4xl font-bold text-gray-800 mb-6 flex items-center"><span className="text-pink-500 text-5xl mr-3">🎨</span>顏色分級說明</h3><div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">{legendTiers.map((item, index) => (<div key={index} className={`py-3 px-2 rounded-xl text-center cursor-default ${item.classes.bg} ${item.classes.border} border-2 border-b-[6px] flex items-center justify-center`}><p className={`text-2xl font-black ${item.classes.text} leading-tight`}>{item.count}</p></div>))}</div></div>); };
 
-// ... (MissingDetailsModal and MonthlyStudentStats remain the same, ensuring they are included in final build)
-// (For brevity, I will inject the previous implementations here if not explicitly changed, assuming the structure holds.)
-
 // --- Hook for Student Bank ---
 const useStudentBank = (db, userId, isAuthReady, isOffline) => {
     const [bankData, setBankData] = useState({});
     
     useEffect(() => {
         if (isOffline) {
-            // Initialize with 0 for all students if offline and empty
             const initialData = {};
             STUDENT_LIST.forEach(s => initialData[s.id] = { coins: 0, ingots: 0 });
             setBankData(initialData);
@@ -423,13 +408,10 @@ const useStudentBank = (db, userId, isAuthReady, isOffline) => {
                 const current = prev[studentId] || { coins: 0, ingots: 0 };
                 let newCoins = (current.coins || 0) + coinsToAdd;
                 let newIngots = (current.ingots || 0) + ingotsToAdd;
-                
-                // Auto exchange: 30 coins -> 1 ingot
                 while (newCoins >= 30) {
                     newCoins -= 30;
                     newIngots += 1;
                 }
-                
                 return { ...prev, [studentId]: { coins: newCoins, ingots: newIngots } };
             });
             return;
@@ -437,32 +419,22 @@ const useStudentBank = (db, userId, isAuthReady, isOffline) => {
 
         if (!db) return;
         const docRef = doc(db, getBankCollectionPath(), studentId);
-        
-        // Transaction to handle atomic updates and exchange logic
         try {
-             // For simplicity in this demo, we do a read-modify-write via setDoc with merge or transaction
-             // Ideally use transaction for concurrency, but standard set/get is okay for low traffic
              const docSnap = await getDoc(docRef);
              let currentCoins = 0;
              let currentIngots = 0;
-             
              if (docSnap.exists()) {
                  const data = docSnap.data();
                  currentCoins = data.coins || 0;
                  currentIngots = data.ingots || 0;
              }
-             
              let newCoins = currentCoins + coinsToAdd;
              let newIngots = currentIngots + ingotsToAdd;
-             
-             // Auto Exchange Logic
              while (newCoins >= 30) {
                  newCoins -= 30;
                  newIngots += 1;
              }
-             
              await setDoc(docRef, { coins: newCoins, ingots: newIngots }, { merge: true });
-             
         } catch (e) {
             console.error("Error updating bank:", e);
         }
@@ -471,7 +443,6 @@ const useStudentBank = (db, userId, isAuthReady, isOffline) => {
     return { bankData, updateBankBalance };
 };
 
-// ... Re-declaring components that rely on props but were shortened above for context ...
 const MonthlyStudentStats = ({ monthlyStats, months }) => {
     const studentIds = useMemo(() => Object.keys(monthlyStats).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)), [monthlyStats]);
     if (studentIds.length === 0) return null;
@@ -479,7 +450,6 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
 };
 
 const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStudentGlobalData, db, userId, allAssignmentsByDate, setAlertMessage, isOffline, authMode }) => {
-    // ... (This component remains as is, just need to ensure it's defined)
     const [selectedItemIds, setSelectedItemIds] = useState([]);
     const stat = missingStats.find(s => s.id === student.id);
     const hasMissingItems = stat && stat.missingCount > 0;
@@ -496,7 +466,6 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
 };
 
 const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment, handleEditSave, handleMoveAssignment, setEditingAssignmentId, setEditingAssignmentName, editingAssignmentId, editingAssignmentName, authMode }) => {
-    // ... (Identical to previous, ensuring drag/drop logic)
     const isEditing = editingAssignmentId === assignment.id;
     const [{ isDragging }, drag] = useDrag({ type: ItemTypes.ASSIGNMENT, item: { id: assignment.id, type: ItemTypes.ASSIGNMENT }, collect: (monitor) => ({ isDragging: monitor.isDragging() }) });
     const [, drop] = useDrop({ accept: ItemTypes.ASSIGNMENT, hover: (draggedItem) => { if (draggedItem.id !== assignment.id) { handleMoveAssignment(draggedItem.id, assignment.id); draggedItem.id = assignment.id; } } });
@@ -507,14 +476,12 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
 };
 
 const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => {
-    // ... (Identical)
     const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
     const handleDoubleClick = (e) => { if (authMode === 'ADMIN' && isSelected && onEdit) { e.stopPropagation(); onEdit(); } };
     return ( <div className="relative group"> <button onClick={() => onClick(date)} onDoubleClick={handleDoubleClick} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`} title={authMode === 'ADMIN' && isSelected ? "雙擊以修改日期" : ""}> {formattedDate} {isSelected && authMode === 'ADMIN' && ( <span onClick={(e) => { e.stopPropagation(); onEdit(); }} className="inline-flex items-center justify-center p-1 bg-white/20 rounded-full hover:bg-white/40 cursor-pointer transition-colors" title="點擊修改日期"> <Pencil className="w-4 h-4 text-white" /> </span> )} </button> </div> );
 };
 const ProtectedButton = ({ onClick, disabled, className, title, children }) => { return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> ); };
 const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline) => {
-    // ... (Standard logic)
     const [categories, setCategories] = useState([]); const [loadingCategories, setLoadingCategories] = useState(true);
     const getInitialSubmissionStatus = useMemo(() => STUDENT_LIST.reduce((status, student) => { status[student.id] = true; return status; }, {}), []);
     const initializeCategories = useCallback(async (db, userId) => { if (!db || !userId) return; setLoadingCategories(true); const path = getCategoryCollectionPath(); const categoriesCollection = collection(db, path); try { const snapshot = await getDocs(categoriesCollection); if (snapshot.empty) { const batchPromises = INITIAL_CATEGORIES.map(cat => { const newDocRef = doc(categoriesCollection); return setDoc(newDocRef, { ...cat, createdAt: Timestamp.now() }); }); await Promise.all(batchPromises); } } catch (e) { console.error("Error initializing categories:", e); } setLoadingCategories(false); }, []);
@@ -552,7 +519,7 @@ const App = () => {
   const [showAllMissingModal, setShowAllMissingModal] = useState(false);
   const [focusedStudentId, setFocusedStudentId] = useState(null);
   
-  // 新增：顯示存簿 Modal
+  // 顯示存簿 Modal
   const [showBankModal, setShowBankModal] = useState(false);
 
   // 獎勵觸發
@@ -561,7 +528,6 @@ const App = () => {
   // 使用 Bank Hook
   const { bankData, updateBankBalance } = useStudentBank(db, userId, isAuthReady, isOffline);
 
-  // ... (Semester/Month logic unchanged)
   const { defaultSemester, defaultMonth } = useMemo(() => { const today = new Date(); const m = today.getMonth() + 1; const monthStr = String(m).padStart(2, '0'); let sem = 'S1'; if (m >= 2 && m <= 7) { sem = 'S2'; } return { defaultSemester: sem, defaultMonth: monthStr }; }, []);
   const [selectedSemester, setSelectedSemester] = useState(defaultSemester); const [selectedMonth, setSelectedMonth] = useState(defaultMonth); const [unlockClicks, setUnlockClicks] = useState({}); 
   const academicYear = "114"; const startYear = 2025; const endYear = 2026;
@@ -585,10 +551,8 @@ const App = () => {
   const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
   const handleLogout = async () => { try { await signOut(auth); setIsAuthenticated(false); setAuthMode('GUEST'); } catch (e) { console.error("Logout failed", e); } };
   
-  // ... (Data fetching for assignments remains same)
   useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const q = query(assignmentsCollection); const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline]); 
 
-  // ... (Computed values: assignmentsForSelectedDate, etc.)
   const assignmentsForSelectedDate = useMemo(() => { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; return assignments.sort((a, b) => a.order - b.order); }, [allAssignmentsByDate, selectedDisplayDate]);
   const assignmentMap = useMemo(() => { return assignmentsForSelectedDate.reduce((acc, assignment) => { acc[assignment.assignmentName] = { id: assignment.id, submissionStatus: assignment.submissionStatus }; return acc; }, {}); }, [assignmentsForSelectedDate]);
   const filteredMonths = useMemo(() => { const currentSemesterData = semesters.find(s => s.id === selectedSemester); if (!currentSemesterData) return months; return months.filter(m => m.semester === selectedSemester); }, [months, selectedSemester, semesters]);
@@ -606,7 +570,7 @@ const App = () => {
   const handleAddNewAssignment = useCallback(async () => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增作業。"); return; } if (!selectedDisplayDate) { setAlertMessage("請先選擇一個日期。"); return; } if (isOffline) { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newAssignment = { id: `offline-single-${Date.now()}`, assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }; setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: [...(prev[selectedDisplayDate] || []), newAssignment] })); return; } if (!db || !userId) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newDocRef = doc(assignmentCollection); await setDoc(newDocRef, { assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); } catch (e) { console.error("Error adding new assignment:", e); setAlertMessage("新增單項作業失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
   const handleMoveAssignment = useCallback(async (dragId, hoverId) => { if (authMode !== 'ADMIN' && !isOffline) return; const assignments = assignmentsForSelectedDate; const dragIndex = assignments.findIndex(a => a.id === dragId); const hoverIndex = assignments.findIndex(a => a.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; const currentList = [...(newMap[selectedDisplayDate] || [])]; const dragItem = currentList[dragIndex]; const hoverItem = currentList[hoverIndex]; currentList[dragIndex] = { ...dragItem, order: hoverItem.order }; currentList[hoverIndex] = { ...hoverItem, order: dragItem.order }; newMap[selectedDisplayDate] = currentList.sort((a,b) => a.order - b.order); return newMap; }); return; } if (!db || !userId) return; const dragAssignment = assignments[dragIndex]; const hoverAssignment = assignments[hoverIndex]; const batch = writeBatch(db); const path = getAssignmentCollectionPath(); const docRef1 = doc(db, path, dragAssignment.id); const docRef2 = doc(db, path, hoverAssignment.id); batch.set(docRef1, { order: hoverAssignment.order }, { merge: true }); batch.set(docRef2, { order: dragAssignment.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving assignment:", e); setAlertMessage("調整欄位順序失敗。"); } }, [db, userId, assignmentsForSelectedDate, setAlertMessage, isOffline, selectedDisplayDate, authMode]);
 
-  // --- 切換邏輯 (含銀行存款更新) ---
+  // --- 切換邏輯 (嚴格獎勵判斷) ---
   const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => {
     const assignmentData = assignmentMap[assignmentName];
     if (!assignmentData) { setAlertMessage(`找不到作業「${assignmentName}」的紀錄。`); return; }
@@ -635,9 +599,8 @@ const App = () => {
     }
 
     if (shouldUpdateDb) {
-        // --- 獎勵判斷與存簿更新 ---
+        // --- 獎勵判斷邏輯 ---
         
-        // 1. 計算目前的缺交數
         let currentMissingCount = 0;
         Object.keys(allAssignmentsByDate).forEach(date => {
             const assignments = allAssignmentsByDate[date];
@@ -649,6 +612,7 @@ const App = () => {
         let coinsToAdd = 0;
         let ingotsToAdd = 0;
 
+        // 規則：只有紅色變黃色才給金幣
         if (newStatus === 'late' && currentStatus === false) {
             // 從紅燈(缺交)變黃燈(已交) -> 完成一項訂正
             coinsToAdd = 3; 
@@ -661,9 +625,9 @@ const App = () => {
                 setRewardState({ type: 'SINGLE' });
             }
         } else if (newStatus === true && currentStatus === 'late') {
-            // 從黃燈(遲交)變綠燈(完成) -> 視為完成，給予單次鼓勵
-             coinsToAdd = 3;
-             setRewardState({ type: 'SINGLE' });
+            // 從黃燈(遲交)變綠燈(完成) -> 不給金幣，不顯示獎勵
+             // coinsToAdd = 0; 
+             // setRewardState(null);
         }
 
         // 更新存簿
@@ -709,7 +673,7 @@ const App = () => {
     }
   }, [db, userId, assignmentMap, unlockClicks, setAlertMessage, isOffline, allAssignmentsByDate, updateBankBalance]); 
 
-  // ... (Other handlers like edit date, delete, export/import remain the same)
+  // ... (Other handlers unchanged)
   const handleEditCurrentDate = useCallback(async (targetOldDate) => { const oldDate = typeof targetOldDate === 'string' ? targetOldDate : selectedDisplayDate; if (authMode !== 'ADMIN' || !oldDate) return; const newDate = prompt(`請輸入新的日期以取代 ${oldDate} (格式: YYYY-MM-DD)`, oldDate); if (!newDate || newDate === oldDate) return; const datePattern = /^\d{4}-\d{2}-\d{2}$/; if (!datePattern.test(newDate)) { alert("日期格式不正確，請使用 YYYY-MM-DD 格式。"); return; } if (allAssignmentsByDate[newDate]) { alert(`日期 ${newDate} 已經存在作業資料，無法直接修改日期至此日。請手動遷移或刪除目標日期資料。`); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; newMap[newDate] = newMap[oldDate].map(a => ({...a, assignmentDate: newDate})); delete newMap[oldDate]; return newMap; }); setSelectedDisplayDate(newDate); setAlertMessage(`[離線] 日期已修改為 ${newDate}`); return; } if (!db || !userId) return; setLoading(true); try { const batch = writeBatch(db); const assignments = allAssignmentsByDate[oldDate] || []; const path = getAssignmentCollectionPath(); if (assignments.length === 0) { setAlertMessage("該日期沒有作業資料可供移動。"); setLoading(false); return; } assignments.forEach(assignment => { const docRef = doc(db, path, assignment.id); batch.update(docRef, { assignmentDate: newDate }); }); await batch.commit(); setSelectedDisplayDate(newDate); setAlertMessage(`日期已成功從 ${oldDate} 修改為 ${newDate}`); } catch(e) { console.error("Error modifying date:", e); setAlertMessage("修改日期失敗，請檢查網路或權限。"); } finally { setLoading(false); } }, [authMode, selectedDisplayDate, allAssignmentsByDate, isOffline, db, userId]);
   const handleBatchDelete = useCallback(async (assignmentIds, successMessage, failureMessage) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以執行批次刪除。"); return false; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].filter(a => !assignmentIds.includes(a.id)); }); return newMap; }); setAlertMessage(successMessage + " (離線)"); return true; } if (!db || !userId || assignmentIds.length === 0) return false; setLoading(true); try { const batch = writeBatch(db); const path = getAssignmentCollectionPath(); assignmentIds.forEach(id => { if (id) { const docRef = doc(db, path, id); batch.delete(docRef); } }); await batch.commit(); setAlertMessage(successMessage); return true; } catch (e) { console.error("Error during batch delete: ", e); setAlertMessage(failureMessage); return false; } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
   const handleDeleteStudentGlobalData = useCallback(async (studentId, studentName) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足。"); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => { const newStatus = { ...a.submissionStatus }; delete newStatus[studentId]; return { ...a, submissionStatus: newStatus }; }); }); return newMap; }); setAlertMessage(`[離線] 成功刪除 ${studentName} 的所有訂正紀錄。`); return; } if (!db || !userId) return; if (!window.confirm(`【極度危險】確定要永久刪除學生 ${studentName} (${studentId}) 在所有日期上的所有訂正紀錄嗎？此操作不可逆轉！`)) { return; } setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const snapshot = await getDocs(assignmentCollection); const batch = writeBatch(db); let updateCount = 0; snapshot.docs.forEach(doc => { const docRef = doc.ref; const data = doc.data(); const submissionStatus = data.submissionStatus || {}; if (submissionStatus.hasOwnProperty(studentId)) { const newSubmissionStatus = { ...submissionStatus }; delete newSubmissionStatus[studentId]; batch.set(docRef, { submissionStatus: newSubmissionStatus }, { merge: true }); updateCount++; } }); await batch.commit(); setAlertMessage(`成功刪除 ${studentName} 的所有訂正紀錄 (${updateCount} 筆作業文件受到影響)。`); } catch (e) { console.error("Error deleting student data:", e); setAlertMessage("刪除學生數據失敗，請檢查權限或連線。"); } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
@@ -771,6 +735,9 @@ const App = () => {
                 <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading}>{semesters.map((s) => ( <option key={s.id} value={s.id}>{s.name}</option>))}</select>
                 <label className="font-semibold text-gray-700">月份：</label>
                 <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading} style={{ backgroundColor: months.find(m => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
+                
+                {/* 新增：存簿按鈕 (移至上方) */}
+                <button onClick={() => setShowBankModal(true)} className={`${authMode === 'ADMIN' ? 'px-4 py-2' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="查看訂正存簿"> <BookOpen className="h-6 w-6 mr-2" />查看存簿 </button>
             </div>
             
             <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2">
@@ -785,9 +752,6 @@ const App = () => {
                 <button onClick={handleExportData} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-fuchsia-400 hover:bg-fuchsia-500 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="將所有紀錄匯出為 JSON 檔案"> <Download className="h-6 w-6 mr-1" />匯出 </button>
 
                  <button onClick={() => setShowAllMissingModal(true)} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="檢視全班未完成作業總表"> <FileText className="h-6 w-6 mr-1" />未完成總表 </button>
-
-                 {/* 新增：存簿按鈕 */}
-                 <button onClick={() => setShowBankModal(true)} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-yellow-900 bg-yellow-400 hover:bg-yellow-500 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="查看金幣存簿"> <Coins className="h-6 w-6 mr-1" />查看存簿 </button>
                 
                 <div className={`${authMode === 'ADMIN' ? 'flex-1 relative' : 'relative'}`}>
                     <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isGlobalLoading} title="選擇 JSON 檔案匯入紀錄" />
