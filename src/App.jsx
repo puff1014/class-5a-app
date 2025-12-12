@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v14.2.0 - 清零慶祝與全綠燈靜默獎勵版'; 
+const VERSION = 'v15.0.0 - 三幣制與昨日全綠獎勵版'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -46,17 +46,18 @@ const firebaseConfig = {
   measurementId: "G-8VGE0WKD01"
 };
 
-// --- 音效與圖片資源設定 ---
+// --- 音效與圖片資源設定 (全面更新) ---
 const ASSETS = {
-    // 單次鼓勵 (金幣)
-    SINGLE_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3', 
-    // 金幣圖案 (帶有$符號的立體金幣)
-    SINGLE_IMAGE: 'https://cdn-icons-png.flaticon.com/512/2460/2460467.png', 
+    // 銅幣 (訂正獎勵)
+    BRONZE_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3', // 叮聲
+    BRONZE_IMAGE: 'https://cdn-icons-png.flaticon.com/512/2529/2529396.png', // 銅幣圖案
     
-    // 全部清零慶祝 (元寶)
-    ALL_CLEAR_SOUND: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', 
-    // 金元寶圖案 (傳統元寶造型)
-    ALL_CLEAR_IMAGE: 'https://cdn-icons-png.flaticon.com/512/1973/1973824.png', 
+    // 銀幣 (昨日全綠獎勵) - 這裡僅用圖案，顯示在 Modal 或存簿
+    SILVER_IMAGE: 'https://cdn-icons-png.flaticon.com/512/2529/2529343.png', // 銀幣圖案
+
+    // 金幣 (全部清零獎勵)
+    GOLD_SOUND: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', // 歡呼聲
+    GOLD_IMAGE: 'https://cdn-icons-png.flaticon.com/512/2529/2529308.png', // 金幣圖案
     
     // 五彩彩帶背景 GIF
     CONFETTI_BG: 'https://media.giphy.com/media/26tOZ42MgW8oaBd84/giphy.gif'
@@ -100,9 +101,10 @@ const RewardOverlay = ({ type, onClose }) => {
     const audioRef = useRef(null);
 
     useEffect(() => {
-        const soundUrl = type === 'ALL_CLEARED_RED' ? ASSETS.ALL_CLEAR_SOUND : ASSETS.SINGLE_SOUND;
-        // 全部清零顯示 6 秒，單次顯示 1 秒
-        const duration = type === 'ALL_CLEARED_RED' ? 6000 : 1000;
+        // type: 'BRONZE' (單項) or 'GOLD_CLEAR' (全清零)
+        const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
+        // 金幣清零顯示 6 秒，單次銅幣顯示 1 秒
+        const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
 
         const audio = new Audio(soundUrl);
         audio.volume = 0.7; 
@@ -122,63 +124,49 @@ const RewardOverlay = ({ type, onClose }) => {
         };
     }, [type, onClose]);
 
-    // 全部清零 (滿版煙火 + 元寶)
-    if (type === 'ALL_CLEARED_RED') {
+    // 全部清零 (金幣獎勵)
+    if (type === 'GOLD_CLEAR') {
         return (
             <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 animate-fade-in overflow-hidden">
-                {/* 五彩彩帶背景 */}
                 <div className="absolute inset-0 opacity-60">
-                    <img 
-                        src={ASSETS.CONFETTI_BG} 
-                        alt="Confetti" 
-                        className="w-full h-full object-cover"
-                    />
+                    <img src={ASSETS.CONFETTI_BG} alt="Confetti" className="w-full h-full object-cover" />
                 </div>
-                
-                {/* 背景光芒 */}
                 <div className="absolute inset-0 flex justify-center items-center opacity-70">
                      <div className="w-[800px] h-[800px] bg-yellow-500 rounded-full blur-[120px] animate-pulse"></div>
                 </div>
-                
-                {/* 金元寶 */}
                 <div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in text-center p-8">
-                    <img 
-                        src={ASSETS.ALL_CLEAR_IMAGE} 
-                        alt="Gold Ingot" 
-                        className="w-96 h-96 object-contain drop-shadow-[0_0_50px_rgba(255,223,0,0.9)] mb-8 animate-bounce"
-                    />
+                    <img src={ASSETS.GOLD_IMAGE} alt="Gold Coin" className="w-96 h-96 object-contain drop-shadow-[0_0_50px_rgba(255,223,0,0.9)] mb-8 animate-bounce" />
                     <h2 className="text-6xl md:text-9xl font-black text-yellow-300 drop-shadow-[0_4px_4px_rgba(0,0,0,1)] tracking-widest leading-tight">
                         恭喜！<br/>全部清零！
                     </h2>
+                    <p className="mt-6 text-5xl text-white font-bold bg-green-700 px-8 py-4 rounded-full border-4 border-yellow-400 shadow-xl">
+                        獲得 1 金幣
+                    </p>
                 </div>
             </div>
         );
     }
 
-    // 單次鼓勵 (金幣)
+    // 單次鼓勵 (銅幣)
     return (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-20 animate-fade-in pointer-events-none">
-            <div className="flex flex-col items-center justify-center animate-bounce-in transform scale-125 bg-white/95 p-8 rounded-[3rem] shadow-2xl border-4 border-yellow-400">
-                <img 
-                    src={ASSETS.SINGLE_IMAGE} 
-                    alt="Gold Coin" 
-                    className="w-48 h-48 object-contain drop-shadow-xl mb-4"
-                />
-                <h2 className="text-6xl font-black text-yellow-600 drop-shadow-sm tracking-wider">
-                    + 3 金幣
+            <div className="flex flex-col items-center justify-center animate-bounce-in transform scale-125 bg-white/95 p-8 rounded-[3rem] shadow-2xl border-4 border-orange-400">
+                <img src={ASSETS.BRONZE_IMAGE} alt="Bronze Coin" className="w-48 h-48 object-contain drop-shadow-xl mb-4" />
+                <h2 className="text-6xl font-black text-orange-700 drop-shadow-sm tracking-wider">
+                    + 10 銅幣
                 </h2>
             </div>
         </div>
     );
 };
 
-// --- 學生存簿 Hook ---
+// --- 學生存簿 Hook (三幣制) ---
 const useStudentBank = (db, userId, isAuthReady, isOffline) => {
     const [bankData, setBankData] = useState({});
     
     useEffect(() => {
         const initialData = {};
-        STUDENT_LIST.forEach(s => initialData[s.id] = { coins: 0, ingots: 0 });
+        STUDENT_LIST.forEach(s => initialData[s.id] = { bronze: 0, silver: 0, gold: 0 });
         setBankData(prev => ({...initialData, ...prev}));
 
         if (isOffline) return;
@@ -195,35 +183,33 @@ const useStudentBank = (db, userId, isAuthReady, isOffline) => {
         return () => unsubscribe();
     }, [isAuthReady, db, isOffline]);
 
-    const updateBankBalance = useCallback(async (studentId, coinsToAdd, ingotsToAdd) => {
-        // 計算函數 (含自動進位)
-        const calculateNewBalance = (currentCoins, currentIngots, addCoins, addIngots) => {
-            let newCoins = currentCoins + addCoins;
-            let newIngots = currentIngots + addIngots;
+    // 更新餘額 (通用函數)
+    const updateBankBalance = useCallback(async (studentId, addBronze, addSilver, addGold) => {
+        const calculateNewBalance = (current, adds) => {
+            let newBronze = (current.bronze || 0) + adds.bronze;
+            let newSilver = (current.silver || 0) + adds.silver;
+            let newGold = (current.gold || 0) + adds.gold;
 
             // 歸零邏輯
-            if (addCoins === 'RESET') newCoins = 0;
-            if (addIngots === 'RESET') newIngots = 0;
+            if (adds.bronze === 'RESET') newBronze = 0;
+            if (adds.silver === 'RESET') newSilver = 0;
+            if (adds.gold === 'RESET') newGold = 0;
 
-            // 自動進位: 30 coins -> 1 ingot (非歸零時)
-            if (addCoins !== 'RESET' && addIngots !== 'RESET') {
-                while (newCoins >= 30) {
-                    newCoins -= 30;
-                    newIngots += 1;
-                }
-            }
-            
-            if (newCoins < 0) newCoins = 0;
-            if (newIngots < 0) newIngots = 0;
-
-            return { newCoins, newIngots };
+            // 防止負數
+            return {
+                bronze: Math.max(0, newBronze),
+                silver: Math.max(0, newSilver),
+                gold: Math.max(0, newGold)
+            };
         };
+
+        const adds = { bronze: addBronze, silver: addSilver, gold: addGold };
 
         // 1. 樂觀更新
         setBankData(prev => {
-            const current = prev[studentId] || { coins: 0, ingots: 0 };
-            const { newCoins, newIngots } = calculateNewBalance(current.coins || 0, current.ingots || 0, coinsToAdd, ingotsToAdd);
-            return { ...prev, [studentId]: { coins: newCoins, ingots: newIngots } };
+            const current = prev[studentId] || { bronze: 0, silver: 0, gold: 0 };
+            const newState = calculateNewBalance(current, adds);
+            return { ...prev, [studentId]: newState };
         });
 
         // 2. 寫入資料庫
@@ -231,18 +217,19 @@ const useStudentBank = (db, userId, isAuthReady, isOffline) => {
         try {
              const docRef = doc(db, getBankCollectionPath(), studentId);
              const docSnap = await getDoc(docRef);
-             let currentCoins = 0;
-             let currentIngots = 0;
+             let current = { bronze: 0, silver: 0, gold: 0 };
              if (docSnap.exists()) {
                  const data = docSnap.data();
-                 currentCoins = Number(data.coins) || 0;
-                 currentIngots = Number(data.ingots) || 0;
+                 current = {
+                     bronze: Number(data.bronze) || 0,
+                     silver: Number(data.silver) || 0,
+                     gold: Number(data.gold) || 0
+                 };
              }
-             const { newCoins, newIngots } = calculateNewBalance(currentCoins, currentIngots, coinsToAdd, ingotsToAdd);
+             const newState = calculateNewBalance(current, adds);
              
              await setDoc(docRef, { 
-                 coins: newCoins, 
-                 ingots: newIngots,
+                 ...newState,
                  lastUpdated: serverTimestamp() 
              }, { merge: true });
         } catch (e) {
@@ -256,63 +243,54 @@ const useStudentBank = (db, userId, isAuthReady, isOffline) => {
 // --- 學生存簿 Modal (歸零按鈕) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance }) => {
     const sortedStudents = [...STUDENT_LIST].sort((a, b) => {
-        const bankA = bankData[a.id] || { coins: 0, ingots: 0 };
-        const bankB = bankData[b.id] || { coins: 0, ingots: 0 };
-        if (bankA.ingots !== bankB.ingots) return bankB.ingots - bankA.ingots;
-        if (bankA.coins !== bankB.coins) return bankB.coins - bankA.coins;
+        const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 };
+        const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 };
+        // 排序：金 -> 銀 -> 銅
+        if (bankA.gold !== bankB.gold) return bankB.gold - bankA.gold;
+        if (bankA.silver !== bankB.silver) return bankB.silver - bankA.silver;
+        if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze;
         return parseInt(a.id) - parseInt(b.id);
     });
 
-    // 處理歸零
     const handleReset = (studentId, type) => {
-        const item = type === 'COIN' ? '金幣' : '元寶';
-        if (!window.confirm(`確定要將此學生的【${item}】全部歸零嗎？`)) return;
+        const labels = { 'BRONZE': '銅幣', 'SILVER': '銀幣', 'GOLD': '金幣' };
+        if (!window.confirm(`確定要將此學生的【${labels[type]}】全部歸零嗎？`)) return;
 
-        if (type === 'COIN') {
-            onUpdateBalance(studentId, 'RESET', 0);
-        } else {
-            onUpdateBalance(studentId, 0, 'RESET');
-        }
+        if (type === 'BRONZE') onUpdateBalance(studentId, 'RESET', 0, 0);
+        if (type === 'SILVER') onUpdateBalance(studentId, 0, 'RESET', 0);
+        if (type === 'GOLD') onUpdateBalance(studentId, 0, 0, 'RESET');
     };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-6xl h-[90vh] flex flex-col border border-green-200">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-7xl h-[90vh] flex flex-col border border-green-200">
                 <div className="flex justify-between items-center mb-6 border-b border-green-200 pb-4">
                     <h3 className="text-4xl font-bold text-gray-800 flex items-center">
-                        <img src={ASSETS.SINGLE_IMAGE} className="w-12 h-12 mr-3" alt="Icon" />
+                        <img src={ASSETS.GOLD_IMAGE} className="w-12 h-12 mr-3" alt="Icon" />
                         訂正存簿
                     </h3>
-                    <div className="flex items-center gap-4">
-                        <div className="text-xl text-gray-500 font-bold bg-gray-100 px-4 py-2 rounded-lg border border-gray-300">
-                            匯率：30 金幣 <span className="text-xl mx-1">➡️</span> 1 元寶 (自動進位)
-                        </div>
-                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200">
-                            <X className="w-8 h-8" />
-                        </button>
-                    </div>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+                        <X className="w-8 h-8" />
+                    </button>
                 </div>
 
                 <div className="flex-1 overflow-auto bg-green-50 rounded-xl p-4 border border-green-100">
                     <table className="min-w-full divide-y divide-green-200">
                         <thead className="bg-green-100 sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="px-4 py-4 text-2xl font-bold text-green-900 w-20 text-center">排名</th>
+                                <th className="px-4 py-4 text-2xl font-bold text-green-900 w-20 text-center">名次</th>
                                 <th className="px-4 py-4 text-2xl font-bold text-green-900 w-24 text-center">座號</th>
                                 <th className="px-4 py-4 text-2xl font-bold text-green-900 w-32 text-center">姓名</th>
-                                <th className="px-4 py-4 text-2xl font-bold text-green-900 text-center w-48">持有元寶</th>
-                                <th className="px-4 py-4 text-2xl font-bold text-green-900 text-center w-48">持有金幣</th>
+                                <th className="px-4 py-4 text-2xl font-bold text-yellow-600 text-center">金幣 (Gold)</th>
+                                <th className="px-4 py-4 text-2xl font-bold text-gray-500 text-center">銀幣 (Silver)</th>
+                                <th className="px-4 py-4 text-2xl font-bold text-orange-700 text-center">銅幣 (Bronze)</th>
                                 <th className="px-4 py-4 text-2xl font-bold text-green-900 text-center">操作 (歸零)</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-green-100">
                             {sortedStudents.map((student, index) => {
-                                const data = bankData[student.id] || { coins: 0, ingots: 0 };
-                                let rankIcon = null;
-                                if (index === 0) rankIcon = "🥇";
-                                else if (index === 1) rankIcon = "🥈";
-                                else if (index === 2) rankIcon = "🥉";
-                                else rankIcon = index + 1;
+                                const data = bankData[student.id] || { bronze: 0, silver: 0, gold: 0 };
+                                let rankIcon = index < 3 ? ["🥇","🥈","🥉"][index] : index + 1;
 
                                 return (
                                     <tr key={student.id} className="hover:bg-green-50 transition duration-100">
@@ -320,39 +298,30 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance }) => {
                                         <td className="px-4 py-4 text-2xl text-gray-600 font-medium text-center">{student.id}</td>
                                         <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center">{student.name[0] + 'O' + student.name.slice(2)}</td>
                                         
-                                        {/* 元寶顯示 */}
                                         <td className="px-4 py-4 text-center">
-                                            <div className="inline-flex items-center justify-center bg-yellow-100 border border-yellow-300 px-4 py-2 rounded-full shadow-sm w-full max-w-[140px]">
-                                                <img src={ASSETS.ALL_CLEAR_IMAGE} className="w-8 h-8 mr-2" alt="Ingot" />
-                                                <span className="text-3xl font-black text-yellow-700">{data.ingots}</span>
+                                            <div className="inline-flex items-center justify-center bg-yellow-50 border border-yellow-200 px-4 py-2 rounded-full shadow-sm min-w-[100px]">
+                                                <img src={ASSETS.GOLD_IMAGE} className="w-8 h-8 mr-2" alt="Gold" />
+                                                <span className="text-3xl font-black text-yellow-600">{data.gold}</span>
                                             </div>
                                         </td>
-                                        
-                                        {/* 金幣顯示 */}
                                         <td className="px-4 py-4 text-center">
-                                             <div className="inline-flex items-center justify-center bg-gray-100 border border-gray-300 px-4 py-2 rounded-full shadow-sm w-full max-w-[140px]">
-                                                <img src={ASSETS.SINGLE_IMAGE} className="w-6 h-6 mr-2" alt="Coin" />
-                                                <span className="text-2xl font-bold text-gray-700">{data.coins}</span>
+                                            <div className="inline-flex items-center justify-center bg-gray-50 border border-gray-200 px-4 py-2 rounded-full shadow-sm min-w-[100px]">
+                                                <img src={ASSETS.SILVER_IMAGE} className="w-8 h-8 mr-2" alt="Silver" />
+                                                <span className="text-3xl font-black text-gray-600">{data.silver}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                             <div className="inline-flex items-center justify-center bg-orange-50 border border-orange-200 px-4 py-2 rounded-full shadow-sm min-w-[100px]">
+                                                <img src={ASSETS.BRONZE_IMAGE} className="w-8 h-8 mr-2" alt="Bronze" />
+                                                <span className="text-3xl font-bold text-orange-700">{data.bronze}</span>
                                             </div>
                                         </td>
 
-                                        {/* 歸零按鈕區 */}
                                         <td className="px-4 py-4 text-center">
-                                            <div className="flex items-center justify-center gap-3">
-                                                <button 
-                                                    onClick={() => handleReset(student.id, 'COIN')}
-                                                    className="flex items-center px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition shadow-sm text-lg font-bold border border-red-200"
-                                                    title="清空金幣"
-                                                >
-                                                    <Eraser className="w-5 h-5 mr-1" /> 清空金幣
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleReset(student.id, 'INGOT')}
-                                                    className="flex items-center px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition shadow-sm text-lg font-bold border border-red-200"
-                                                    title="清空元寶"
-                                                >
-                                                    <Eraser className="w-5 h-5 mr-1" /> 清空元寶
-                                                </button>
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button onClick={() => handleReset(student.id, 'GOLD')} className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg" title="歸零金幣"><Eraser className="w-6 h-6"/></button>
+                                                <button onClick={() => handleReset(student.id, 'SILVER')} className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg" title="歸零銀幣"><Eraser className="w-6 h-6"/></button>
+                                                <button onClick={() => handleReset(student.id, 'BRONZE')} className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg" title="歸零銅幣"><Eraser className="w-6 h-6"/></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -361,11 +330,8 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance }) => {
                         </tbody>
                     </table>
                 </div>
-                
                 <div className="mt-4 pt-4 border-t border-green-200 text-right">
-                      <button onClick={onClose} className="bg-green-600 text-white py-3 px-8 rounded-xl hover:bg-green-700 transition text-2xl font-bold shadow-md">
-                        關閉存簿
-                    </button>
+                      <button onClick={onClose} className="bg-green-600 text-white py-3 px-8 rounded-xl hover:bg-green-700 transition text-2xl font-bold shadow-md">關閉存簿</button>
                 </div>
             </div>
         </div>
@@ -455,7 +421,69 @@ const App = () => {
   const monthlyStudentStats = useMemo(() => { const stats = {}; STUDENT_LIST.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; STUDENT_LIST.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months]);
   const handleEditAssignmentName = useCallback(async (assignmentId, newAssignmentName) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以修改資料。"); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => a.id === assignmentId ? { ...a, assignmentName: newAssignmentName } : a); }); return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentId); await setDoc(docRef, { assignmentName: newAssignmentName }, { merge: true }); } catch (e) { console.error("Error editing assignment name: ", e); setAlertMessage("編輯作業名稱失敗（權限不足或網路錯誤）。"); } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
   const handleDeleteAssignment = useCallback(async (assignmentId, assignmentName, isForced = false) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以刪除資料。"); return; } const assignmentList = allAssignmentsByDate[selectedDisplayDate] || []; const targetAssignment = assignmentList.find(a => a.id === assignmentId); if (targetAssignment) { const submissionStatus = targetAssignment.submissionStatus || {}; const hasIncompleteWork = STUDENT_LIST.some(student => submissionStatus[student.id] === false); if (hasIncompleteWork && !isForced) { alert(`無法刪除作業「${assignmentName}」：\n\n尚有學生未完成此項作業的訂正！\n\n如需【強制刪除】，請在點擊刪除按鈕時按住 Control (Ctrl/Cmd) 鍵。`); return; } } if (!isForced && !window.confirm(`確定要刪除 ${assignmentName} 嗎？此操作不可逆轉。`)) { return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; if (newMap[selectedDisplayDate]) { newMap[selectedDisplayDate] = newMap[selectedDisplayDate].filter(a => a.id !== assignmentId); } return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentId); await deleteDoc(docRef); } catch (e) { console.error("Error deleting assignment: ", e); setAlertMessage("刪除作業項目失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, setAlertMessage, allAssignmentsByDate, isOffline, authMode]);
-  const handleBatchAddDefaultAssignments = useCallback(async (targetDate, defaultCategories) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增日期。"); return; } if (isOffline) { const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); const newAssignments = []; defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { newAssignments.push({ id: `offline-assign-${Date.now()}-${Math.random()}`, assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }); } }); setAllAssignmentsByDate(prev => ({ ...prev, [targetDate]: [...(prev[targetDate] || []), ...newAssignments] })); return; } if (!db || !userId || !targetDate || defaultCategories.length === 0) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const batch = writeBatch(db); const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); let assignmentsAdded = 0; defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { const newDocRef = doc(assignmentCollection); batch.set(newDocRef, { assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); assignmentsAdded++; } }); if (assignmentsAdded > 0) { await batch.commit(); } } catch (e) { console.error("Error batch adding assignments: ", e); if (e.message && e.message.includes("Premature end of stream")) { setAlertMessage("自動新增作業失敗：網路連線中斷，請重新整理頁面。"); } else { setAlertMessage("自動新增作業失敗，請稍後再試。"); } } finally { setLoading(false); } }, [db, userId, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
+  
+  // --- New Logic: Add Date & Check Yesterday ---
+  const handleBatchAddDefaultAssignments = useCallback(async (targetDate, defaultCategories) => { 
+      if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增日期。"); return; } 
+      
+      // 1. 執行新增日期 (Old Logic)
+      if (isOffline) { 
+          const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); 
+          const newAssignments = []; 
+          defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { newAssignments.push({ id: `offline-assign-${Date.now()}-${Math.random()}`, assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }); } }); 
+          setAllAssignmentsByDate(prev => ({ ...prev, [targetDate]: [...(prev[targetDate] || []), ...newAssignments] })); 
+          // Offline simplified previous check logic could be added here if needed, but skipping for brevity
+          return; 
+      } 
+      
+      if (!db || !userId || !targetDate || defaultCategories.length === 0) return; 
+      setLoading(true); 
+      try { 
+          const path = getAssignmentCollectionPath(); 
+          const assignmentCollection = collection(db, path); 
+          const batch = writeBatch(db); 
+          const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); 
+          let assignmentsAdded = 0; 
+          defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { const newDocRef = doc(assignmentCollection); batch.set(newDocRef, { assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); assignmentsAdded++; } }); 
+          if (assignmentsAdded > 0) { await batch.commit(); } 
+
+          // 2. 自動檢查前一天 (New Logic)
+          const sortedDates = Object.keys(allAssignmentsByDate).sort();
+          // 找到比 targetDate 小的最後一個日期 (即前一個工作日/上課日)
+          const previousDates = sortedDates.filter(d => d < targetDate);
+          const lastDate = previousDates.length > 0 ? previousDates[previousDates.length - 1] : null;
+
+          if (lastDate) {
+              const prevAssignments = allAssignmentsByDate[lastDate];
+              let rewardCount = 0;
+              
+              // 檢查每位學生
+              STUDENT_LIST.forEach(student => {
+                  if (prevAssignments && prevAssignments.length > 0) {
+                      // 檢查該生當天是否全綠 (undefined 或 true 皆視為準時，false/late 為否)
+                      // 但通常未建立視為準時。若要嚴格，必須所有項目 explicit true? 
+                      // 這裡沿用顯示邏輯：只要沒有 false 或 late 就算全綠
+                      const isAllGreen = prevAssignments.every(a => {
+                          const status = a.submissionStatus[student.id];
+                          return status !== false && status !== 'late';
+                      });
+
+                      if (isAllGreen) {
+                          // 發放 2 銀幣
+                          updateBankBalance(student.id, 0, 2, 0); 
+                          rewardCount++;
+                      }
+                  }
+              });
+
+              if (rewardCount > 0) {
+                  alert(`📅 日期新增成功！\n\n檢測到 ${lastDate} 有 ${rewardCount} 位學生表現優異（全綠燈），\n已自動發放【2 枚銀幣】作為獎勵！`);
+              }
+          }
+
+      } catch (e) { console.error("Error batch adding assignments: ", e); setAlertMessage("自動新增作業失敗，請稍後再試。"); } finally { setLoading(false); } 
+  }, [db, userId, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode, updateBankBalance]);
+
   const handleNewAssignmentDateChange = useCallback((e) => { const newDate = e.target.value; setNewAssignmentDate(newDate); }, []);
   const handleAddNewDate = useCallback(async () => { const targetDate = newAssignmentDate; if (!targetDate || categories.length === 0) { setAlertMessage("請選擇一個日期並確保科目模板清單不為空。"); return; } if (allAssignmentsByDate[targetDate]) { setAlertMessage(`日期 ${targetDate} 已經有作業紀錄了。請直接選擇查看。`); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); return; } await handleBatchAddDefaultAssignments(targetDate, categories); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); }, [newAssignmentDate, categories, allAssignmentsByDate, handleBatchAddDefaultAssignments]);
   const handleAddNewAssignment = useCallback(async () => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增作業。"); return; } if (!selectedDisplayDate) { setAlertMessage("請先選擇一個日期。"); return; } if (isOffline) { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newAssignment = { id: `offline-single-${Date.now()}`, assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }; setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: [...(prev[selectedDisplayDate] || []), newAssignment] })); return; } if (!db || !userId) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newDocRef = doc(assignmentCollection); await setDoc(newDocRef, { assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); } catch (e) { console.error("Error adding new assignment:", e); setAlertMessage("新增單項作業失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
@@ -474,7 +502,7 @@ const App = () => {
         newStatus = false; // Green -> Red
         setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; });
     } else if (currentStatus === false) {
-        newStatus = 'late'; // Red -> Yellow
+        newStatus = 'late'; // Red -> Yellow (Correction)
         setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; });
     } else { // 'late'
         const currentCount = unlockClicks[cellKey] || 0;
@@ -489,13 +517,13 @@ const App = () => {
     }
 
     if (shouldUpdateDb) {
-        // --- 獎勵判斷邏輯 ---
-        let coinsToAdd = 0;
-        let ingotsToAdd = 0;
+        // --- 獎勵判斷邏輯 (v15) ---
+        let bronzeToAdd = 0;
+        let goldToAdd = 0;
 
-        // 1. 金幣獎勵：只在 紅 -> 黃 (訂正完成) 時給予
+        // 1. 訂正獎勵：紅 -> 黃 (給予 10 銅幣)
         if (newStatus === 'late' && currentStatus === false) {
-            coinsToAdd = 3; 
+            bronzeToAdd = 10; 
             
             // 計算目前缺交數 (扣掉這一個之前)
             let currentMissingCount = 0;
@@ -506,42 +534,20 @@ const App = () => {
                 });
             });
 
-            // 如果原本缺交數是 1，扣掉這一個就變 0，觸發「全部清零」
+            // 如果原本缺交數是 1，扣掉這一個就變 0，觸發「全部清零」 (+1 金幣)
             if (currentMissingCount === 1) {
-                ingotsToAdd = 1;
-                setRewardState({ type: 'ALL_CLEARED_RED' }); // 滿版慶祝
+                goldToAdd = 1;
+                setRewardState({ type: 'GOLD_CLEAR' }); // 滿版慶祝
             } else {
-                setRewardState({ type: 'SINGLE' }); // 單次鼓勵
+                setRewardState({ type: 'BRONZE' }); // 單次鼓勵
             }
         } 
-
-        // 2. 元寶獎勵：完美全綠燈判定 (Yellow -> Green)
-        if (newStatus === true) {
-            const dailyAssignments = allAssignmentsByDate[selectedDisplayDate] || [];
-            let isAllGreen = true;
-
-            for (const assignment of dailyAssignments) {
-                // 檢查當前正在操作的項目 (因為 DB 還沒更新，要用 newStatus 判斷)
-                if (assignment.assignmentName === assignmentName) {
-                    if (newStatus !== true) { isAllGreen = false; break; }
-                } else {
-                    // 檢查其他項目 (使用現有狀態)
-                    const s = assignment.submissionStatus[studentId];
-                    // 只要有一個不是 true (Green)，就不算全綠
-                    // 注意：undefined 預設也是 true
-                    if (s === false || s === 'late') { isAllGreen = false; break; }
-                }
-            }
-
-            if (isAllGreen) {
-                ingotsToAdd = 1;
-                // *靜默發送*：不觸發 setRewardState，僅存簿增加
-            }
-        }
+        
+        // (Yellow -> Green 不給獎勵，符合需求)
 
         // 更新存簿
-        if (coinsToAdd > 0 || ingotsToAdd > 0) {
-            updateBankBalance(studentId, coinsToAdd, ingotsToAdd);
+        if (bronzeToAdd > 0 || goldToAdd > 0) {
+            updateBankBalance(studentId, bronzeToAdd, 0, goldToAdd);
         }
 
         if (isOffline) {
