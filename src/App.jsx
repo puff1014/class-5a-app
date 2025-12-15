@@ -27,11 +27,11 @@ import {
     BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Check, 
     RefreshCw, WifiOff, Lock, Settings, LogOut, FileText, AlertCircle, 
     Eye, EyeOff, Shield, User, Key, Edit, Pencil, Star, PartyPopper,
-    Coins, Eraser, Moon, PlusCircle // 新增 PlusCircle 圖示
+    Coins, Eraser, Moon, PlusCircle 
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v15.6.0 - 教師補發代幣功能版'; 
+const VERSION = 'v15.7.0 - 最終慶祝優化版'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -110,16 +110,18 @@ const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assig
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 
-// --- 獎勵回饋元件 ---
+// --- 獎勵回饋元件 (已修正全部完成的顯示邏輯) ---
 const RewardOverlay = ({ type, onClose }) => {
     const audioRef = useRef(null);
 
     useEffect(() => {
         const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
+        // 全部清零顯示 6 秒，單次顯示 1 秒
         const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
 
         const audio = new Audio(soundUrl);
-        audio.volume = 0.8; 
+        audio.volume = 1.0; // 音量最大
+        
         const playPromise = audio.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
@@ -144,31 +146,33 @@ const RewardOverlay = ({ type, onClose }) => {
     if (type === 'GOLD_CLEAR') {
         return (
             <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 animate-fade-in overflow-hidden">
+                {/* 1. 五彩彩帶背景 */}
                 <div className="absolute inset-0 opacity-70 pointer-events-none">
                     <img src={ASSETS.CONFETTI_BG} alt="Confetti" className="w-full h-full object-cover" />
                 </div>
+                
+                {/* 2. 背景光暈 */}
                 <div className="absolute inset-0 flex justify-center items-center opacity-70">
-                     <div className="w-[800px] h-[800px] bg-yellow-500 rounded-full blur-[120px] animate-pulse"></div>
+                     <div className="w-[800px] h-[800px] bg-yellow-500 rounded-full blur-[150px] animate-pulse"></div>
                 </div>
+                
+                {/* 3. 核心內容：金幣 + 文字 */}
                 <div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in text-center p-8">
-                    <div className="mb-12 drop-shadow-[0_0_50px_rgba(255,223,0,0.8)] animate-pulse">
-                        <CoinIcon type="GOLD" size="w-64 h-64" innerSize="w-32 h-32" />
+                    {/* 一枚大金幣 (彎月圖案) */}
+                    <div className="mb-12 drop-shadow-[0_0_50px_rgba(255,223,0,0.8)] animate-pulse transform scale-[2.5]">
+                        <CoinIcon type="GOLD" size="w-32 h-32" innerSize="w-20 h-20" />
                     </div>
-                    <h2 className="text-6xl md:text-9xl font-black text-yellow-300 drop-shadow-[0_4px_4px_rgba(0,0,0,1)] tracking-widest leading-tight">
-                        恭喜！<br/>全部清零！
+                    
+                    {/* 鼓勵文字 */}
+                    <h2 className="text-6xl md:text-8xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] tracking-widest leading-snug">
+                        恭喜你🎉<br/>完成所有作業😁<br/>你真棒👍
                     </h2>
-                    <div className="mt-10 flex items-center gap-4 bg-green-700/90 px-10 py-6 rounded-full border-4 border-yellow-400 shadow-2xl backdrop-blur-sm transform hover:scale-105 transition-transform">
-                        <span className="text-6xl text-white font-bold">獲得 1</span>
-                        <div className="mx-2">
-                            <CoinIcon type="GOLD" size="w-16 h-16" />
-                        </div>
-                        <span className="text-6xl text-white font-bold">金幣</span>
-                    </div>
                 </div>
             </div>
         );
     }
 
+    // 單次鼓勵 (銅幣)
     return (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-30 animate-fade-in pointer-events-none">
             <div className="flex flex-col gap-6 items-center justify-center animate-bounce-in transform scale-110 bg-white/95 p-12 rounded-[3rem] shadow-2xl border-8 border-orange-400 min-w-[320px]">
@@ -226,12 +230,10 @@ const useStudentBank = (db, isAuthReady, isOffline) => {
             let newSilver = (current.silver || 0) + adds.silver;
             let newGold = (current.gold || 0) + adds.gold;
 
-            // 歸零邏輯
             if (adds.bronze === 'RESET') newBronze = 0;
             if (adds.silver === 'RESET') newSilver = 0;
             if (adds.gold === 'RESET') newGold = 0;
 
-            // 自動進位 (100銅->1銀, 10銀->1金)，僅在非歸零時執行
             if (adds.bronze !== 'RESET' && adds.silver !== 'RESET' && adds.gold !== 'RESET') {
                 while (newBronze >= 100) { newBronze -= 100; newSilver += 1; }
                 while (newSilver >= 10) { newSilver -= 10; newGold += 1; }
@@ -279,7 +281,7 @@ const useStudentBank = (db, isAuthReady, isOffline) => {
     return { bankData, updateBankBalance };
 };
 
-// --- 學生存簿 Modal (新增補發功能) ---
+// --- 學生存簿 Modal ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode }) => {
     const sortedStudents = [...STUDENT_LIST].sort((a, b) => {
         const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 };
@@ -299,7 +301,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode }) => {
         if (type === 'GOLD') onUpdateBalance(studentId, 0, 0, 'RESET');
     };
 
-    // 新增：補發代幣邏輯
     const handleManualAdd = (studentId, type) => {
         const labels = { 'BRONZE': '銅幣', 'SILVER': '銀幣', 'GOLD': '金幣' };
         const input = prompt(`【補發模式】\n請輸入要補發給學生的【${labels[type]}】數量：\n(輸入負數可進行扣除)`, "1");
@@ -362,7 +363,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode }) => {
                                 <th className="px-4 py-4 text-2xl font-bold text-yellow-600 text-center">金幣</th>
                                 <th className="px-4 py-4 text-2xl font-bold text-gray-500 text-center">銀幣</th>
                                 <th className="px-4 py-4 text-2xl font-bold text-orange-700 text-center">銅幣</th>
-                                {/* 只有 Admin 才顯示操作欄位 */}
                                 {authMode === 'ADMIN' && (
                                     <th className="px-4 py-4 text-2xl font-bold text-green-900 text-center">操作 (補發/歸零)</th>
                                 )}
@@ -398,23 +398,17 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode }) => {
                                             </div>
                                         </td>
 
-                                        {/* 只有 Admin 才能操作 */}
                                         {authMode === 'ADMIN' && (
                                             <td className="px-4 py-4 text-center">
                                                 <div className="flex flex-row items-center justify-center gap-4">
-                                                    {/* 金幣操作 */}
                                                     <div className="flex gap-1 items-center bg-yellow-50 p-1 rounded-lg border border-yellow-200">
                                                         <button onClick={() => handleManualAdd(student.id, 'GOLD')} className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg shadow-sm" title="補發金幣"><PlusCircle className="w-5 h-5"/></button>
                                                         <button onClick={() => handleReset(student.id, 'GOLD')} className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg shadow-sm" title="歸零金幣"><Eraser className="w-5 h-5"/></button>
                                                     </div>
-                                                    
-                                                    {/* 銀幣操作 */}
                                                     <div className="flex gap-1 items-center bg-gray-50 p-1 rounded-lg border border-gray-200">
                                                         <button onClick={() => handleManualAdd(student.id, 'SILVER')} className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg shadow-sm" title="補發銀幣"><PlusCircle className="w-5 h-5"/></button>
                                                         <button onClick={() => handleReset(student.id, 'SILVER')} className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg shadow-sm" title="歸零銀幣"><Eraser className="w-5 h-5"/></button>
                                                     </div>
-
-                                                    {/* 銅幣操作 */}
                                                     <div className="flex gap-1 items-center bg-orange-50 p-1 rounded-lg border border-orange-200">
                                                         <button onClick={() => handleManualAdd(student.id, 'BRONZE')} className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg shadow-sm" title="補發銅幣"><PlusCircle className="w-5 h-5"/></button>
                                                         <button onClick={() => handleReset(student.id, 'BRONZE')} className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg shadow-sm" title="歸零銅幣"><Eraser className="w-5 h-5"/></button>
@@ -613,7 +607,7 @@ const App = () => {
     }
 
     if (shouldUpdateDb) {
-        // --- 獎勵判斷邏輯 (v15.6) ---
+        // --- 獎勵判斷邏輯 (v15.7) ---
         let bronzeToAdd = 0;
         let goldToAdd = 0;
         
