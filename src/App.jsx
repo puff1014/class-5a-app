@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v15.7.0 - 最終慶祝優化版'; 
+const VERSION = 'v15.8.0 - 音樂穩定修復版 (Stable Audio)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -46,10 +46,15 @@ const firebaseConfig = {
   measurementId: "G-8VGE0WKD01"
 };
 
-// --- 音效與圖片資源設定 ---
+// --- 音效與圖片資源設定 (更新音效連結) ---
 const ASSETS = {
-    BRONZE_SOUND: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3', 
-    GOLD_SOUND: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', 
+    // 銅幣音效 (短促)
+    BRONZE_SOUND: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3', 
+    
+    // 慶祝音樂 (勝利號角，更穩定的來源)
+    GOLD_SOUND: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3', 
+    
+    // 五彩彩帶背景 GIF
     CONFETTI_BG: 'https://i.gifer.com/origin/e2/e29a997a3a304523b087050074697df0_w200.gif'
 };
 
@@ -110,60 +115,46 @@ const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assig
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 
-// --- 獎勵回饋元件 (已修正全部完成的顯示邏輯) ---
+// --- 獎勵回饋元件 (改用 <audio> 標籤確保播放) ---
 const RewardOverlay = ({ type, onClose }) => {
-    const audioRef = useRef(null);
+    // 判斷音效與顯示時間
+    const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
+    // 全部清零顯示 6 秒，單次顯示 1 秒
+    const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
 
     useEffect(() => {
-        const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
-        // 全部清零顯示 6 秒，單次顯示 1 秒
-        const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
-
-        const audio = new Audio(soundUrl);
-        audio.volume = 1.0; // 音量最大
-        
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                console.warn("Audio play blocked by browser:", error);
-            });
-        }
-        audioRef.current = audio;
-
+        // 設定自動關閉
         const timer = setTimeout(() => {
             onClose();
         }, duration);
 
-        return () => {
-            clearTimeout(timer);
-            if (audioRef.current) {
-                audioRef.current.pause(); 
-                audioRef.current = null;
-            }
-        };
-    }, [type, onClose]);
+        return () => clearTimeout(timer);
+    }, [duration, onClose]);
 
+    // 全部清零 (滿版彩帶 + 巨大金幣 + 純文字)
     if (type === 'GOLD_CLEAR') {
         return (
             <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 animate-fade-in overflow-hidden">
-                {/* 1. 五彩彩帶背景 */}
+                {/* 隱藏的 Audio 標籤，利用 HTML5 原生播放能力 */}
+                <audio src={soundUrl} autoPlay />
+                
+                {/* 1. 滿版彩帶背景 */}
                 <div className="absolute inset-0 opacity-70 pointer-events-none">
                     <img src={ASSETS.CONFETTI_BG} alt="Confetti" className="w-full h-full object-cover" />
                 </div>
                 
                 {/* 2. 背景光暈 */}
-                <div className="absolute inset-0 flex justify-center items-center opacity-70">
-                     <div className="w-[800px] h-[800px] bg-yellow-500 rounded-full blur-[150px] animate-pulse"></div>
+                <div className="absolute inset-0 flex justify-center items-center opacity-60">
+                     <div className="w-[600px] h-[600px] bg-yellow-500 rounded-full blur-[150px] animate-pulse"></div>
                 </div>
                 
-                {/* 3. 核心內容：金幣 + 文字 */}
                 <div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in text-center p-8">
-                    {/* 一枚大金幣 (彎月圖案) */}
-                    <div className="mb-12 drop-shadow-[0_0_50px_rgba(255,223,0,0.8)] animate-pulse transform scale-[2.5]">
+                    {/* 3. 巨大金幣 (彎月) */}
+                    <div className="mb-12 drop-shadow-[0_0_60px_rgba(255,223,0,0.8)] animate-pulse transform scale-[2.5]">
                         <CoinIcon type="GOLD" size="w-32 h-32" innerSize="w-20 h-20" />
                     </div>
                     
-                    {/* 鼓勵文字 */}
+                    {/* 4. 更新後的文字 */}
                     <h2 className="text-6xl md:text-8xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] tracking-widest leading-snug">
                         恭喜你🎉<br/>完成所有作業😁<br/>你真棒👍
                     </h2>
@@ -175,6 +166,7 @@ const RewardOverlay = ({ type, onClose }) => {
     // 單次鼓勵 (銅幣)
     return (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-30 animate-fade-in pointer-events-none">
+            <audio src={soundUrl} autoPlay />
             <div className="flex flex-col gap-6 items-center justify-center animate-bounce-in transform scale-110 bg-white/95 p-12 rounded-[3rem] shadow-2xl border-8 border-orange-400 min-w-[320px]">
                 <CoinIcon type="BRONZE" size="w-40 h-40" textSize="text-8xl" />
                 <h2 className="text-7xl font-black text-orange-700 drop-shadow-sm tracking-wider whitespace-nowrap">
