@@ -29,11 +29,11 @@ import {
     BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Check, 
     RefreshCw, WifiOff, Lock, Settings, LogOut, FileText, AlertCircle, 
     Eye, EyeOff, Shield, User, Key, Edit, Pencil, Star, PartyPopper,
-    Coins, Eraser, Moon, PlusCircle, TrendingUp, TrendingDown, Activity
+    Coins, Eraser, Moon, PlusCircle, TrendingUp, TrendingDown, Activity, BarChart2
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v16.2.1 - 正式版 (Final Release)'; 
+const VERSION = 'v16.3.0 - 雙軌圖表升級版 (Stacked Bar)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -79,7 +79,7 @@ const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w
     );
 };
 
-// --- 預設學生名單 (當作離線備份) ---
+// --- 預設學生名單 ---
 const DEFAULT_STUDENTS = [
   { id: '1', name: '陳昕佑' },
   { id: '2', name: '徐偉綸' },
@@ -112,33 +112,27 @@ const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assig
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 
-// --- [新] SVG 折線圖元件 (無需依賴套件) ---
+// --- [新] SVG 折線圖元件 (模式 A 使用) ---
 const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
     if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
 
     const padding = 40;
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
-    
-    // Y軸最大值固定為 100 分
     const maxY = 100;
-    const minY = 0;
 
-    // 計算座標點
     const points = data.map((d, i) => {
         const x = (i / (data.length - 1)) * chartWidth + padding;
-        // 確保數值不為 NaN
         const safeValue = isNaN(d.value) ? 0 : d.value;
         const y = chartHeight - (safeValue / maxY) * chartHeight + padding;
         return `${x},${y}`;
     }).join(' ');
 
-    // 輔助線 (0, 60, 80, 100)
     const gridLines = [0, 60, 80, 100].map(val => {
         const y = chartHeight - (val / maxY) * chartHeight + padding;
-        let color = "#e5e7eb"; // gray-200
-        if(val === 60) color = "#fca5a5"; // red-300 (及格線)
-        if(val === 80) color = "#86efac"; // green-300 (優秀線)
+        let color = "#e5e7eb"; 
+        if(val === 60) color = "#fca5a5"; 
+        if(val === 80) color = "#86efac"; 
         return (
             <g key={val}>
                 <line x1={padding} y1={y} x2={width - padding} y2={y} stroke={color} strokeWidth="2" strokeDasharray={val === 0 ? "" : "5,5"} />
@@ -150,40 +144,21 @@ const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
     return (
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100">
             {gridLines}
-            
-            {/* 折線 */}
-            <polyline 
-                fill="none" 
-                stroke="#3b82f6" 
-                strokeWidth="4" 
-                points={points} 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-                className="drop-shadow-md"
-            />
-
-            {/* 資料點與標籤 */}
+            <polyline fill="none" stroke="#3b82f6" strokeWidth="4" points={points} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-md" />
             {data.map((d, i) => {
                 const x = (i / (data.length - 1)) * chartWidth + padding;
                 const safeValue = isNaN(d.value) ? 0 : d.value;
                 const y = chartHeight - (safeValue / maxY) * chartHeight + padding;
-                
-                // 決定點的顏色
-                let dotColor = "#ef4444"; // red
-                if (safeValue >= 60) dotColor = "#eab308"; // yellow
-                if (safeValue >= 80) dotColor = "#22c55e"; // green
-
+                let dotColor = "#ef4444"; 
+                if (safeValue >= 60) dotColor = "#eab308"; 
+                if (safeValue >= 80) dotColor = "#22c55e"; 
                 return (
                     <g key={i} className="group">
                         <circle cx={x} cy={y} r="6" fill={dotColor} stroke="white" strokeWidth="2" className="transition-all duration-300 group-hover:r-8 cursor-pointer"/>
-                        
-                        {/* Tooltip (Hover) */}
                         <g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             <rect x={x - 20} y={y - 35} width="40" height="25" rx="4" fill="black" fillOpacity="0.8" />
                             <text x={x} y={y - 18} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{safeValue.toFixed(0)}</text>
                         </g>
-
-                        {/* X軸標籤 */}
                         <text x={x} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text>
                     </g>
                 );
@@ -192,75 +167,173 @@ const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
     );
 };
 
-// --- [新] 學生學習歷程 Dashboard Modal ---
+// --- [新] SVG 堆疊長條圖元件 (模式 B 使用) ---
+const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
+    if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
+
+    const padding = 40;
+    const chartWidth = width - padding * 2;
+    const chartHeight = height - padding * 2;
+
+    // 找出最大作業量以設定 Y 軸
+    const maxTotal = Math.max(...data.map(d => d.details.count), 5); // 至少顯示到 5
+    const barWidth = Math.min(60, chartWidth / data.length * 0.6); // 動態調整柱寬
+
+    return (
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100">
+            {/* Y軸線與刻度 */}
+            <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" />
+            <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" />
+            
+            {/* 繪製長條 */}
+            {data.map((d, i) => {
+                const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2;
+                
+                // 計算各區塊高度
+                const totalHeight = chartHeight;
+                const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight;
+                const lateHeight = (d.details.late / maxTotal) * totalHeight;
+                const missingHeight = (d.details.missing / maxTotal) * totalHeight;
+
+                // 綠色區塊 (最下方)
+                const yGreen = (height - padding) - onTimeHeight;
+                // 黃色區塊 (綠色上方)
+                const yYellow = yGreen - lateHeight;
+                // 紅色區塊 (黃色上方)
+                const yRed = yYellow - missingHeight;
+
+                return (
+                    <g key={i} className="group">
+                        {/* 綠色：準時 */}
+                        {d.details.onTime > 0 && (
+                            <rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>
+                        )}
+                        {/* 黃色：補交 */}
+                        {d.details.late > 0 && (
+                            <rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>
+                        )}
+                        {/* 紅色：缺交 */}
+                        {d.details.missing > 0 && (
+                            <rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>
+                        )}
+
+                        {/* 總數標籤 (顯示在柱子頂端) */}
+                        <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text>
+
+                        {/* X軸月份 */}
+                        <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text>
+                        
+                        {/* Tooltip (Hover 顯示詳細數字) */}
+                        <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title>
+                    </g>
+                );
+            })}
+        </svg>
+    );
+};
+
+// --- [修改版] 學生學習歷程 Dashboard Modal ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
+    // 狀態：目前查看的模式 ('SCORE'=績效分數, 'COUNT'=作業量統計)
+    const [viewMode, setViewMode] = useState('SCORE');
+
     // 計算該學期的每個月數據
     const chartData = useMemo(() => {
         const statsByMonth = {};
-        
-        // 1. 初始化月份 (確保圖表是連續的，即使該月沒作業)
-        // 這裡簡化處理，只抓目前 assignments 裡有的月份，並排序
         const sortedDates = Object.keys(allAssignmentsByDate).sort();
         if(sortedDates.length === 0) return [];
 
-        // 2. 遍歷所有作業
         sortedDates.forEach(date => {
             const dateObj = new Date(date);
             const monthKey = `${dateObj.getMonth() + 1}月`;
             
             if (!statsByMonth[monthKey]) {
-                statsByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+                statsByMonth[monthKey] = { 
+                    totalScorePoints: 0, 
+                    count: 0, 
+                    onTime: 0, 
+                    late: 0, 
+                    missing: 0 
+                };
             }
 
             const assignments = allAssignmentsByDate[date];
             assignments.forEach(assign => {
                 const status = assign.submissionStatus[student.id];
                 
-                // 計算分數邏輯：綠=100, 黃=60, 紅=0
-                let points = 0;
+                // 1. 績效分數計算 (SCORE)
+                let scorePoint = 0;
                 if (status === true || status === undefined) { 
-                    points = 100; 
+                    scorePoint = 100; 
                     statsByMonth[monthKey].onTime++;
                 } else if (status === 'late') { 
-                    points = 60; 
+                    scorePoint = 60; 
                     statsByMonth[monthKey].late++;
                 } else { 
-                    points = 0; 
+                    scorePoint = 0; 
                     statsByMonth[monthKey].missing++;
                 }
                 
-                statsByMonth[monthKey].totalPoints += points;
+                statsByMonth[monthKey].totalScorePoints += scorePoint;
                 statsByMonth[monthKey].count++;
             });
         });
 
-        // 3. 轉成陣列格式給圖表用
-        return Object.keys(statsByMonth).map(key => ({
-            label: key,
-            value: statsByMonth[key].count === 0 ? 0 : (statsByMonth[key].totalPoints / statsByMonth[key].count),
-            details: statsByMonth[key]
-        }));
+        return Object.keys(statsByMonth).map(key => {
+            const data = statsByMonth[key];
+            const avgScore = data.count === 0 ? 0 : (data.totalScorePoints / data.count);
+
+            return {
+                label: key,
+                value: avgScore, // 這是給折線圖用的
+                details: data    // 這是給堆疊圖用的詳細數據
+            };
+        });
     }, [allAssignmentsByDate, student.id]);
 
-    const averageScore = useMemo(() => {
+    // 計算當前總平均分數
+    const currentAverage = useMemo(() => {
         if (chartData.length === 0) return 0;
         const sum = chartData.reduce((acc, cur) => acc + cur.value, 0);
         return (sum / chartData.length).toFixed(1);
     }, [chartData]);
+
+    // 取得評語 (根據模式切換)
+    const getFeedback = (score, data) => {
+        if (viewMode === 'SCORE') {
+            if (score >= 90) return { text: "🌟 非常優秀！保持這種學習態度，你是大家的榜樣。", color: "text-green-600" };
+            if (score >= 80) return { text: "👍 表現很好！大部分作業都準時完成，繼續加油。", color: "text-green-500" };
+            if (score >= 60) return { text: "💪 還不錯，但偶爾會遲交。記得要在期限內完成喔！", color: "text-yellow-600" };
+            return { text: "⚠️ 需要加油！缺交次數較多，請家長協助督促作業狀況。", color: "text-red-500" };
+        } else {
+            // 統計模式評語：根據紅燈比例
+            let totalMissing = 0;
+            let totalCount = 0;
+            data.forEach(d => { totalMissing += d.details.missing; totalCount += d.details.count; });
+            const missingRate = totalCount === 0 ? 0 : (totalMissing / totalCount);
+
+            if (missingRate === 0) return { text: "🛡️ 完美全勤！沒有任何缺交紀錄，太厲害了！", color: "text-blue-600" };
+            if (missingRate <= 0.1) return { text: "✨ 狀況很穩定！絕大多數作業都有完成。", color: "text-blue-500" };
+            if (missingRate <= 0.3) return { text: "🔨 有些作業缺交了，請找時間補上喔！", color: "text-orange-500" };
+            return { text: "❌ 紅燈太多囉！請注意缺交的作業量，不要累積太多。", color: "text-red-500" };
+        }
+    };
+
+    const feedback = getFeedback(currentAverage, chartData);
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 border-white">
                 
                 {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-6 flex justify-between items-center text-white shrink-0">
+                <div className={`p-6 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${viewMode === 'SCORE' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500'}`}>
                     <div className="flex items-center gap-4">
-                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold text-blue-600 shadow-lg border-4 border-blue-200">
+                        <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 ${viewMode === 'SCORE' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200'}`}>
                             {student.id}
                         </div>
                         <div>
                             <h2 className="text-4xl font-bold tracking-wide">{student.name} 的學習歷程</h2>
-                            <p className="text-blue-100 text-xl font-medium mt-1 flex items-center gap-2">
+                            <p className="text-white/90 text-xl font-medium mt-1 flex items-center gap-2">
                                 <Activity className="w-5 h-5" /> 
                                 {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表
                             </p>
@@ -274,6 +347,24 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                 {/* Content */}
                 <div className="flex-1 overflow-auto p-8 bg-gray-50">
                     
+                    {/* 切換按鈕 (Toggle) */}
+                    <div className="flex justify-center mb-8">
+                        <div className="bg-gray-200 p-1 rounded-xl flex gap-1 shadow-inner">
+                            <button 
+                                onClick={() => setViewMode('SCORE')}
+                                className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'SCORE' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                🎯 績效分數 (折線圖)
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('COUNT')}
+                                className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'COUNT' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                📊 作業狀況統計 (堆疊圖)
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Top Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
@@ -293,46 +384,58 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                         </div>
 
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div className={`p-4 rounded-2xl ${averageScore >= 80 ? 'bg-green-100 text-green-600' : (averageScore >= 60 ? 'bg-yellow-100 text-yellow-600' : 'bg-red-100 text-red-600')}`}>
-                                <TrendingUp className="w-10 h-10" />
+                            <div className={`p-4 rounded-2xl ${currentAverage >= 80 ? (viewMode==='SCORE'?'bg-green-100 text-green-600':'bg-blue-100 text-blue-600') : (currentAverage >= 60 ? 'bg-yellow-100 text-yellow-600' : 'bg-red-100 text-red-600')}`}>
+                                {viewMode === 'SCORE' ? <TrendingUp className="w-10 h-10" /> : <BarChart2 className="w-10 h-10" />}
                             </div>
                             <div>
-                                <p className="text-gray-500 text-lg font-bold">平均作業分數</p>
-                                <p className={`text-5xl font-black ${averageScore >= 80 ? 'text-green-600' : (averageScore >= 60 ? 'text-yellow-600' : 'text-red-600')}`}>
-                                    {averageScore}
-                                    <span className="text-xl ml-1 text-gray-400 font-medium">分</span>
+                                <p className="text-gray-500 text-lg font-bold">
+                                    {viewMode === 'SCORE' ? '平均作業分數' : '本學期作業總量'}
+                                </p>
+                                <p className={`text-5xl font-black ${viewMode === 'SCORE' ? (currentAverage >= 80 ? 'text-green-600' : (currentAverage >= 60 ? 'text-yellow-600' : 'text-red-600')) : 'text-indigo-600'}`}>
+                                    {viewMode === 'SCORE' ? currentAverage : chartData.reduce((acc, cur) => acc + cur.details.count, 0)}
+                                    <span className="text-xl ml-1 text-gray-400 font-medium">
+                                        {viewMode === 'SCORE' ? '分' : '項'}
+                                    </span>
                                 </p>
                             </div>
                         </div>
 
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
                             <p className="text-gray-500 font-bold mb-2">評語建議</p>
-                            {averageScore >= 90 ? (
-                                <p className="text-green-600 font-bold text-xl">🌟 非常優秀！保持這種學習態度，你是大家的榜樣。</p>
-                            ) : averageScore >= 80 ? (
-                                <p className="text-green-500 font-bold text-xl">👍 表現很好！大部分作業都準時完成，繼續加油。</p>
-                            ) : averageScore >= 60 ? (
-                                <p className="text-yellow-600 font-bold text-xl">💪 還不錯，但偶爾會遲交。記得要在期限內完成喔！</p>
-                            ) : (
-                                <p className="text-red-500 font-bold text-xl">⚠️ 需要加油！缺交次數較多，請家長協助督促作業狀況。</p>
-                            )}
+                            <p className={`${feedback.color} font-bold text-xl`}>{feedback.text}</p>
                         </div>
                     </div>
 
                     {/* Chart Section */}
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 mb-8">
                         <h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-                            <TrendingUp className="w-6 h-6 mr-2 text-blue-500" />
-                            作業慣性趨勢圖 (Habit Trend)
+                            {viewMode === 'SCORE' ? (
+                                <><TrendingUp className="w-6 h-6 mr-2 text-blue-500" /> 作業慣性趨勢圖 (Habit Trend)</>
+                            ) : (
+                                <><BarChart2 className="w-6 h-6 mr-2 text-indigo-500" /> 每月作業狀況分佈 (Status Distribution)</>
+                            )}
                         </h3>
                         <div className="h-[350px] w-full">
-                            <SimpleLineChart data={chartData} />
+                            {viewMode === 'SCORE' ? (
+                                <SimpleLineChart data={chartData} />
+                            ) : (
+                                <SimpleStackedBarChart data={chartData} />
+                            )}
                         </div>
-                        <div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500">
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-400"></div>80分以上 (優秀)</div>
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-400"></div>60-79分 (尚可)</div>
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div>60分以下 (需努力)</div>
-                        </div>
+                        {viewMode === 'SCORE' && (
+                            <div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500">
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-400"></div>80分以上 (優秀)</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-400"></div>60-79分 (尚可)</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div>60分以下 (需努力)</div>
+                            </div>
+                        )}
+                        {viewMode === 'COUNT' && (
+                            <div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500">
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-green-400"></div>準時完成</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-yellow-400"></div>後來補交</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-red-400"></div>缺交未補</div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Monthly Detail Table */}
@@ -344,19 +447,22 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                                     <th className="px-6 py-4 text-center text-xl font-bold text-green-600">準時完成</th>
                                     <th className="px-6 py-4 text-center text-xl font-bold text-yellow-600">補交 (遲繳)</th>
                                     <th className="px-6 py-4 text-center text-xl font-bold text-red-600">缺交 (未完成)</th>
-                                    <th className="px-6 py-4 text-center text-xl font-bold text-blue-600">綜合得分</th>
+                                    <th className={`px-6 py-4 text-center text-xl font-bold ${viewMode === 'SCORE' ? 'text-blue-600' : 'text-indigo-600'}`}>
+                                        {viewMode === 'SCORE' ? '績效得分' : '總作業量'}
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {chartData.map((row, idx) => (
                                     <tr key={idx} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 text-xl font-bold text-gray-800">{row.label}</td>
-                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime} 次</td>
-                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late} 次</td>
-                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing} 次</td>
+                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime}</td>
+                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late}</td>
+                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing}</td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${row.value >= 80 ? 'bg-green-100 text-green-700' : (row.value >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>
-                                                {row.value.toFixed(1)}
+                                            <span className={`inline-block px-3 py-1 rounded-full text-lg font-bold 
+                                                ${viewMode === 'SCORE' ? (row.value >= 80 ? 'bg-green-100 text-green-700' : (row.value >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')) : 'bg-gray-100 text-gray-700'}`}>
+                                                {viewMode === 'SCORE' ? row.value.toFixed(1) : row.details.count}
                                             </span>
                                         </td>
                                     </tr>
