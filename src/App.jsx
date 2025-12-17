@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v16.0.0 - 雲端名單版 (Dynamic Students)'; 
+const VERSION = 'v16.0.0 - 雲端名單版 (Single File)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -47,19 +47,14 @@ const firebaseConfig = {
   measurementId: "G-8VGE0WKD01"
 };
 
-// --- 音效與圖片資源設定 (更新音效連結) ---
+// --- 音效與圖片資源設定 ---
 const ASSETS = {
-    // 銅幣音效 (短促)
     BRONZE_SOUND: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3', 
-    
-    // 慶祝音樂 (勝利號角，更穩定的來源)
     GOLD_SOUND: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3', 
-    
-    // 五彩彩帶背景 GIF
     CONFETTI_BG: 'https://i.gifer.com/origin/e2/e29a997a3a304523b087050074697df0_w200.gif'
 };
 
-// --- 客製化硬幣元件 ---
+// --- 客製化硬幣元件 (直接定義在這裡，不用拆分) ---
 const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w-3/5 h-3/5" }) => {
     const baseClasses = `rounded-full border-[4px] flex items-center justify-center shadow-lg ${size} bg-white`;
     if (type === 'GOLD') {
@@ -83,7 +78,7 @@ const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w
     );
 };
 
-// 【已修改】五年甲班學生名單 (更名為預設名單)
+// --- 預設學生名單 (當作離線備份) ---
 const DEFAULT_STUDENTS = [
   { id: '1', name: '陳昕佑' },
   { id: '2', name: '徐偉綸' },
@@ -116,15 +111,12 @@ const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assig
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 
-// --- 獎勵回饋元件 (改用 <audio> 標籤確保播放) ---
+// --- 獎勵回饋元件 (直接定義在這裡，不用拆分) ---
 const RewardOverlay = ({ type, onClose }) => {
-    // 判斷音效與顯示時間
     const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
-    // 全部清零顯示 6 秒，單次顯示 1 秒
     const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
 
     useEffect(() => {
-        // 設定自動關閉
         const timer = setTimeout(() => {
             onClose();
         }, duration);
@@ -132,30 +124,20 @@ const RewardOverlay = ({ type, onClose }) => {
         return () => clearTimeout(timer);
     }, [duration, onClose]);
 
-    // 全部清零 (滿版彩帶 + 巨大金幣 + 純文字)
     if (type === 'GOLD_CLEAR') {
         return (
             <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 animate-fade-in overflow-hidden">
-                {/* 隱藏的 Audio 標籤，利用 HTML5 原生播放能力 */}
                 <audio src={soundUrl} autoPlay />
-                
-                {/* 1. 滿版彩帶背景 */}
                 <div className="absolute inset-0 opacity-70 pointer-events-none">
                     <img src={ASSETS.CONFETTI_BG} alt="Confetti" className="w-full h-full object-cover" />
                 </div>
-                
-                {/* 2. 背景光暈 */}
                 <div className="absolute inset-0 flex justify-center items-center opacity-60">
                       <div className="w-[600px] h-[600px] bg-yellow-500 rounded-full blur-[150px] animate-pulse"></div>
                 </div>
-                
                 <div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in text-center p-8">
-                    {/* 3. 巨大金幣 (彎月) */}
                     <div className="mb-12 drop-shadow-[0_0_60px_rgba(255,223,0,0.8)] animate-pulse transform scale-[2.5]">
                         <CoinIcon type="GOLD" size="w-32 h-32" innerSize="w-20 h-20" />
                     </div>
-                    
-                    {/* 4. 更新後的文字 */}
                     <h2 className="text-6xl md:text-8xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] tracking-widest leading-snug">
                         恭喜你🎉<br/>完成所有作業😁<br/>你真棒👍
                     </h2>
@@ -164,7 +146,6 @@ const RewardOverlay = ({ type, onClose }) => {
         );
     }
 
-    // 單次鼓勵 (銅幣)
     return (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-30 animate-fade-in pointer-events-none">
             <audio src={soundUrl} autoPlay />
@@ -178,11 +159,10 @@ const RewardOverlay = ({ type, onClose }) => {
     );
 };
 
-// --- 【已修改】學生存簿 Hook (接收 students) ---
+// --- 學生存簿 Hook ---
 const useStudentBank = (db, isAuthReady, isOffline, students) => {
     const initialData = useMemo(() => {
         const data = {};
-        // 改用傳入的 students
         students.forEach(s => data[s.id] = { bronze: 0, silver: 0, gold: 0 });
         return data;
     }, [students]);
@@ -229,7 +209,6 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
             if (adds.gold === 'RESET') newGold = 0;
 
             if (adds.bronze !== 'RESET' && adds.silver !== 'RESET' && adds.gold !== 'RESET') {
-                // 優化進位邏輯
                  if (newBronze >= 100) {
                     const silverGain = Math.floor(newBronze / 100);
                     newBronze = newBronze % 100;
@@ -284,9 +263,8 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
     return { bankData, updateBankBalance };
 };
 
-// --- 【已修改】學生存簿 Modal (接收 students 作為 props) ---
+// --- 學生存簿 Modal ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode, students }) => {
-    // 改用傳入的 students 進行排序
     const sortedStudents = [...students].sort((a, b) => {
         const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 };
         const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 };
