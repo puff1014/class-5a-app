@@ -21,7 +21,7 @@ import {
   serverTimestamp, 
   getDoc,
   orderBy,
-  where // <--- 【新增】引入 where 查詢功能
+  where
 } from 'firebase/firestore';
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -29,11 +29,11 @@ import {
     BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Check, 
     RefreshCw, WifiOff, Lock, Settings, LogOut, FileText, AlertCircle, 
     Eye, EyeOff, Shield, User, Key, Edit, Pencil, Star, PartyPopper,
-    Coins, Eraser, Moon, PlusCircle 
+    Coins, Eraser, Moon, PlusCircle, TrendingUp, TrendingDown, Activity
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v16.1.0 - 讀取優化版 (Smart Query)'; 
+const VERSION = 'v16.2.1 - 正式版 (Final Release)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -111,6 +111,265 @@ const ItemTypes = {
 const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assignments`;
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
+
+// --- [新] SVG 折線圖元件 (無需依賴套件) ---
+const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
+    if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
+
+    const padding = 40;
+    const chartWidth = width - padding * 2;
+    const chartHeight = height - padding * 2;
+    
+    // Y軸最大值固定為 100 分
+    const maxY = 100;
+    const minY = 0;
+
+    // 計算座標點
+    const points = data.map((d, i) => {
+        const x = (i / (data.length - 1)) * chartWidth + padding;
+        // 確保數值不為 NaN
+        const safeValue = isNaN(d.value) ? 0 : d.value;
+        const y = chartHeight - (safeValue / maxY) * chartHeight + padding;
+        return `${x},${y}`;
+    }).join(' ');
+
+    // 輔助線 (0, 60, 80, 100)
+    const gridLines = [0, 60, 80, 100].map(val => {
+        const y = chartHeight - (val / maxY) * chartHeight + padding;
+        let color = "#e5e7eb"; // gray-200
+        if(val === 60) color = "#fca5a5"; // red-300 (及格線)
+        if(val === 80) color = "#86efac"; // green-300 (優秀線)
+        return (
+            <g key={val}>
+                <line x1={padding} y1={y} x2={width - padding} y2={y} stroke={color} strokeWidth="2" strokeDasharray={val === 0 ? "" : "5,5"} />
+                <text x={padding - 10} y={y + 5} textAnchor="end" fontSize="12" fill="gray">{val}</text>
+            </g>
+        );
+    });
+
+    return (
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100">
+            {gridLines}
+            
+            {/* 折線 */}
+            <polyline 
+                fill="none" 
+                stroke="#3b82f6" 
+                strokeWidth="4" 
+                points={points} 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+                className="drop-shadow-md"
+            />
+
+            {/* 資料點與標籤 */}
+            {data.map((d, i) => {
+                const x = (i / (data.length - 1)) * chartWidth + padding;
+                const safeValue = isNaN(d.value) ? 0 : d.value;
+                const y = chartHeight - (safeValue / maxY) * chartHeight + padding;
+                
+                // 決定點的顏色
+                let dotColor = "#ef4444"; // red
+                if (safeValue >= 60) dotColor = "#eab308"; // yellow
+                if (safeValue >= 80) dotColor = "#22c55e"; // green
+
+                return (
+                    <g key={i} className="group">
+                        <circle cx={x} cy={y} r="6" fill={dotColor} stroke="white" strokeWidth="2" className="transition-all duration-300 group-hover:r-8 cursor-pointer"/>
+                        
+                        {/* Tooltip (Hover) */}
+                        <g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <rect x={x - 20} y={y - 35} width="40" height="25" rx="4" fill="black" fillOpacity="0.8" />
+                            <text x={x} y={y - 18} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{safeValue.toFixed(0)}</text>
+                        </g>
+
+                        {/* X軸標籤 */}
+                        <text x={x} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text>
+                    </g>
+                );
+            })}
+        </svg>
+    );
+};
+
+// --- [新] 學生學習歷程 Dashboard Modal ---
+const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
+    // 計算該學期的每個月數據
+    const chartData = useMemo(() => {
+        const statsByMonth = {};
+        
+        // 1. 初始化月份 (確保圖表是連續的，即使該月沒作業)
+        // 這裡簡化處理，只抓目前 assignments 裡有的月份，並排序
+        const sortedDates = Object.keys(allAssignmentsByDate).sort();
+        if(sortedDates.length === 0) return [];
+
+        // 2. 遍歷所有作業
+        sortedDates.forEach(date => {
+            const dateObj = new Date(date);
+            const monthKey = `${dateObj.getMonth() + 1}月`;
+            
+            if (!statsByMonth[monthKey]) {
+                statsByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+            }
+
+            const assignments = allAssignmentsByDate[date];
+            assignments.forEach(assign => {
+                const status = assign.submissionStatus[student.id];
+                
+                // 計算分數邏輯：綠=100, 黃=60, 紅=0
+                let points = 0;
+                if (status === true || status === undefined) { 
+                    points = 100; 
+                    statsByMonth[monthKey].onTime++;
+                } else if (status === 'late') { 
+                    points = 60; 
+                    statsByMonth[monthKey].late++;
+                } else { 
+                    points = 0; 
+                    statsByMonth[monthKey].missing++;
+                }
+                
+                statsByMonth[monthKey].totalPoints += points;
+                statsByMonth[monthKey].count++;
+            });
+        });
+
+        // 3. 轉成陣列格式給圖表用
+        return Object.keys(statsByMonth).map(key => ({
+            label: key,
+            value: statsByMonth[key].count === 0 ? 0 : (statsByMonth[key].totalPoints / statsByMonth[key].count),
+            details: statsByMonth[key]
+        }));
+    }, [allAssignmentsByDate, student.id]);
+
+    const averageScore = useMemo(() => {
+        if (chartData.length === 0) return 0;
+        const sum = chartData.reduce((acc, cur) => acc + cur.value, 0);
+        return (sum / chartData.length).toFixed(1);
+    }, [chartData]);
+
+    return (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 border-white">
+                
+                {/* Header */}
+                <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-6 flex justify-between items-center text-white shrink-0">
+                    <div className="flex items-center gap-4">
+                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold text-blue-600 shadow-lg border-4 border-blue-200">
+                            {student.id}
+                        </div>
+                        <div>
+                            <h2 className="text-4xl font-bold tracking-wide">{student.name} 的學習歷程</h2>
+                            <p className="text-blue-100 text-xl font-medium mt-1 flex items-center gap-2">
+                                <Activity className="w-5 h-5" /> 
+                                {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md">
+                        <X className="w-8 h-8" />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-auto p-8 bg-gray-50">
+                    
+                    {/* Top Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div className="p-4 bg-yellow-100 text-yellow-600 rounded-2xl">
+                                <Coins className="w-10 h-10" />
+                            </div>
+                            <div>
+                                <p className="text-gray-500 text-lg font-bold">目前資產</p>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.gold || 0}</span>
+                                    <span className="text-sm text-yellow-500 font-bold">金</span>
+                                    <span className="text-2xl font-bold text-gray-400">/</span>
+                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.silver || 0}</span>
+                                    <span className="text-sm text-gray-400 font-bold">銀</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div className={`p-4 rounded-2xl ${averageScore >= 80 ? 'bg-green-100 text-green-600' : (averageScore >= 60 ? 'bg-yellow-100 text-yellow-600' : 'bg-red-100 text-red-600')}`}>
+                                <TrendingUp className="w-10 h-10" />
+                            </div>
+                            <div>
+                                <p className="text-gray-500 text-lg font-bold">平均作業分數</p>
+                                <p className={`text-5xl font-black ${averageScore >= 80 ? 'text-green-600' : (averageScore >= 60 ? 'text-yellow-600' : 'text-red-600')}`}>
+                                    {averageScore}
+                                    <span className="text-xl ml-1 text-gray-400 font-medium">分</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
+                            <p className="text-gray-500 font-bold mb-2">評語建議</p>
+                            {averageScore >= 90 ? (
+                                <p className="text-green-600 font-bold text-xl">🌟 非常優秀！保持這種學習態度，你是大家的榜樣。</p>
+                            ) : averageScore >= 80 ? (
+                                <p className="text-green-500 font-bold text-xl">👍 表現很好！大部分作業都準時完成，繼續加油。</p>
+                            ) : averageScore >= 60 ? (
+                                <p className="text-yellow-600 font-bold text-xl">💪 還不錯，但偶爾會遲交。記得要在期限內完成喔！</p>
+                            ) : (
+                                <p className="text-red-500 font-bold text-xl">⚠️ 需要加油！缺交次數較多，請家長協助督促作業狀況。</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Chart Section */}
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 mb-8">
+                        <h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
+                            <TrendingUp className="w-6 h-6 mr-2 text-blue-500" />
+                            作業慣性趨勢圖 (Habit Trend)
+                        </h3>
+                        <div className="h-[350px] w-full">
+                            <SimpleLineChart data={chartData} />
+                        </div>
+                        <div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500">
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-400"></div>80分以上 (優秀)</div>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-400"></div>60-79分 (尚可)</div>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div>60分以下 (需努力)</div>
+                        </div>
+                    </div>
+
+                    {/* Monthly Detail Table */}
+                    <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-100">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-xl font-bold text-gray-600">月份</th>
+                                    <th className="px-6 py-4 text-center text-xl font-bold text-green-600">準時完成</th>
+                                    <th className="px-6 py-4 text-center text-xl font-bold text-yellow-600">補交 (遲繳)</th>
+                                    <th className="px-6 py-4 text-center text-xl font-bold text-red-600">缺交 (未完成)</th>
+                                    <th className="px-6 py-4 text-center text-xl font-bold text-blue-600">綜合得分</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {chartData.map((row, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 text-xl font-bold text-gray-800">{row.label}</td>
+                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime} 次</td>
+                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late} 次</td>
+                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing} 次</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${row.value >= 80 ? 'bg-green-100 text-green-700' : (row.value >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>
+                                                {row.value.toFixed(1)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // --- 獎勵回饋元件 ---
 const RewardOverlay = ({ type, onClose }) => {
@@ -476,7 +735,7 @@ const useStudents = (db, isOffline) => {
         return () => unsubscribe();
     }, [db, isOffline]);
 
-    // 初始化功能：把預設名單上傳到雲端 (只用一次)
+    // [備註] 初始化功能已保留在 Hook 中但不再匯出，若未來需要再次使用，可從此處恢復匯出
     const initializeStudentsToFirebase = async () => {
         if (!db || isOffline) return;
         if (!window.confirm("確定要將目前的「預設名單」上傳覆寫至雲端嗎？")) return;
@@ -498,7 +757,7 @@ const useStudents = (db, isOffline) => {
         }
     };
 
-    return { students, loadingStudents, initializeStudentsToFirebase };
+    return { students, loadingStudents }; // 移除了 initializeStudentsToFirebase 的匯出
 };
 
 // --- 【已修改】useCategories Hook (接收 students) ---
@@ -541,9 +800,11 @@ const App = () => {
   const [focusedStudentId, setFocusedStudentId] = useState(null);
   const [showBankModal, setShowBankModal] = useState(false);
   const [rewardState, setRewardState] = useState(null); 
+  // [新] 學生儀表板狀態
+  const [dashboardStudent, setDashboardStudent] = useState(null);
 
-  // --- 【已新增】呼叫學生名單 Hook ---
-  const { students, loadingStudents, initializeStudentsToFirebase } = useStudents(db, isOffline);
+  // --- 【已修改】移除 initializeStudentsToFirebase ---
+  const { students, loadingStudents } = useStudents(db, isOffline);
 
   // --- 【已修改】傳入 students ---
   const { bankData, updateBankBalance } = useStudentBank(db, isAuthReady, isOffline, students);
@@ -834,6 +1095,18 @@ const App = () => {
       {rewardState && ( <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} /> )}
       {/* 【已修改】傳入 students */}
       {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} authMode={authMode} students={students} /> )}
+      
+      {/* [新] 學生個人儀表板 */}
+      {dashboardStudent && (
+          <StudentHistoryModal 
+              student={dashboardStudent} 
+              allAssignmentsByDate={allAssignmentsByDate} 
+              bankBalance={bankData[dashboardStudent.id]}
+              semesterId={selectedSemester}
+              onClose={() => setDashboardStudent(null)} 
+          />
+      )}
+
       {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
       {/* 【已修改】傳入 students */}
       {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={students.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} /> )}
@@ -881,9 +1154,8 @@ const App = () => {
 
                 {authMode === 'ADMIN' && (
                     <>
-                        {/* 【已新增】初始化學生名單按鈕 */}
-                        <button onClick={initializeStudentsToFirebase} disabled={isGlobalLoading} className="px-4 py-2 text-3xl font-medium rounded-lg text-white bg-purple-600 hover:bg-purple-700 shadow-md flex items-center justify-center flex-1" title="初始化學生名單到雲端"> 初始化名單 </button>
-
+                        {/* 【已移除】初始化學生名單按鈕 */}
+                        
                         <ProtectedButton onClick={() => handleDeleteDateAssignments()} disabled={isGlobalLoading || assignmentsForSelectedDate.length === 0} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-gray-900 hover:bg-gray-800`} title="刪除該日所有作業 (需按住 Shift)"><span className="text-4xl mr-1">🧨</span>刪除日期</ProtectedButton>
                         <ProtectedButton onClick={() => handleDeleteMonthAssignments()} disabled={isGlobalLoading} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-amber-800 hover:bg-amber-900`} title={`刪除所選月份`}><span className="text-4xl mr-1">💣</span>刪除月份</ProtectedButton>
                         <ProtectedButton onClick={() => handleDeleteSemesterAssignments()} disabled={isGlobalLoading} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-rose-500 hover:bg-rose-600`} title={`刪除學期/全部資料`}><span className="text-4xl mr-1">☢️</span>刪除學期</ProtectedButton>
@@ -924,8 +1196,23 @@ const App = () => {
                                 {/* 【已修改】使用 students 進行 render */}
                                 {(focusedStudentId ? students.filter(s => s.id === focusedStudentId) : students).map((student) => (
                                     <tr key={student.id} className={`group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
-                                        <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 sticky left-0 bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words align-middle" title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"} style={{ minWidth: '80px', width: '80px', maxWidth: '80px', left: '0px' }}> {student.id} </td> 
-                                        <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold sticky bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 align-middle" title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"} style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '80px' }}> <div className="flex items-center justify-center gap-1"> {student.name[0] + 'O' + student.name.slice(2)} <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-sm transition-opacity"> {focusedStudentId === student.id ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />} </span> </div> </td> 
+                                        {/* 【修改】點擊座號顯示歷程圖表 */}
+                                        <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 sticky left-0 bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer hover:text-blue-600 hover:bg-blue-100 break-words align-middle" style={{ minWidth: '80px', width: '80px', maxWidth: '80px', left: '0px' }}> 
+                                            <div className="flex items-center justify-center">
+                                                {student.id}
+                                                <Activity className="w-4 h-4 ml-1 text-gray-400 group-hover:text-blue-500 opacity-50 group-hover:opacity-100" />
+                                            </div>
+                                        </td> 
+                                        
+                                        {/* 【修改】點擊姓名也顯示歷程圖表 */}
+                                        <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold sticky bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer hover:text-blue-600 hover:bg-blue-100 align-middle" style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '80px' }}> 
+                                            <div className="flex items-center justify-center gap-1"> 
+                                                {student.name[0] + 'O' + student.name.slice(2)} 
+                                                <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-sm transition-opacity"> 
+                                                    <TrendingUp className="w-5 h-5" /> 
+                                                </span> 
+                                            </div> 
+                                        </td> 
                                         {assignmentsForSelectedDate.map((assignment) => {
                                             const assignmentName = assignment.assignmentName;
                                             const assignmentData = assignmentMap[assignmentName];
