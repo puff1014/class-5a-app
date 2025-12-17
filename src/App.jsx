@@ -20,7 +20,8 @@ import {
   writeBatch, 
   serverTimestamp, 
   getDoc,
-  orderBy
+  orderBy,
+  where // <--- 【新增】引入 where 查詢功能
 } from 'firebase/firestore';
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -32,7 +33,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v16.0.0 - 雲端名單版 (Single File)'; 
+const VERSION = 'v16.1.0 - 讀取優化版 (Smart Query)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -54,7 +55,7 @@ const ASSETS = {
     CONFETTI_BG: 'https://i.gifer.com/origin/e2/e29a997a3a304523b087050074697df0_w200.gif'
 };
 
-// --- 客製化硬幣元件 (直接定義在這裡，不用拆分) ---
+// --- 客製化硬幣元件 ---
 const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w-3/5 h-3/5" }) => {
     const baseClasses = `rounded-full border-[4px] flex items-center justify-center shadow-lg ${size} bg-white`;
     if (type === 'GOLD') {
@@ -111,7 +112,7 @@ const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assig
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 
-// --- 獎勵回饋元件 (直接定義在這裡，不用拆分) ---
+// --- 獎勵回饋元件 ---
 const RewardOverlay = ({ type, onClose }) => {
     const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
     const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
@@ -572,7 +573,53 @@ const App = () => {
   const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
   const handleLogout = async () => { try { await signOut(auth); setIsAuthenticated(false); setAuthMode('GUEST'); } catch (e) { console.error("Logout failed", e); } };
   
-  useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const q = query(assignmentsCollection); const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline]); 
+  // --- 【關鍵優化】只讀取當前學期的資料 ---
+  useEffect(() => { 
+      if (isOffline) { setLoading(false); return; } 
+      if (!isAuthReady || !db || !userId) return; 
+      
+      const path = getAssignmentCollectionPath(); 
+      const assignmentsCollection = collection(db, path); 
+
+      // 根據選中的學期，計算日期範圍
+      const currentSemData = semesters.find(s => s.id === selectedSemester);
+      let q;
+
+      if (currentSemData) {
+          const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`;
+          const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`;
+          
+          // 使用 where 查詢，只抓取該學期範圍內的資料
+          q = query(
+              assignmentsCollection,
+              where("assignmentDate", ">=", startDate),
+              where("assignmentDate", "<=", endDate)
+          );
+      } else {
+          // 如果沒選學期 (理論上不會發生)，就抓全部
+          q = query(assignmentsCollection);
+      }
+
+      const unsubscribe = onSnapshot(q, (snapshot) => { 
+          const groupedData = {}; 
+          snapshot.docs.forEach(doc => { 
+              const data = doc.data(); 
+              const date = data.assignmentDate; 
+              if (date) { 
+                  if (!groupedData[date]) { groupedData[date] = []; } 
+                  groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, createdAt: data.createdAt?.toDate().toISOString() }); 
+              } 
+          }); 
+          setAllAssignmentsByDate(groupedData); 
+          if (!loadingCategories) { setLoading(false); } 
+      }, (e) => { 
+          console.error("Error fetching assignments:", e); 
+          if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } 
+          setLoading(false); 
+      }); 
+      
+      return () => unsubscribe(); 
+  }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]); // <--- 依賴 selectedSemester
 
   const assignmentsForSelectedDate = useMemo(() => { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; return assignments.sort((a, b) => a.order - b.order); }, [allAssignmentsByDate, selectedDisplayDate]);
   const assignmentMap = useMemo(() => { return assignmentsForSelectedDate.reduce((acc, assignment) => { acc[assignment.assignmentName] = { id: assignment.id, submissionStatus: assignment.submissionStatus }; return acc; }, {}); }, [assignmentsForSelectedDate]);
