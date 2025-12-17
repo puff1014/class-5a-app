@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v16.3.0 - 雙軌圖表升級版 (Stacked Bar)'; 
+const VERSION = 'v16.3.1 - 聚焦與報表並存版 (Fix UX)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -1302,21 +1302,28 @@ const App = () => {
                                 {/* 【已修改】使用 students 進行 render */}
                                 {(focusedStudentId ? students.filter(s => s.id === focusedStudentId) : students).map((student) => (
                                     <tr key={student.id} className={`group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
-                                        {/* 【修改】點擊座號顯示歷程圖表 */}
-                                        <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 sticky left-0 bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer hover:text-blue-600 hover:bg-blue-100 break-words align-middle" style={{ minWidth: '80px', width: '80px', maxWidth: '80px', left: '0px' }}> 
-                                            <div className="flex items-center justify-center">
-                                                {student.id}
-                                                <Activity className="w-4 h-4 ml-1 text-gray-400 group-hover:text-blue-500 opacity-50 group-hover:opacity-100" />
-                                            </div>
+                                        {/* 【修改】座號欄位：點擊文字=聚焦模式；點擊圖示=儀表板 */}
+                                        <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 sticky left-0 bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words align-middle" title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"} style={{ minWidth: '80px', width: '80px', maxWidth: '80px', left: '0px' }}> 
+                                            {student.id} 
                                         </td> 
                                         
-                                        {/* 【修改】點擊姓名也顯示歷程圖表 */}
-                                        <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold sticky bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer hover:text-blue-600 hover:bg-blue-100 align-middle" style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '80px' }}> 
+                                        {/* 【修改】姓名欄位：點擊文字=聚焦模式；點擊圖示=儀表板 */}
+                                        <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold sticky bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 align-middle" title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"} style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '80px' }}> 
                                             <div className="flex items-center justify-center gap-1"> 
                                                 {student.name[0] + 'O' + student.name.slice(2)} 
-                                                <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-sm transition-opacity"> 
-                                                    <TrendingUp className="w-5 h-5" /> 
+                                                {/* 聚焦模式提示 (眼睛圖示) */}
+                                                <span className="text-blue-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity"> 
+                                                    {focusedStudentId === student.id ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />} 
                                                 </span> 
+                                                
+                                                {/* [新] 學習歷程按鈕 (需防止冒泡，避免觸發聚焦) */}
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setDashboardStudent(student); }}
+                                                    className="ml-2 p-1 bg-gray-100 hover:bg-blue-100 rounded-full text-gray-400 hover:text-blue-600 transition-colors shadow-sm border border-gray-200 opacity-50 group-hover:opacity-100"
+                                                    title="查看學習歷程"
+                                                >
+                                                    <BarChart2 className="w-5 h-5" />
+                                                </button>
                                             </div> 
                                         </td> 
                                         {assignmentsForSelectedDate.map((assignment) => {
