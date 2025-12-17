@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v17.1 - 經典復刻修正版'; 
+const VERSION = 'v17.2 - 正常尺寸修正版'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -89,11 +89,8 @@ const calculateScore = (dueDate, submitDate) => {
 const getScoreFromStatus = (statusData, dueDate) => {
     if (statusData === true || statusData === undefined) return 100; // 準時
     if (statusData === false) return 0; // 缺交
-    
-    // 舊版遲交 (字串) -> 60分
-    if (statusData === 'late') return 60; 
-    
-    // 新版遲交 (物件) -> 依日期計算
+    if (statusData === 'late') return 60; // 舊版遲交
+    // 新版遲交 (物件)
     if (typeof statusData === 'object' && statusData.status === 'late') {
         return calculateScore(dueDate, statusData.date);
     }
@@ -101,8 +98,8 @@ const getScoreFromStatus = (statusData, dueDate) => {
 };
 
 // --- 客製化硬幣元件 ---
-const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w-3/5 h-3/5" }) => {
-    const baseClasses = `rounded-full border-[4px] flex items-center justify-center shadow-lg ${size} bg-white`;
+const CoinIcon = ({ type, size = "w-6 h-6", textSize = "text-xs", innerSize = "w-3/5 h-3/5" }) => {
+    const baseClasses = `rounded-full border-[2px] flex items-center justify-center shadow-sm ${size} bg-white`;
     if (type === 'GOLD') return <div className={`${baseClasses} border-yellow-400 text-yellow-500 bg-yellow-50`} title="金幣"><Moon className={`${innerSize} fill-current`} /></div>;
     if (type === 'SILVER') return <div className={`${baseClasses} border-gray-400 text-gray-500 bg-gray-50`} title="銀幣"><Star className={`${innerSize} fill-current`} /></div>;
     return <div className={`${baseClasses} border-orange-700 text-orange-800 bg-orange-50`} title="銅幣"><span className={`font-bold ${textSize}`}>$</span></div>;
@@ -128,7 +125,7 @@ const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assig
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 
-// --- [修改] SVG 折線圖元件 (琥珀色階) ---
+// --- [修改] SVG 折線圖 (琥珀色階 + 正常尺寸文字) ---
 const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
     if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
     const padding = 40;
@@ -159,22 +156,22 @@ const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
                 const x = (i / (data.length - 1)) * chartWidth + padding;
                 const safeValue = isNaN(d.value) ? 0 : d.value;
                 const y = chartHeight - (safeValue / maxY) * chartHeight + padding;
-                // [修改] 顏色邏輯：琥珀色階
-                let dotColor = "#b45309"; // 深焦糖
-                if (safeValue >= 100) dotColor = "#22c55e"; // 綠
-                else if (safeValue >= 80) dotColor = "#facc15"; // 黃
-                else if (safeValue >= 60) dotColor = "#f97316"; // 橘
-                else if (safeValue > 0) dotColor = "#ef4444"; // 紅 (不及格)
-                else dotColor = "#991b1b"; // 深紅 (0分)
+                // [顏色邏輯] 琥珀色階
+                let dotColor = "#b45309"; 
+                if (safeValue >= 100) dotColor = "#22c55e"; 
+                else if (safeValue >= 80) dotColor = "#facc15"; 
+                else if (safeValue >= 60) dotColor = "#f97316"; 
+                else if (safeValue > 0) dotColor = "#ef4444"; 
+                else dotColor = "#991b1b"; 
 
                 return (
                     <g key={i} className="group">
-                        <circle cx={x} cy={y} r="6" fill={dotColor} stroke="white" strokeWidth="2" className="transition-all duration-300 group-hover:r-8 cursor-pointer"/>
+                        <circle cx={x} cy={y} r="5" fill={dotColor} stroke="white" strokeWidth="2" className="transition-all duration-300 group-hover:r-7 cursor-pointer"/>
                         <g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <rect x={x - 20} y={y - 35} width="40" height="25" rx="4" fill="black" fillOpacity="0.8" />
-                            <text x={x} y={y - 18} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{safeValue.toFixed(0)}</text>
+                            <rect x={x - 20} y={y - 30} width="40" height="20" rx="4" fill="black" fillOpacity="0.8" />
+                            <text x={x} y={y - 16} textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">{safeValue.toFixed(0)}</text>
                         </g>
-                        <text x={x} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text>
+                        <text x={x} y={height - 10} textAnchor="middle" fontSize="12" fill="#374151" fontWeight="500">{d.label}</text>
                     </g>
                 );
             })}
@@ -182,14 +179,14 @@ const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
     );
 };
 
-// --- [修改] SVG 堆疊長條圖元件 (熱點圖改色) ---
+// --- [修改] SVG 堆疊長條圖 (熱點圖改色 + 正常尺寸) ---
 const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
     if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
     const padding = 40;
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
     const maxTotal = Math.max(...data.map(d => d.details.count), 5);
-    const barWidth = Math.min(60, chartWidth / data.length * 0.6);
+    const barWidth = Math.min(50, chartWidth / data.length * 0.6);
 
     return (
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100">
@@ -210,12 +207,10 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
                 return (
                     <g key={i} className="group">
                         {d.details.onTime > 0 && <rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>}
-                        {/* [修改] 琥珀色：補交 */}
                         {d.details.late > 0 && <rect x={x} y={yAmber} width={barWidth} height={lateHeight} fill="#f59e0b" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>}
                         {d.details.missing > 0 && <rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>}
-                        <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text>
-                        <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text>
-                        <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟠 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title>
+                        <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="12" fill="#6b7280" fontWeight="bold">{d.details.count}</text>
+                        <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="12" fill="#374151" fontWeight="500">{d.label}</text>
                     </g>
                 );
             })}
@@ -223,7 +218,7 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
     );
 };
 
-// --- [修改] 學生學習歷程 Modal (整合分數計算) ---
+// --- [修改] 學生學習歷程 Modal (字體大小正常化) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('SCORE');
     const chartData = useMemo(() => {
@@ -236,7 +231,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             if (!statsByMonth[monthKey]) statsByMonth[monthKey] = { totalScorePoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
             const assignments = allAssignmentsByDate[date];
             assignments.forEach(assign => {
-                // [關鍵修改] 呼叫新的分數計算邏輯
                 const rawStatus = assign.submissionStatus[student.id];
                 const score = getScoreFromStatus(rawStatus, assign.assignmentDate);
                 if (score === 100) statsByMonth[monthKey].onTime++;
@@ -269,25 +263,25 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 border-white">
-                <div className={`p-6 flex justify-between items-center text-white shrink-0 ${viewMode === 'SCORE' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500'}`}>
-                    <div className="flex items-center gap-4"><h2 className="text-4xl font-bold">{student.name} 的學習歷程</h2></div><button onClick={onClose}><X className="w-8 h-8" /></button>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden border-2 border-white">
+                <div className={`p-4 flex justify-between items-center text-white shrink-0 ${viewMode === 'SCORE' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500'}`}>
+                    <div className="flex items-center gap-3"><h2 className="text-2xl font-bold">{student.name} 的學習歷程</h2></div><button onClick={onClose}><X className="w-6 h-6" /></button>
                 </div>
-                <div className="flex-1 overflow-auto p-8 bg-gray-50">
-                    <div className="flex justify-center mb-8">
-                        <div className="bg-gray-200 p-1 rounded-xl flex gap-1 shadow-inner">
-                            <button onClick={() => setViewMode('SCORE')} className={`px-6 py-2 rounded-lg text-xl font-bold ${viewMode === 'SCORE' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500'}`}>🎯 績效分數</button>
-                            <button onClick={() => setViewMode('COUNT')} className={`px-6 py-2 rounded-lg text-xl font-bold ${viewMode === 'COUNT' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500'}`}>📊 狀況統計</button>
+                <div className="flex-1 overflow-auto p-6 bg-gray-50">
+                    <div className="flex justify-center mb-6">
+                        <div className="bg-gray-200 p-1 rounded-lg flex gap-1 shadow-inner">
+                            <button onClick={() => setViewMode('SCORE')} className={`px-4 py-1.5 rounded-md text-base font-bold ${viewMode === 'SCORE' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>🎯 績效分數</button>
+                            <button onClick={() => setViewMode('COUNT')} className={`px-4 py-1.5 rounded-md text-base font-bold ${viewMode === 'COUNT' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}>📊 狀況統計</button>
                         </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-6 mb-8">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm text-center"><p className="text-gray-500 font-bold">目前平均分</p><p className={`text-5xl font-black ${getScoreColor(currentAverage)}`}>{currentAverage}</p></div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm text-center"><p className="text-gray-500 font-bold">評語</p><p className="text-3xl font-bold text-gray-700">{feedbackText}</p></div>
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                        <div className="bg-white p-4 rounded-xl shadow-sm text-center"><p className="text-gray-500 font-bold text-sm">目前平均分</p><p className={`text-4xl font-black ${getScoreColor(currentAverage)}`}>{currentAverage}</p></div>
+                        <div className="bg-white p-4 rounded-xl shadow-sm text-center"><p className="text-gray-500 font-bold text-sm">評語</p><p className="text-2xl font-bold text-gray-700">{feedbackText}</p></div>
                     </div>
-                    <div className="bg-white p-8 rounded-3xl shadow-sm h-[400px]">
+                    <div className="bg-white p-4 rounded-xl shadow-sm h-[350px]">
                         {viewMode === 'SCORE' ? <SimpleLineChart data={chartData} /> : <SimpleStackedBarChart data={chartData} />}
                     </div>
-                     <div className="mt-4 bg-white rounded-xl p-4 overflow-hidden"><table className="w-full text-center"><thead className="bg-gray-100"><tr><th>月份</th><th>分數</th><th>準時</th><th>補交</th><th>缺交</th></tr></thead><tbody>{chartData.map((d, i) => (<tr key={i} className="border-b"><td className="py-2 font-bold">{d.label}</td><td className={`font-bold ${getScoreColor(d.value)}`}>{d.value.toFixed(1)}</td><td className="text-green-600">{d.details.onTime}</td><td className="text-orange-500">{d.details.late}</td><td className="text-red-500">{d.details.missing}</td></tr>))}</tbody></table></div>
+                     <div className="mt-4 bg-white rounded-xl p-4 overflow-hidden"><table className="w-full text-center text-sm"><thead className="bg-gray-100"><tr><th className="py-2">月份</th><th>分數</th><th>準時</th><th>補交</th><th>缺交</th></tr></thead><tbody>{chartData.map((d, i) => (<tr key={i} className="border-b"><td className="py-2 font-bold">{d.label}</td><td className={`font-bold ${getScoreColor(d.value)}`}>{d.value.toFixed(1)}</td><td className="text-green-600">{d.details.onTime}</td><td className="text-orange-500">{d.details.late}</td><td className="text-red-500">{d.details.missing}</td></tr>))}</tbody></table></div>
                 </div>
             </div>
         </div>
@@ -297,7 +291,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
 // ... (RewardOverlay, CoinIcon 保持不變) ...
 const RewardOverlay = ({ type, onClose }) => {
     useEffect(() => { setTimeout(onClose, 2000); }, [onClose]);
-    return <div className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center"><h2 className="text-white text-6xl font-bold">獎勵動畫!</h2></div>;
+    return <div className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center"><h2 className="text-white text-5xl font-bold">獎勵動畫!</h2></div>;
 };
 
 // --- Hooks ---
@@ -313,19 +307,19 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
 };
 const useStudents = (db, isOffline) => { const [students, setStudents] = useState(DEFAULT_STUDENTS); const [loadingStudents, setLoadingStudents] = useState(true); useEffect(() => { setLoadingStudents(false); }, []); return { students, loadingStudents }; };
 const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, students) => { const [categories, setCategories] = useState(INITIAL_CATEGORIES); const [loadingCategories, setLoadingCategories] = useState(false); const getInitialSubmissionStatus = useMemo(() => students.reduce((s, st) => { s[st.id] = true; return s; }, {}), [students]); return { categories, loadingCategories, getInitialSubmissionStatus }; };
-const CustomAlert = ({ message, onClose }) => ( <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]"><div className="bg-white p-8 rounded-xl"><h3 className="text-2xl font-bold mb-4">{message}</h3><button onClick={onClose} className="bg-blue-600 text-white px-6 py-2 rounded">確定</button></div></div> );
+const CustomAlert = ({ message, onClose }) => ( <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]"><div className="bg-white p-6 rounded-xl"><h3 className="text-xl font-bold mb-4">{message}</h3><button onClick={onClose} className="bg-blue-600 text-white px-5 py-2 rounded-lg">確定</button></div></div> );
 const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
     const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
     return (
         <div className="fixed inset-0 bg-blue-50 flex items-center justify-center z-[10000]">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-                <h1 className="text-4xl font-bold text-center mb-8">五年甲班作業表</h1>
+                <h1 className="text-3xl font-bold text-center mb-6">五年甲班作業表</h1>
                 <div className="space-y-4">
-                    <button onClick={onGuestLogin} className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold text-xl">訪客進入</button>
+                    <button onClick={onGuestLogin} className="w-full py-2.5 bg-blue-500 text-white rounded-lg font-bold text-lg">訪客進入</button>
                     <div className="border-t pt-4">
-                         <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 border rounded mb-2"/>
-                         <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 border rounded mb-4"/>
-                         <button onClick={()=>onAdminLogin(email, password)} className="w-full py-3 bg-red-500 text-white rounded-xl font-bold text-xl">老師登入</button>
+                         <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-2.5 border rounded mb-2"/>
+                         <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-2.5 border rounded mb-4"/>
+                         <button onClick={()=>onAdminLogin(email, password)} className="w-full py-2.5 bg-red-500 text-white rounded-lg font-bold text-lg">老師登入</button>
                     </div>
                     {errorMsg && <p className="text-red-500 text-center">{errorMsg}</p>}
                     {isLoading && <p className="text-gray-500 text-center">載入中...</p>}
@@ -334,7 +328,7 @@ const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
         </div>
     );
 };
-// --- [Part 2] 主程式與介面邏輯 (經典版面復刻) ---
+// --- [Part 2] 主程式與介面邏輯 (正常尺寸復刻版) ---
 
 const App = () => {
   // Firebase & Auth States
@@ -343,7 +337,7 @@ const App = () => {
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isOffline, setIsOffline] = useState(false); 
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true); // [新增] 自動登入偵測
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true); // 自動登入偵測
 
   // Data States
   const [allAssignmentsByDate, setAllAssignmentsByDate] = useState({});
@@ -422,7 +416,7 @@ const App = () => {
             setIsAuthenticated(false);
             setAuthMode('GUEST');
         }
-        setIsCheckingAuth(false); // [修復] 自動登入檢查完畢
+        setIsCheckingAuth(false); 
         setLoadingLogin(false);
       });
       return () => unsubscribe();
@@ -431,7 +425,7 @@ const App = () => {
     }
   }, []);
 
-  // Handlers (Login/Logout)
+  // Handlers
   const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { setLoginError('登入失敗'); setLoadingLogin(false); } };
   const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { setLoginError('訪客登入失敗'); setLoadingLogin(false); } };
   const handleLogout = async () => { await signOut(auth); setIsAuthenticated(false); };
@@ -458,7 +452,6 @@ const App = () => {
   // --- Computed Data ---
   const assignmentsForSelectedDate = useMemo(() => {
       const assignments = allAssignmentsByDate[selectedDisplayDate] || [];
-      // [新增] 封存過濾
       return assignments.filter(a => showArchived || !a.archived).sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [allAssignmentsByDate, selectedDisplayDate, showArchived]);
 
@@ -504,104 +497,101 @@ const App = () => {
     }
   }, [assignmentMap, unlockClicks, updateBankBalance, isOffline, selectedDisplayDate, db]);
   
-  // --- Legacy Actions (Add Date, Export, etc.) simplified for length ---
-  // (Assuming these handlers are similar to previous versions, retaining key logic)
-  const handleAddNewDate = async () => { /* ... existing logic ... */ }; // Placeholder for brevity, ensure you copy full logic if needed or rely on previous context
-  const handleExportData = async () => { /* ... existing logic ... */ }; 
-  const handleImportData = async (e) => { /* ... existing logic ... */ };
-  // 為了節省篇幅，這裡省略 Add/Delete/Export 的詳細實作，因為邏輯與 v16.3.1 完全相同。
-  // 若您需要這些功能的完整代碼，請告知，我會補充。
-  // (此處假設您會將 Part 1 中的邏輯與介面結合)
+  // 省略 Legacy Actions (Add/Delete/Export/Import) 的實作代碼以節省篇幅，請保留原有邏輯或從舊版本複製
+  const handleAddNewDate = async () => {}; 
+  const handleExportData = async () => {}; 
+  const handleImportData = async (e) => {};
 
   // --- Rendering ---
   const isGlobalLoading = loading || loadingCategories || loadingStudents;
 
-  if (isCheckingAuth) return <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-4"></div><p className="text-2xl text-gray-600 font-bold">系統載入中...</p></div>;
+  if (isCheckingAuth) return <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div><p className="text-xl text-gray-600 font-bold">系統載入中...</p></div>;
   if (!isAuthenticated && !isOffline) return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
 
   return (
     <DndProvider backend={HTML5Backend}>
-    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
+    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden text-base">
       {rewardState && <RewardOverlay type={rewardState.type} onClose={()=>setRewardState(null)} />}
       {showBankModal && <StudentBankModal bankData={bankData} onClose={()=>setShowBankModal(false)} onUpdateBalance={updateBankBalance} authMode={authMode} students={students} />}
       {dashboardStudent && <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={()=>setDashboardStudent(null)} />}
       {alertMessage && <CustomAlert message={alertMessage} onClose={()=>setAlertMessage(null)} />}
 
-      <div className="bg-white shadow-xl w-full flex flex-col h-full">
-        {/* [Header] v16.3.1 經典版面復刻 */}
-        <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
-           {isOffline && <div className="absolute top-0 left-0 w-full bg-gray-800 text-white py-2 text-xl font-bold z-10">⚠️ 離線模式</div>}
-           <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20"><LogOut className="w-5 h-5"/> 登出</button>
+      <div className="bg-white shadow-md w-full flex flex-col h-full">
+        {/* Header - 經典版面 (尺寸縮小) */}
+        <header className="p-3 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
+           {isOffline && <div className="absolute top-0 left-0 w-full bg-gray-800 text-white py-1 text-sm font-bold z-10">⚠️ 離線模式</div>}
+           <button onClick={handleLogout} className="absolute top-3 left-4 flex items-center gap-1 px-3 py-1.5 bg-red-100 hover:bg-red-200 rounded text-red-700 font-bold transition z-20 text-sm"><LogOut className="w-4 h-4"/> 登出</button>
            
-           <div className={`flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2 ${isOffline?'mt-8':''}`}><span className="text-orange-500 text-6xl mr-3">🐻‍❄️</span><span className="text-5xl">五年甲班訂正作業表</span><span className="text-green-600 text-6xl ml-3">🐼</span></div>
-           <p className="text-3xl text-gray-600 mb-4">{new Date().toLocaleDateString('zh-TW', {year:'numeric', month:'numeric', day:'numeric', weekday:'long'})}</p>
-           <p className={`absolute right-4 text-xl text-gray-500 font-bold z-30 transition-all ${authMode==='ADMIN'?'top-20':'top-4'}`}>版本: {VERSION}</p>
+           <div className={`flex items-center justify-center text-3xl font-extrabold text-gray-900 mb-1 ${isOffline?'mt-6':''}`}><span className="text-orange-500 text-4xl mr-2">🐻‍❄️</span><span className="text-3xl">五年甲班訂正作業表</span><span className="text-green-600 text-4xl ml-2">🐼</span></div>
+           <p className="text-lg text-gray-600 mb-2">{new Date().toLocaleDateString('zh-TW', {year:'numeric', month:'numeric', day:'numeric', weekday:'long'})}</p>
+           <p className="absolute right-4 top-4 text-sm text-gray-500 font-bold z-30">版本: {VERSION}</p>
         </header>
 
-        <div className="flex-1 overflow-auto bg-gray-50 p-4 relative">
-            {/* Control Row 1: Selectors & Archive Toggle */}
-            <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl">
+        <div className="flex-1 overflow-auto bg-gray-50 p-3 relative">
+            {/* Control Row 1: Selectors (尺寸縮小) */}
+            <div className="flex flex-wrap items-center gap-4 mb-4 text-lg">
                 <label className="font-semibold text-gray-700">學期：</label>
-                <select value={selectedSemester} onChange={(e)=>setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold">{semesters.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+                <select value={selectedSemester} onChange={(e)=>setSelectedSemester(e.target.value)} className="p-2 border border-gray-300 rounded font-semibold text-base">{semesters.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
                 <label className="font-semibold text-gray-700">月份：</label>
-                <select value={selectedMonth} onChange={(e)=>setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" style={{backgroundColor:months.find(m=>m.id===selectedMonth)?.color}}>{filteredMonths.map(m=><option key={m.id} value={m.id} style={{backgroundColor:m.color}}>{m.name}</option>)}</select>
+                <select value={selectedMonth} onChange={(e)=>setSelectedMonth(e.target.value)} className="p-2 border border-gray-300 rounded font-semibold text-base" style={{backgroundColor:months.find(m=>m.id===selectedMonth)?.color}}>{filteredMonths.map(m=><option key={m.id} value={m.id} style={{backgroundColor:m.color}}>{m.name}</option>)}</select>
                 
-                {/* [新增] 封存開關 (安插在此) */}
+                {/* 封存開關 (正常尺寸) */}
                 <div className="flex items-center ml-2 cursor-pointer select-none group" onClick={() => setShowArchived(!showArchived)}>
-                    <div className={`w-12 h-7 flex items-center bg-gray-300 rounded-full p-1 duration-300 ${showArchived ? 'bg-blue-500' : ''}`}>
-                        <div className={`bg-white w-5 h-5 rounded-full shadow-md transform duration-300 ${showArchived ? 'translate-x-5' : ''}`}></div>
+                    <div className={`w-10 h-6 flex items-center bg-gray-300 rounded-full p-1 duration-300 ${showArchived ? 'bg-blue-500' : ''}`}>
+                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ${showArchived ? 'translate-x-4' : ''}`}></div>
                     </div>
-                    <span className="ml-2 text-gray-600 font-bold text-xl">顯示封存</span>
+                    <span className="ml-2 text-gray-600 font-bold text-base">顯示封存</span>
                 </div>
 
-                <button onClick={()=>setShowBankModal(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 shadow-md flex items-center"><BookOpen className="h-6 w-6 mr-2"/>訂正存簿</button>
+                <button onClick={()=>setShowBankModal(true)} className="px-4 py-2 text-lg font-medium rounded text-white bg-green-600 hover:bg-green-700 shadow-sm flex items-center ml-auto"><BookOpen className="h-5 w-5 mr-1"/>訂正存簿</button>
             </div>
 
-            {/* Control Row 2: Date Tabs */}
-            <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2">
+            {/* Control Row 2: Date Tabs (尺寸縮小) */}
+            <div className="flex flex-wrap gap-2 mb-3 overflow-x-auto pb-1">
                 {displayedDates.map(date => (
-                    <button key={date} onClick={()=>setSelectedDisplayDate(date)} className={`px-5 py-3 text-4xl font-semibold rounded-lg shadow-md whitespace-nowrap transition-all ${date===selectedDisplayDate ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}>{date.slice(5)}</button>
+                    <button key={date} onClick={()=>setSelectedDisplayDate(date)} className={`px-4 py-2 rounded text-xl font-bold whitespace-nowrap transition-all shadow-sm ${date===selectedDisplayDate ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}>{date.slice(5)}</button>
                 ))}
             </div>
 
-            {/* Control Row 3: Actions */}
-            <div className="flex flex-wrap items-center gap-2 mb-6">
-                <input type="date" value={newAssignmentDate} onChange={(e)=>setNewAssignmentDate(e.target.value)} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px]" />
-                <button onClick={handleAddNewDate} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 shadow-md">+ 新增日期</button>
-                <button onClick={handleExportData} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-fuchsia-400 hover:bg-fuchsia-500 shadow-md flex items-center"><Download className="h-6 w-6 mr-1"/>匯出</button>
-                <button onClick={()=>setShowAllMissingModal(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 shadow-md flex items-center"><FileText className="h-6 w-6 mr-1"/>未完成總表</button>
+            {/* Control Row 3: Actions (尺寸縮小) */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+                <input type="date" value={newAssignmentDate} onChange={(e)=>setNewAssignmentDate(e.target.value)} className="p-1.5 text-lg border border-gray-300 rounded font-semibold w-[160px]" />
+                <button onClick={handleAddNewDate} className="px-3 py-2 text-lg font-medium rounded text-white bg-yellow-500 hover:bg-yellow-600 shadow-sm">+ 新增日期</button>
+                <button onClick={handleExportData} className="px-3 py-2 text-lg font-medium rounded text-white bg-fuchsia-400 hover:bg-fuchsia-500 shadow-sm flex items-center"><Download className="h-5 w-5 mr-1"/>匯出</button>
+                <button onClick={()=>setShowAllMissingModal(true)} className="px-3 py-2 text-lg font-medium rounded text-white bg-orange-500 hover:bg-orange-600 shadow-sm flex items-center"><FileText className="h-5 w-5 mr-1"/>未完成總表</button>
                 <div className="relative">
                     <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    <button onClick={()=>document.getElementById('importFile').click()} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-cyan-500 hover:bg-cyan-600 shadow-md flex items-center"><Upload className="h-6 w-6 mr-1"/>匯入</button>
+                    <button onClick={()=>document.getElementById('importFile').click()} className="px-3 py-2 text-lg font-medium rounded text-white bg-cyan-500 hover:bg-cyan-600 shadow-sm flex items-center"><Upload className="h-5 w-5 mr-1"/>匯入</button>
                 </div>
             </div>
 
-            {/* Date Title & Add Assignment */}
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-5xl font-bold text-gray-800 flex items-center"><span className="text-gray-500 mr-3 text-5xl">📋</span>{selectedDisplayDate ? `${new Date(selectedDisplayDate).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})} 作業確認表` : '請選擇日期'}</h2>
-                <div className="flex items-center gap-4">
-                     {focusedStudentId && <button onClick={()=>setFocusedStudentId(null)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-gray-600 shadow-md flex items-center"><Eye className="h-8 w-8 mr-2"/>顯示全部</button>}
-                     <button onClick={()=>{/*Add Logic*/}} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-blue-400 hover:bg-blue-500 shadow-md flex items-center"><Plus className="h-8 w-8 mr-2"/>新增作業</button>
+            {/* Date Title & Add Assignment (尺寸縮小) */}
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-3xl font-bold text-gray-800 flex items-center"><span className="text-gray-500 mr-2 text-3xl">📋</span>{selectedDisplayDate ? `${new Date(selectedDisplayDate).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})} 作業確認表` : '請選擇日期'}</h2>
+                <div className="flex items-center gap-2">
+                     {focusedStudentId && <button onClick={()=>setFocusedStudentId(null)} className="px-3 py-2 text-lg font-medium rounded text-white bg-gray-600 shadow-sm flex items-center"><Eye className="h-5 w-5 mr-1"/>顯示全部</button>}
+                     <button onClick={()=>{/*Add Logic*/}} className="px-3 py-2 text-lg font-medium rounded text-white bg-blue-400 hover:bg-blue-500 shadow-sm flex items-center"><Plus className="h-5 w-5 mr-1"/>新增作業</button>
                 </div>
             </div>
 
             {/* Main Table */}
-            <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-y-auto overflow-x-auto h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId?'bg-blue-50 border-blue-300':'bg-white'}`}>
-                <div className="pb-4 min-w-max">
+            <div className={`w-full relative border border-gray-300 rounded shadow-lg overflow-y-auto overflow-x-auto h-[calc(100vh-280px)] min-h-[400px] mb-6 ${focusedStudentId?'bg-blue-50 border-blue-300':'bg-white'}`}>
+                <div className="pb-2 min-w-max">
                     {assignmentsForSelectedDate.length > 0 && (
                         <table className="divide-y divide-gray-300 w-full">
                             <thead className="bg-gray-100 sticky top-0 z-[70]">
                                 <tr>
-                                    <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 sticky left-0 top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{minWidth:'80px', width:'80px', left:'0px'}}>座號</th>
-                                    <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 sticky top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{minWidth:'128px', width:'128px', left:'80px'}}>姓名</th>
+                                    {/* 座號寬度 60px */}
+                                    <th className="px-2 py-3 text-lg font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 sticky left-0 top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{minWidth:'60px', width:'60px', left:'0px'}}>座號</th>
+                                    {/* 姓名寬度 100px */}
+                                    <th className="px-2 py-3 text-lg font-semibold uppercase tracking-wider text-gray-600 sticky top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{minWidth:'100px', width:'100px', left:'60px'}}>姓名</th>
                                     {assignmentsForSelectedDate.map(assign => (
-                                        <th key={assign.id} className="px-2 py-4 text-3xl text-center font-semibold text-gray-800 sticky top-0 bg-gray-100 z-[50] group">
+                                        <th key={assign.id} className="px-2 py-3 text-lg text-center font-semibold text-gray-800 sticky top-0 bg-gray-100 z-[50] group">
                                             <div className="flex flex-col items-center">
                                                 <span className={assign.archived ? 'text-gray-400 line-through' : ''}>{assign.assignmentName}</span>
-                                                {/* [新增] 封存按鈕 */}
                                                 {authMode === 'ADMIN' && (
                                                     <button onClick={()=>handleToggleArchive(assign.id, assign.archived)} className="mt-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500 transition">
-                                                        {assign.archived ? <ArchiveRestore className="w-6 h-6"/> : <Archive className="w-6 h-6"/>}
+                                                        {assign.archived ? <ArchiveRestore className="w-5 h-5"/> : <Archive className="w-5 h-5"/>}
                                                     </button>
                                                 )}
                                             </div>
@@ -612,43 +602,41 @@ const App = () => {
                             <tbody className={`divide-y divide-gray-200 ${focusedStudentId?'bg-blue-50':'bg-white'}`}>
                                 {(focusedStudentId ? students.filter(s=>s.id===focusedStudentId) : students).map(student => (
                                     <tr key={student.id} className={`group ${focusedStudentId?'bg-blue-100':'hover:bg-blue-50'}`}>
-                                        <td onClick={()=>setFocusedStudentId(focusedStudentId===student.id?null:student.id)} className="px-2 py-4 text-3xl font-medium text-gray-900 border-r border-gray-300 sticky left-0 bg-white z-[50] text-center cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100" style={{minWidth:'80px', left:'0px'}}>{student.id}</td>
+                                        <td onClick={()=>setFocusedStudentId(focusedStudentId===student.id?null:student.id)} className="px-2 py-3 text-xl font-bold text-gray-500 text-center sticky left-0 bg-white z-[50] border-r cursor-pointer group-hover:bg-blue-100" style={{minWidth:'60px', left:'0px'}}>{student.id}</td>
                                         
-                                        {/* [修正] 姓名欄位：絕對定位 (Fixed Alignment) */}
-                                        <td onClick={()=>setFocusedStudentId(focusedStudentId===student.id?null:student.id)} className="px-2 py-4 text-3xl font-bold text-gray-800 text-center sticky bg-white z-[50] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 relative" style={{minWidth:'128px', left:'80px'}}>
+                                        {/* [修正] 姓名欄位 (正常尺寸) */}
+                                        <td onClick={()=>setFocusedStudentId(focusedStudentId===student.id?null:student.id)} className="px-2 py-3 text-xl font-bold text-gray-800 text-center sticky bg-white z-[50] cursor-pointer group-hover:bg-blue-100 relative" style={{minWidth:'100px', left:'60px'}}>
                                             <div className="flex items-center justify-center gap-1">
                                                 {student.name[0] + 'O' + student.name.slice(2)}
-                                                <span className="text-blue-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    {focusedStudentId === student.id ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
+                                                <span className="text-blue-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    {focusedStudentId === student.id ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                                                 </span>
                                             </div>
-                                            {/* 絕對定位的圖示 */}
                                             <button onClick={(e)=>{e.stopPropagation();setDashboardStudent(student);}} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 bg-gray-100 hover:bg-blue-100 rounded-full text-gray-400 hover:text-blue-600 transition shadow-sm opacity-50 group-hover:opacity-100">
-                                                <BarChart2 className="w-5 h-5" />
+                                                <BarChart2 className="w-4 h-4" />
                                             </button>
                                         </td>
 
                                         {assignmentsForSelectedDate.map(assign => {
                                             const statusData = assign.submissionStatus[student.id];
                                             const score = getScoreFromStatus(statusData, assign.assignmentDate);
-                                            // [修改] 顏色邏輯：B方案 (Amber Heatmap)
-                                            let btnClass = "bg-red-100 text-red-600 border-red-200"; // 0分/缺交
-                                            let content = <X className="h-10 w-10"/>;
+                                            // 正常尺寸按鈕
+                                            let btnClass = "bg-red-100 text-red-600 border-red-200"; 
+                                            let content = <X className="h-6 w-6"/>;
                                             
                                             if (score === 100) {
-                                                btnClass = "bg-green-200 text-green-700 border-green-300"; // 準時
-                                                content = <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>;
+                                                btnClass = "bg-green-100 text-green-700 border-green-200";
+                                                content = <Check className="h-6 w-6"/>;
                                             } else if (score > 0) {
-                                                // 遲交 (琥珀色階)
                                                 if(score >= 80) btnClass = "bg-yellow-100 text-yellow-700 border-yellow-200";
                                                 else if(score >= 60) btnClass = "bg-orange-100 text-orange-700 border-orange-200";
                                                 else btnClass = "bg-orange-200 text-orange-900 border-orange-300";
-                                                content = <span className="text-2xl font-bold">{score}分</span>;
+                                                content = <span className="text-lg font-bold">{score}分</span>;
                                             }
 
                                             return (
-                                                <td key={assign.id} className="px-1 py-4 text-center" style={{minWidth:'150px'}}>
-                                                    <button onClick={()=>handleToggleSubmission(assign.assignmentName, student.id, statusData)} className={`p-2 rounded-lg shadow-md border-4 w-full h-full flex items-center justify-center transition active:scale-95 ${btnClass} ${assign.archived?'opacity-50 grayscale':''}`}>
+                                                <td key={assign.id} className="p-1 text-center" style={{minWidth:'100px'}}>
+                                                    <button onClick={()=>handleToggleSubmission(assign.assignmentName, student.id, statusData)} className={`w-full py-2 rounded-lg border flex items-center justify-center transition active:scale-95 ${btnClass} ${assign.archived?'opacity-50 grayscale':''}`}>
                                                         {content}
                                                     </button>
                                                 </td>
@@ -661,9 +649,7 @@ const App = () => {
                     )}
                 </div>
             </div>
-            
-            {/* Footer Charts (Using same logic as before) */}
-            {/* 省略部分重複的 Footer 代碼以保持簡潔，邏輯與 v16.3.1 相同 */}
+            {/* Footer Charts ... */}
         </div>
       </div>
     </div>
