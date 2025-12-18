@@ -701,7 +701,38 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode, studen
        if (type === 'SILVER') onUpdateBalance(studentId, 0, amount, 0);
        if (type === 'GOLD') onUpdateBalance(studentId, 0, 0, amount);
    };
- 
+ // ... (StudentBankModal 的程式碼)
+    if (type === 'GOLD') onUpdateBalance(studentId, 0, 0, amount);
+  };
+
+  return (
+    // ... (modal JSX)
+  );
+}; // <--- 這裡是第 703 行左右
+
+// ============================================
+// 👇👇 請把補漏的程式碼貼在這個空隙 👇👇
+// ============================================
+
+// --- 這裡開始是補漏的元件與 Hooks ---
+const CustomAlert = ({ message, onClose }) => ( ... );
+const LoginScreen = ({ onAdminLogin, ... }) => { ... };
+const AllMissingAssignmentsModal = ...
+const ConfirmationModal = ...
+const AssignmentHeader = ...
+const DateTab = ...
+const ProtectedButton = ...
+const useStudents = ... // <--- 這就是報錯說找不到的主角
+const useCategories = ...
+// --- 這裡結束是補漏的元件與 Hooks ---
+
+// ============================================
+// 👆👆 貼上結束 👆👆
+// ============================================
+
+// --- Main App Component ---
+const App = () => {
+  // ...
    return (
        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4">
            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-7xl h-[90vh] flex flex-col border border-green-200">
