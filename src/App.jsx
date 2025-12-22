@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v17.0.0 - 雙重檢核警報版'; 
+const VERSION = 'v18.0.0 - 雙軌統計與細緻評級版'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -200,12 +200,27 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
    );
 };
 
-// --- [已更新] 學生學習歷程 Dashboard Modal (Option B: 雙重檢核機制) ---
+// --- [已更新] 學生學習歷程 Dashboard Modal (雙軌制：健康統計 vs 績效趨勢) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
-    const [viewMode, setViewMode] = useState('SCORE');
+    const [viewMode, setViewMode] = useState('STATUS'); // STATUS (健康/長條圖) 或 TREND (績效/折線圖)
 
-    // 計算兩個日期間的天數差
-    const getDaysDiff = (dateString) => {
+    // 1. 輔助：計算遲交天數
+    const getDaysDiff = (dateString, completedAtString) => {
+        const targetDate = new Date(dateString);
+        targetDate.setHours(0,0,0,0);
+        
+        let completedDate = new Date(); // 預設今天
+        if (completedAtString) {
+            completedDate = new Date(completedAtString);
+        }
+        completedDate.setHours(0,0,0,0);
+
+        const diffTime = completedDate - targetDate;
+        return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+    };
+
+    // 2. 輔助：計算兩個日期間的天數差 (用於即時警報檢核，比較「今天」)
+    const getDelayFromToday = (dateString) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const target = new Date(dateString);
@@ -214,188 +229,326 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         return Math.floor(diffTime / (1000 * 60 * 60 * 24));
     };
 
-    // 計算每月統計資料與分數
-    const chartData = useMemo(() => {
-        const statsByMonth = {};
+    // 3. 雙軌資料處理核心
+    const { healthData, trendData, summaryStats, trendStats, emergencyData } = useMemo(() => {
+        const healthByMonth = {};
+        const trendByMonth = {};
+        
+        // 總結變數
+        let totalAssigments = 0;
+        let totalHealthPoints = 0; // 舊制總分
+        let totalTrendPoints = 0;  // 新制總分
+        
+        let countCompleted = 0;
+        let countLate = 0;
+        let countMissing = 0;
+
+        // 警報變數
+        let currentMissingCount = 0;
+        let maxDelayDays = 0;
+
         const sortedDates = Object.keys(allAssignmentsByDate).sort();
-        if(sortedDates.length === 0) return [];
 
         sortedDates.forEach(date => {
             const dateObj = new Date(date);
             const monthKey = `${dateObj.getMonth() + 1}月`;
-            if (!statsByMonth[monthKey]) {
-                statsByMonth[monthKey] = { totalScorePoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+            
+            // 初始化月報表
+            if (!healthByMonth[monthKey]) {
+                healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+                trendByMonth[monthKey] = { totalPoints: 0, count: 0 };
             }
+
             const assignments = allAssignmentsByDate[date];
             
-            // 每日狀態判定：全好=100，有遲交=60，有缺交=0
-            let isMissing = false;
-            let isLate = false;
             assignments.forEach(assign => {
                 const status = assign.submissionStatus[student.id];
-                if (status === false) isMissing = true;
-                else if (status === 'late') isLate = true;
-            });
+                const completedAt = assign.completedAt?.[student.id]; // 取得補交時間戳記
 
-            let dailyScore = 0;
-            if (isMissing) {
-                dailyScore = 0;
-                statsByMonth[monthKey].missing++;
-            } else if (isLate) {
-                dailyScore = 60;
-                statsByMonth[monthKey].late++;
-            } else {
-                dailyScore = 100;
-                statsByMonth[monthKey].onTime++;
-            }
-            
-            statsByMonth[monthKey].totalScorePoints += dailyScore;
-            statsByMonth[monthKey].count++;
-        });
-
-        return Object.keys(statsByMonth).map(key => {
-            const data = statsByMonth[key];
-            const avgScore = data.count === 0 ? 0 : (data.totalScorePoints / data.count);
-            return {
-                label: key,
-                value: avgScore,
-                details: data
-            };
-        });
-    }, [allAssignmentsByDate, student.id]);
-
-    // 計算學期總平均分數
-    const currentAverage = useMemo(() => {
-        if (chartData.length === 0) return 0;
-        const totalPoints = chartData.reduce((acc, cur) => acc + cur.details.totalScorePoints, 0);
-        const totalDays = chartData.reduce((acc, cur) => acc + cur.details.count, 0);
-        return totalDays === 0 ? 0 : (totalPoints / totalDays).toFixed(1);
-    }, [chartData]);
-
-    // 【核心】雙重檢核警報判定
-    const missingAnalysis = useMemo(() => {
-        let currentMissingCount = 0;
-        let maxDelayDays = 0;
-        const missingItems = [];
-
-        Object.keys(allAssignmentsByDate).forEach(date => {
-            const assignments = allAssignmentsByDate[date];
-            assignments.forEach(assign => {
-                if (assign.submissionStatus[student.id] === false) {
+                // --- A. 狀態統計 (Health) 100/60/0 ---
+                let hScore = 0;
+                if (status === true) {
+                    hScore = 100;
+                    healthByMonth[monthKey].onTime++;
+                    countCompleted++;
+                } else if (status === 'late') {
+                    hScore = 60; // 舊制遲交固定60
+                    healthByMonth[monthKey].late++;
+                    countLate++;
+                } else {
+                    hScore = 0;
+                    healthByMonth[monthKey].missing++;
+                    countMissing++;
+                    
+                    // 警報檢核：只有「目前仍缺交」的才算
                     currentMissingCount++;
-                    const delay = getDaysDiff(date);
+                    const delay = getDelayFromToday(date);
                     if (delay > maxDelayDays) maxDelayDays = delay;
-                    missingItems.push({ item: assign.assignmentName, days: delay });
                 }
+                healthByMonth[monthKey].totalPoints += hScore;
+                healthByMonth[monthKey].count++;
+                totalHealthPoints += hScore;
+
+                // --- B. 績效分數 (Trend) 100倒扣制 ---
+                let tScore = 0;
+                if (status === true) {
+                    tScore = 100;
+                } else if (status === 'late') {
+                    // 如果有補交時間紀錄，計算倒扣；否則(舊資料)給60
+                    if (completedAt) {
+                        const daysLate = getDaysDiff(date, completedAt);
+                        tScore = Math.max(0, 100 - (daysLate * 5));
+                    } else {
+                        tScore = 60; 
+                    }
+                } else {
+                    tScore = 0; // 缺交
+                }
+                trendByMonth[monthKey].totalPoints += tScore;
+                trendByMonth[monthKey].count++;
+                totalTrendPoints += tScore;
+                
+                totalAssigments++;
             });
         });
 
-        // 紅燈條件：缺交超過3天 或 缺交數量超過3項
+        // 轉換為圖表格式
+        const healthChart = Object.keys(healthByMonth).map(key => ({
+            label: key,
+            value: healthByMonth[key].count === 0 ? 0 : (healthByMonth[key].totalPoints / healthByMonth[key].count),
+            details: healthByMonth[key]
+        }));
+
+        const trendChart = Object.keys(trendByMonth).map(key => ({
+            label: key,
+            value: trendByMonth[key].count === 0 ? 0 : (trendByMonth[key].totalPoints / trendByMonth[key].count)
+        }));
+
         const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
-        return { isEmergency, maxDelayDays, currentMissingCount, missingItems };
+
+        return {
+            healthData: healthChart,
+            trendData: trendChart,
+            summaryStats: { total: totalAssigments, completed: countCompleted, late: countLate, missing: countMissing, avgScore: totalAssigments === 0 ? 0 : (totalHealthPoints / totalAssigments).toFixed(1) },
+            trendStats: { avgScore: totalAssigments === 0 ? 0 : (totalTrendPoints / totalAssigments).toFixed(1) },
+            emergencyData: { isEmergency, maxDelayDays, currentMissingCount }
+        };
     }, [allAssignmentsByDate, student.id]);
 
-    // 決定顯示的評語 (Option B: 紅燈優先)
-    const getFeedback = (score, emergencyData) => {
-        if (emergencyData.isEmergency) {
+    // 4. 評語邏輯 A：健康狀況 (Status Mode) - 7級 + 雙重檢核
+    const getStatusFeedback = (score, emergency) => {
+        if (emergency.isEmergency) {
             return {
                 text: "❌ 紅燈警報！缺交太多了，請務必每天確實完成功課，並檢查聯絡簿。",
-                color: "text-red-600",
-                bg: "bg-red-50",
-                border: "border-red-500",
-                isAlert: true
+                color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true
             };
         }
-
-        const numScore = parseFloat(score);
-        if (numScore >= 100) return { text: "🏆 完美無瑕！全勤且準時，你是全班的作業楷模！", color: "text-blue-600", bg: "bg-white", border: "border-blue-600" };
-        if (numScore >= 95) return { text: "✨ 超級優秀！只差一點點就滿分，你的自律讓人佩服。", color: "text-blue-500", bg: "bg-white", border: "border-blue-500" };
-        if (numScore >= 90) return { text: "🌟 表現極佳！絕大多數時間都能準時完成，態度很棒。", color: "text-green-600", bg: "bg-white", border: "border-green-600" };
-        if (numScore >= 85) return { text: "👍 很不錯喔！作業狀況穩定，偶爾的小失誤修正就好。", color: "text-green-500", bg: "bg-white", border: "border-green-500" };
-        if (numScore >= 80) return { text: "👌 保持水準！大部分都有完成，但要減少遲交的情況。", color: "text-lime-600", bg: "bg-white", border: "border-lime-600" };
-        if (numScore >= 70) return { text: "💪 再加油點！遲交或缺交的頻率變高了，要更積極些。", color: "text-yellow-600", bg: "bg-white", border: "border-yellow-600" };
-        if (numScore >= 60) return { text: "⚠️ 勉強及格！你的作業狀況令人擔心，必須調整步調。", color: "text-orange-500", bg: "bg-white", border: "border-orange-500" };
-        return { text: "❌ 成績紅燈！請持續努力補交作業，拉高平時成績。", color: "text-red-500", bg: "bg-white", border: "border-red-400" };
+        const s = parseFloat(score);
+        if (s >= 100) return { text: "🏆 完美無瑕！全勤且準時，你是全班的作業楷模！", color: "text-blue-600", bg: "bg-white", border: "border-blue-600" };
+        if (s >= 95) return { text: "✨ 超級優秀！只差一點點就滿分，你的自律讓人佩服。", color: "text-blue-500", bg: "bg-white", border: "border-blue-500" };
+        if (s >= 90) return { text: "🌟 表現極佳！絕大多數時間都能準時完成，態度很棒。", color: "text-green-600", bg: "bg-white", border: "border-green-600" };
+        if (s >= 85) return { text: "👍 很不錯喔！作業狀況穩定，偶爾的小失誤修正就好。", color: "text-green-500", bg: "bg-white", border: "border-green-500" };
+        if (s >= 80) return { text: "👌 保持水準！大部分都有完成，但要減少遲交的情況。", color: "text-lime-600", bg: "bg-white", border: "border-lime-600" };
+        if (s >= 70) return { text: "💪 再加油點！遲交或缺交的頻率變高了，要更積極些。", color: "text-yellow-600", bg: "bg-white", border: "border-yellow-600" };
+        return { text: "⚠️ 勉強及格！你的作業狀況令人擔心，必須調整步調。", color: "text-orange-500", bg: "bg-white", border: "border-orange-500" };
     };
 
-    const feedback = getFeedback(currentAverage, missingAnalysis);
+    // 5. 評語邏輯 B：績效分數 (Trend Mode) - 18級細緻分級
+    const getTrendFeedback = (score) => {
+        const s = parseFloat(score);
+        if (s === 100) return { text: "👑 傳奇等級！完美的 100 分，無懈可擊！", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-500" };
+        if (s >= 98) return { text: "🎖️ 頂尖卓越 (98+)，幾乎完美的表現！", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" };
+        if (s >= 96) return { text: "🌟 出類拔萃 (96+)，令人驚嘆的自律！", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" };
+        if (s >= 94) return { text: "✨ 極度優秀 (94+)，保持得非常好！", color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-500" };
+        if (s >= 90) return { text: "👍 非常棒 (90+)，是大家學習的榜樣。", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" };
+        if (s >= 85) return { text: "🌿 表現優異 (85+)，維持在高水準。", color: "text-green-600", bg: "bg-green-50", border: "border-green-500" };
+        if (s >= 81) return { text: "😊 相當不錯 (81+)，繼續保持這個節奏。", color: "text-lime-600", bg: "bg-lime-50", border: "border-lime-500" };
+        if (s >= 75) return { text: "🆗 表現尚可 (75+)，但還有進步空間。", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-500" };
+        if (s >= 70) return { text: "😐 普普通通 (70+)，遲交次數稍微多了點。", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" };
+        if (s >= 65) return { text: "😟 需要注意 (65+)，分數開始下滑囉。", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-500" };
+        if (s >= 60) return { text: "⚠️ 低空飛過 (60+)，請再多用點心。", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-600" };
+        if (s >= 50) return { text: "🛑 不及格邊緣 (50+)，必須立刻修正態度！", color: "text-red-500", bg: "bg-red-50", border: "border-red-400" };
+        if (s >= 40) return { text: "🌧️ 狀況不佳 (40+)，缺交或遲交太頻繁了。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500" };
+        if (s >= 30) return { text: "⛈️ 雷雨警報 (30+)，請家長務必協助。", color: "text-red-700", bg: "bg-red-100", border: "border-red-600" };
+        if (s >= 20) return { text: "💔 令人擔憂 (20+)，作業幾乎都沒完成。", color: "text-red-800", bg: "bg-red-100", border: "border-red-700" };
+        if (s >= 10) return { text: "🆘 緊急狀態 (10+)，請趕快找老師討論。", color: "text-red-900", bg: "bg-red-200", border: "border-red-800" };
+        if (s >= 5) return { text: "🌫️ 幾近空白 (5+)，請不要放棄學習！", color: "text-gray-600", bg: "bg-gray-200", border: "border-gray-500" };
+        return { text: "🌑 完全空白 (0-4.9)，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" };
+    };
+
+    const currentFeedback = viewMode === 'STATUS' 
+        ? getStatusFeedback(summaryStats.avgScore, emergencyData)
+        : getTrendFeedback(trendStats.avgScore);
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
-            <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 ${feedback.isAlert ? 'border-red-500' : 'border-white'}`}>
-                <div className={`p-6 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${feedback.isAlert ? 'bg-red-600' : (viewMode === 'SCORE' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
+            <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 ${currentFeedback.isAlert ? 'border-red-500' : 'border-white'}`}>
+                {/* 頂部 Header */}
+                <div className={`p-6 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
                     <div className="flex items-center gap-4">
-                        <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 ${feedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'SCORE' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>
+                        <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>
                             {student.id}
                         </div>
                         <div>
                             <h2 className="text-4xl font-bold tracking-wide">{student.name} 的學習歷程</h2>
-                            <p className="text-white/90 text-xl font-medium mt-1 flex items-center gap-2"><Activity className="w-5 h-5" /> {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表</p>
+                            <p className="text-white/90 text-xl font-medium mt-1 flex items-center gap-2">
+                                <Activity className="w-5 h-5" /> 
+                                {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表
+                            </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md"><X className="w-8 h-8" /></button>
+                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md">
+                        <X className="w-8 h-8" />
+                    </button>
                 </div>
-                <div className={`flex-1 overflow-auto p-8 ${feedback.bg}`}>
+
+                <div className={`flex-1 overflow-auto p-8 ${currentFeedback.bg}`}>
+                    {/* 切換按鈕 */}
                     <div className="flex justify-center mb-8">
                         <div className="bg-gray-200 p-1 rounded-xl flex gap-1 shadow-inner">
-                            <button onClick={() => setViewMode('SCORE')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'SCORE' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>🎯 績效分數</button>
-                            <button onClick={() => setViewMode('COUNT')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'COUNT' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📊 狀況統計</button>
+                            <button onClick={() => setViewMode('STATUS')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'STATUS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>
+                                📊 狀況統計 (Status)
+                            </button>
+                            <button onClick={() => setViewMode('TREND')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'TREND' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>
+                                📈 績效分數 (Trend)
+                            </button>
                         </div>
                     </div>
+
+                    {/* 數據卡片區 */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        {/* 1. 資產 */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div className="p-4 bg-yellow-100 text-yellow-600 rounded-2xl"><Coins className="w-10 h-10" /></div>
+                            <div className="p-4 bg-yellow-100 text-yellow-600 rounded-2xl">
+                                <Coins className="w-10 h-10" />
+                            </div>
                             <div>
                                 <p className="text-gray-500 text-lg font-bold">目前資產</p>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.gold || 0}</span><span className="text-sm text-yellow-500 font-bold">金</span>
+                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.gold || 0}</span>
+                                    <span className="text-sm text-yellow-500 font-bold">金</span>
                                     <span className="text-2xl font-bold text-gray-400">/</span>
-                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.silver || 0}</span><span className="text-sm text-gray-400 font-bold">銀</span>
+                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.silver || 0}</span>
+                                    <span className="text-sm text-gray-400 font-bold">銀</span>
                                 </div>
                             </div>
                         </div>
+
+                        {/* 2. 中間卡片：根據模式變換內容 */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div className={`p-4 rounded-2xl ${feedback.isAlert ? 'bg-red-100 text-red-600' : (currentAverage >= 80 ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600')}`}>
-                                {viewMode === 'SCORE' ? <TrendingUp className="w-10 h-10" /> : <BarChart2 className="w-10 h-10" />}
+                            <div className={`p-4 rounded-2xl ${viewMode === 'TREND' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                                {viewMode === 'TREND' ? <TrendingUp className="w-10 h-10" /> : <BarChart2 className="w-10 h-10" />}
                             </div>
-                            <div>
-                                <p className="text-gray-500 text-lg font-bold">{viewMode === 'SCORE' ? '學期總平均分數' : '本學期統計天數'}</p>
-                                <p className={`text-5xl font-black ${feedback.isAlert ? 'text-red-600' : (viewMode === 'SCORE' ? (currentAverage >= 80 ? 'text-green-600' : 'text-yellow-600') : 'text-indigo-600')}`}>
-                                    {feedback.isAlert && viewMode === 'SCORE' ? "警報" : (viewMode === 'SCORE' ? currentAverage : chartData.reduce((acc, cur) => acc + cur.details.count, 0))}
-                                    {!feedback.isAlert && <span className="text-xl ml-1 text-gray-400 font-medium">{viewMode === 'SCORE' ? '分' : '天'}</span>}
+                            <div className="flex-1">
+                                {viewMode === 'STATUS' ? (
+                                    <>
+                                        <p className="text-gray-500 text-lg font-bold mb-1">本學期統計天數</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-5xl font-black text-indigo-600">{summaryStats.total}</span>
+                                            <span className="text-xl text-gray-400 font-medium">天</span>
+                                        </div>
+                                        <div className="flex gap-3 mt-2 text-sm font-bold">
+                                            <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded">準時 {summaryStats.completed}</span>
+                                            <span className="text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded">遲交 {summaryStats.late}</span>
+                                            <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded">缺交 {summaryStats.missing}</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-gray-500 text-lg font-bold">本學期績效平均</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-5xl font-black text-blue-600">{trendStats.avgScore}</span>
+                                            <span className="text-xl text-gray-400 font-medium">分</span>
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-1">*採計新制倒扣評分</p>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 3. 評語區：左右分割佈局 (A方案) */}
+                        <div className={`p-0 rounded-2xl shadow-sm border-l-8 flex overflow-hidden transition-all ${currentFeedback.border} ${currentFeedback.bg}`}>
+                            {/* 左半部：顯示分數/狀態 */}
+                            <div className="w-1/3 flex flex-col items-center justify-center border-r border-gray-100 bg-white/50 p-2">
+                                <span className={`text-4xl font-black ${currentFeedback.color}`}>
+                                    {currentFeedback.isAlert ? "⚠️" : (viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore)}
+                                </span>
+                                <span className="text-sm text-gray-500 font-bold mt-1">
+                                    {currentFeedback.isAlert ? "警報" : "分"}
+                                </span>
+                            </div>
+                            {/* 右半部：顯示評語 */}
+                            <div className="w-2/3 p-4 flex flex-col justify-center">
+                                <p className="text-gray-500 text-xs font-bold mb-1">
+                                    {viewMode === 'STATUS' ? '健康指數分析' : '績效評級分析'}
+                                </p>
+                                <p className={`${currentFeedback.color} font-bold text-lg leading-tight`}>
+                                    {currentFeedback.text}
                                 </p>
                             </div>
                         </div>
-                        <div className={`p-6 rounded-2xl shadow-sm border-l-8 flex flex-col justify-center transition-all ${feedback.border} ${feedback.isAlert ? 'bg-red-50' : 'bg-white'}`}>
-                            <p className="text-gray-500 font-bold mb-2">作業健康指數分析</p>
-                            <p className={`${feedback.color} font-bold text-xl leading-relaxed`}>{feedback.text}</p>
-                        </div>
                     </div>
+
+                    {/* 圖表區 */}
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 mb-8">
-                        <h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">{viewMode === 'SCORE' ? (<><TrendingUp className="w-6 h-6 mr-2 text-blue-500" /> 作業慣性趨勢圖</>) : (<><BarChart2 className="w-6 h-6 mr-2 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
-                        <div className="h-[350px] w-full">{viewMode === 'SCORE' ? ( <SimpleLineChart data={chartData} /> ) : ( <SimpleStackedBarChart data={chartData} /> )}</div>
+                        <h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
+                            {viewMode === 'TREND' ? (
+                                <><TrendingUp className="w-6 h-6 mr-2 text-blue-500" /> 作業績效趨勢圖 (Performance Trend)</>
+                            ) : (
+                                <><BarChart2 className="w-6 h-6 mr-2 text-indigo-500" /> 每月作業狀況分佈 (Status Distribution)</>
+                            )}
+                        </h3>
+                        <div className="h-[350px] w-full">
+                            {viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} /> ) : ( <SimpleStackedBarChart data={healthData} /> )}
+                        </div>
+                        
+                        {/* 圖例說明 */}
+                        {viewMode === 'TREND' && (
+                            <div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500">
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-400"></div>90分以上 (優異)</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-400"></div>60-89分 (及格)</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div>60分以下 (落後)</div>
+                            </div>
+                        )}
+                        {viewMode === 'STATUS' && (
+                            <div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500">
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-green-400"></div>準時完成(天)</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-yellow-400"></div>後來補交(天)</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-red-400"></div>缺交未補(天)</div>
+                            </div>
+                        )}
                     </div>
+
+                    {/* 詳細數據表格 (固定顯示長條圖數據，保持一致性) */}
                     <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-500">詳細數據列表</div>
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-100">
+                            <thead className="bg-white">
                                 <tr>
                                     <th className="px-6 py-4 text-left text-xl font-bold text-gray-600">月份</th>
                                     <th className="px-6 py-4 text-center text-xl font-bold text-green-600">準時(天)</th>
                                     <th className="px-6 py-4 text-center text-xl font-bold text-yellow-600">補交(天)</th>
                                     <th className="px-6 py-4 text-center text-xl font-bold text-red-600">缺交(天)</th>
-                                    <th className={`px-6 py-4 text-center text-xl font-bold ${viewMode === 'SCORE' ? 'text-blue-600' : 'text-indigo-600'}`}>{viewMode === 'SCORE' ? '當月分數' : '總天數'}</th>
+                                    <th className="px-6 py-4 text-center text-xl font-bold text-blue-600">績效平均</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {chartData.map((row, idx) => (
-                                    <tr key={idx} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-xl font-bold text-gray-800">{row.label}</td>
-                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime}</td>
-                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late}</td>
-                                        <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing}</td>
-                                        <td className="px-6 py-4 text-center"><span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${viewMode === 'SCORE' ? (row.value >= 80 ? 'bg-green-100 text-green-700' : (row.value >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')) : 'bg-gray-100 text-gray-700'}`}>{viewMode === 'SCORE' ? row.value.toFixed(1) : row.details.count}</span></td>
-                                    </tr>
-                                ))}
+                                {healthData.map((row, idx) => {
+                                    const tVal = trendData[idx]?.value || 0;
+                                    return (
+                                        <tr key={idx} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-xl font-bold text-gray-800">{row.label}</td>
+                                            <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime}</td>
+                                            <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late}</td>
+                                            <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>
+                                                    {tVal.toFixed(1)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -404,10 +557,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         </div>
     );
 };
-
-// --- (Part 1 結束，請接 Part 2) ---
-// --- (接 Part 1) ---
-
 // --- 獎勵回饋元件 ---
 const RewardOverlay = ({ type, onClose }) => {
    const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
@@ -630,10 +779,6 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, stud
    const initializeCategories = useCallback(async (db, userId) => { if (!db || !userId) return; setLoadingCategories(true); const path = getCategoryCollectionPath(); const categoriesCollection = collection(db, path); try { const snapshot = await getDocs(categoriesCollection); if (snapshot.empty) { const batchPromises = INITIAL_CATEGORIES.map(cat => { const newDocRef = doc(categoriesCollection); return setDoc(newDocRef, { ...cat, createdAt: Timestamp.now() }); }); await Promise.all(batchPromises); } } catch (e) { console.error("Error initializing categories:", e); } setLoadingCategories(false); }, []); 
    useEffect(() => { if (isOffline) { setCategories(INITIAL_CATEGORIES.map((cat, i) => ({ ...cat, id: `offline-cat-${i}` }))); setLoadingCategories(false); return; } if (isAuthReady && db && userId) { initializeCategories(db, userId); const path = getCategoryCollectionPath(); const unsubscribe = onSnapshot(collection(db, path), (snapshot) => { const loadedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); loadedCategories.sort((a, b) => (a.order || 0) - (b.order || 0)); setCategories(loadedCategories); setLoadingCategories(false); }, (e) => { console.error("Error fetching categories:", e); if (e.code !== 'permission-denied') { setAlertMessage("讀取作業項目清單時發生錯誤。"); } setLoadingCategories(false); }); return () => unsubscribe(); } }, [isAuthReady, db, userId, setAlertMessage, initializeCategories, isOffline]);
    const addCategory = useCallback(async (name) => { const trimmedName = name.trim(); if (!trimmedName) return false; if (categories.some(c => c.name === trimmedName)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return false; } if (isOffline) { const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; setCategories(prev => [...prev, { id: `offline-cat-${Date.now()}`, name: trimmedName, order: newOrder }]); return true; } if (!db || !userId) return false; const newDocRef = doc(collection(db, getCategoryCollectionPath())); const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; try { await setDoc(newDocRef, { name: trimmedName, order: newOrder, createdAt: Timestamp.now() }); return true; } catch (e) { console.error("Error adding category:", e); setAlertMessage("新增科目模板失敗。"); return false; } }, [db, userId, categories, setAlertMessage, isOffline]); const deleteCategory = useCallback(async (categoryId, categoryName) => { if (!window.confirm(`確定要刪除科目模板「${categoryName}」嗎？此操作只會將該科目從「自動新增」清單中移除。`)) return; if (isOffline) { setCategories(prev => prev.filter(c => c.id !== categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除 (離線)。`); return; } if (!db || !userId) return; try { await deleteDoc(doc(db, getCategoryCollectionPath(), categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除。`); } catch (e) { console.error("Error deleting category:", e); setAlertMessage("刪除科目模板失敗。"); } }, [db, userId, setAlertMessage, isOffline]); const editCategory = useCallback(async (categoryId, currentName, newName) => { const trimmedName = newName.trim(); if (!trimmedName || trimmedName === currentName) return; if (categories.some(c => c.name === trimmedName && c.id !== categoryId)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return; } if (isOffline) { setCategories(prev => prev.map(c => c.id === categoryId ? { ...c, name: trimmedName } : c)); return; } if (!db || !userId) return; try { await setDoc(doc(db, getCategoryCollectionPath(), categoryId), { name: trimmedName }, { merge: true }); setAlertMessage(`科目模板名稱已從「${currentName}」更新為「${trimmedName}」。`); } catch (e) { console.error("Error editing category:", e); setAlertMessage("編輯科目模板失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); const moveCategory = useCallback(async (dragId, hoverId) => { const dragIndex = categories.findIndex(c => c.id === dragId); const hoverIndex = categories.findIndex(c => c.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; const dragCategory = categories[dragIndex]; const hoverCategory = categories[hoverIndex]; if (isOffline) { const newCategories = [...categories]; newCategories[dragIndex] = { ...dragCategory, order: hoverCategory.order }; newCategories[hoverIndex] = { ...hoverCategory, order: dragCategory.order }; newCategories.sort((a, b) => a.order - b.order); setCategories(newCategories); return; } if (!db || !userId) return; const batch = writeBatch(db); const path = getCategoryCollectionPath(); batch.set(doc(db, path, dragCategory.id), { order: hoverCategory.order }, { merge: true }); batch.set(doc(db, path, hoverCategory.id), { order: dragCategory.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving category:", e); setAlertMessage("調整項目順序失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); return { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus }; };
-
-// --- (Part 2 結束，請接 Part 3) ---
-// --- (接 Part 2) ---
-
 // --- Main App Component ---
 const App = () => {
  const [db, setDb] = useState(null);
@@ -674,7 +819,7 @@ const App = () => {
  const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { console.error("Login failed", error); if (error.code === 'auth/invalid-email') { setLoginError('Email 格式不正確'); } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') { setLoginError('帳號或密碼錯誤'); } else if (error.code === 'auth/too-many-requests') { setLoginError('嘗試次數過多，請稍後再試'); } else { setLoginError('登入失敗：' + error.message); } setLoadingLogin(false); } };
  const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
  const handleLogout = async () => { try { await signOut(auth); setIsAuthenticated(false); setAuthMode('GUEST'); } catch (e) { console.error("Logout failed", e); } };
- useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const currentSemData = semesters.find(s => s.id === selectedSemester); let q; if (currentSemData) { const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`; const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`; q = query( assignmentsCollection, where("assignmentDate", ">=", startDate), where("assignmentDate", "<=", endDate) ); } else { q = query(assignmentsCollection); } const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]);
+ useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const currentSemData = semesters.find(s => s.id === selectedSemester); let q; if (currentSemData) { const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`; const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`; q = query( assignmentsCollection, where("assignmentDate", ">=", startDate), where("assignmentDate", "<=", endDate) ); } else { q = query(assignmentsCollection); } const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, completedAt: data.completedAt || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]);
  const assignmentsForSelectedDate = useMemo(() => { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; return assignments.sort((a, b) => a.order - b.order); }, [allAssignmentsByDate, selectedDisplayDate]);
  const assignmentMap = useMemo(() => { return assignmentsForSelectedDate.reduce((acc, assignment) => { acc[assignment.assignmentName] = { id: assignment.id, submissionStatus: assignment.submissionStatus }; return acc; }, {}); }, [assignmentsForSelectedDate]);
  const filteredMonths = useMemo(() => { const currentSemesterData = semesters.find(s => s.id === selectedSemester); if (!currentSemesterData) return months; return months.filter(m => m.semester === selectedSemester); }, [months, selectedSemester, semesters]);
@@ -691,7 +836,9 @@ const App = () => {
  const handleAddNewDate = useCallback(async () => { const targetDate = newAssignmentDate; if (!targetDate || categories.length === 0) { setAlertMessage("請選擇一個日期並確保科目模板清單不為空。"); return; } if (allAssignmentsByDate[targetDate]) { setAlertMessage(`日期 ${targetDate} 已經有作業紀錄了。請直接選擇查看。`); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); return; } await handleBatchAddDefaultAssignments(targetDate, categories); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); }, [newAssignmentDate, categories, allAssignmentsByDate, handleBatchAddDefaultAssignments]);
  const handleAddNewAssignment = useCallback(async () => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增作業。"); return; } if (!selectedDisplayDate) { setAlertMessage("請先選擇一個日期。"); return; } if (isOffline) { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newAssignment = { id: `offline-single-${Date.now()}`, assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }; setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: [...(prev[selectedDisplayDate] || []), newAssignment] })); return; } if (!db || !userId) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newDocRef = doc(assignmentCollection); await setDoc(newDocRef, { assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); } catch (e) { console.error("Error adding new assignment:", e); setAlertMessage("新增單項作業失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
  const handleMoveAssignment = useCallback(async (dragId, hoverId) => { if (authMode !== 'ADMIN' && !isOffline) return; const assignments = assignmentsForSelectedDate; const dragIndex = assignments.findIndex(a => a.id === dragId); const hoverIndex = assignments.findIndex(a => a.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; const currentList = [...(newMap[selectedDisplayDate] || [])]; const dragItem = currentList[dragIndex]; const hoverItem = currentList[hoverIndex]; currentList[dragIndex] = { ...dragItem, order: hoverItem.order }; currentList[hoverIndex] = { ...hoverItem, order: dragItem.order }; newMap[selectedDisplayDate] = currentList.sort((a,b) => a.order - b.order); return newMap; }); return; } if (!db || !userId) return; const dragAssignment = assignments[dragIndex]; const hoverAssignment = assignments[hoverIndex]; const batch = writeBatch(db); const path = getAssignmentCollectionPath(); const docRef1 = doc(db, path, dragAssignment.id); const docRef2 = doc(db, path, hoverAssignment.id); batch.set(docRef1, { order: hoverAssignment.order }, { merge: true }); batch.set(docRef2, { order: dragAssignment.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving assignment:", e); setAlertMessage("調整欄位順序失敗。"); } }, [db, userId, assignmentsForSelectedDate, setAlertMessage, isOffline, selectedDisplayDate, authMode]);
- const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => { const assignmentData = assignmentMap[assignmentName]; if (!assignmentData) { setAlertMessage(`找不到作業「${assignmentName}」的紀錄。`); return; } const cellKey = `${studentId}-${assignmentData.id}`; let newStatus; let shouldUpdateDb = true; if (currentStatus === true || currentStatus === undefined) { newStatus = false; setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); } else if (currentStatus === false) { newStatus = 'late'; setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); } else { const currentCount = unlockClicks[cellKey] || 0; if (currentCount < 2) { setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); shouldUpdateDb = false; return; } else { newStatus = true; setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); } } if (shouldUpdateDb) { let bronzeToAdd = 0; let goldToAdd = 0; if (newStatus === 'late' && currentStatus === false) { bronzeToAdd = 10; let currentMissingCount = 0; Object.keys(allAssignmentsByDate).forEach(date => { const assignments = allAssignmentsByDate[date]; assignments.forEach(a => { if (a.submissionStatus[studentId] === false) currentMissingCount++; }); }); if (currentMissingCount === 1) { goldToAdd = 1; setRewardState({ type: 'GOLD_CLEAR' }); } else { setRewardState({ type: 'BRONZE' }); } } if (bronzeToAdd > 0 || goldToAdd > 0) { updateBankBalance(studentId, bronzeToAdd, 0, goldToAdd); } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => { if (a.id === assignmentData.id) { return { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus } }; } return a; }); }); return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentData.id); await setDoc(docRef, { submissionStatus: { [studentId]: newStatus } }, { merge: true }); } catch (e) { console.error("Error updating submission status: ", e); setAlertMessage("更新訂正狀態失敗，請檢查網路連線或權限。"); } finally { setLoading(false); } } }, [db, userId, assignmentMap, unlockClicks, setAlertMessage, isOffline, allAssignmentsByDate, updateBankBalance, selectedDisplayDate]);
+ const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => { const assignmentData = assignmentMap[assignmentName]; if (!assignmentData) { setAlertMessage(`找不到作業「${assignmentName}」的紀錄。`); return; } const cellKey = `${studentId}-${assignmentData.id}`; let newStatus; let shouldUpdateDb = true; let completedAtUpdate = {}; 
+ if (currentStatus === true || currentStatus === undefined) { newStatus = false; setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); } else if (currentStatus === false) { newStatus = 'late'; completedAtUpdate = { [`completedAt.${studentId}`]: new Date().toISOString() }; setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); } else { const currentCount = unlockClicks[cellKey] || 0; if (currentCount < 2) { setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); shouldUpdateDb = false; return; } else { newStatus = true; setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); } } 
+ if (shouldUpdateDb) { let bronzeToAdd = 0; let goldToAdd = 0; if (newStatus === 'late' && currentStatus === false) { bronzeToAdd = 10; let currentMissingCount = 0; Object.keys(allAssignmentsByDate).forEach(date => { const assignments = allAssignmentsByDate[date]; assignments.forEach(a => { if (a.submissionStatus[studentId] === false) currentMissingCount++; }); }); if (currentMissingCount === 1) { goldToAdd = 1; setRewardState({ type: 'GOLD_CLEAR' }); } else { setRewardState({ type: 'BRONZE' }); } } if (bronzeToAdd > 0 || goldToAdd > 0) { updateBankBalance(studentId, bronzeToAdd, 0, goldToAdd); } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => { if (a.id === assignmentData.id) { const updatedCompletedAt = newStatus === 'late' ? { ...(a.completedAt || {}), [studentId]: new Date().toISOString() } : a.completedAt; return { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus }, completedAt: updatedCompletedAt }; } return a; }); }); return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentData.id); await setDoc(docRef, { submissionStatus: { [studentId]: newStatus }, ...completedAtUpdate }, { merge: true }); } catch (e) { console.error("Error updating submission status: ", e); setAlertMessage("更新訂正狀態失敗，請檢查網路連線或權限。"); } finally { setLoading(false); } } }, [db, userId, assignmentMap, unlockClicks, setAlertMessage, isOffline, allAssignmentsByDate, updateBankBalance, selectedDisplayDate]);
  const handleEditCurrentDate = useCallback(async (targetOldDate) => { const oldDate = typeof targetOldDate === 'string' ? targetOldDate : selectedDisplayDate; if (authMode !== 'ADMIN' || !oldDate) return; const newDate = prompt(`請輸入新的日期以取代 ${oldDate} (格式: YYYY-MM-DD)`, oldDate); if (!newDate || newDate === oldDate) return; const datePattern = /^\d{4}-\d{2}-\d{2}$/; if (!datePattern.test(newDate)) { alert("日期格式不正確，請使用 YYYY-MM-DD 格式。"); return; } if (allAssignmentsByDate[newDate]) { alert(`日期 ${newDate} 已經存在作業資料，無法直接修改日期至此日。請手動遷移或刪除目標日期資料。`); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; newMap[newDate] = newMap[oldDate].map(a => ({...a, assignmentDate: newDate})); delete newMap[oldDate]; return newMap; }); setSelectedDisplayDate(newDate); setAlertMessage(`[離線] 日期已修改為 ${newDate}`); return; } if (!db || !userId) return; setLoading(true); try { const batch = writeBatch(db); const assignments = allAssignmentsByDate[oldDate] || []; const path = getAssignmentCollectionPath(); if (assignments.length === 0) { setAlertMessage("該日期沒有作業資料可供移動。"); setLoading(false); return; } assignments.forEach(assignment => { const docRef = doc(db, path, assignment.id); batch.update(docRef, { assignmentDate: newDate }); }); await batch.commit(); setSelectedDisplayDate(newDate); setAlertMessage(`日期已成功從 ${oldDate} 修改為 ${newDate}`); } catch(e) { console.error("Error modifying date:", e); setAlertMessage("修改日期失敗，請檢查網路或權限。"); } finally { setLoading(false); } }, [authMode, selectedDisplayDate, allAssignmentsByDate, isOffline, db, userId]);
  const handleBatchDelete = useCallback(async (assignmentIds, successMessage, failureMessage) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以執行批次刪除。"); return false; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].filter(a => !assignmentIds.includes(a.id)); }); return newMap; }); setAlertMessage(successMessage + " (離線)"); return true; } if (!db || !userId || assignmentIds.length === 0) return false; setLoading(true); try { const batch = writeBatch(db); const path = getAssignmentCollectionPath(); assignmentIds.forEach(id => { if (id) { const docRef = doc(db, path, id); batch.delete(docRef); } }); await batch.commit(); setAlertMessage(successMessage); return true; } catch (e) { console.error("Error during batch delete: ", e); setAlertMessage(failureMessage); return false; } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
  const handleDeleteStudentGlobalData = useCallback(async (studentId, studentName) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足。"); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => { const newStatus = { ...a.submissionStatus }; delete newStatus[studentId]; return { ...a, submissionStatus: newStatus }; }); }); return newMap; }); setAlertMessage(`[離線] 成功刪除 ${studentName} 的所有訂正紀錄。`); return; } if (!db || !userId) return; if (!window.confirm(`【極度危險】確定要永久刪除學生 ${studentName} (${studentId}) 在所有日期上的所有訂正紀錄嗎？此操作不可逆轉！`)) { return; } setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const snapshot = await getDocs(assignmentCollection); const batch = writeBatch(db); let updateCount = 0; snapshot.docs.forEach(doc => { const docRef = doc.ref; const data = doc.data(); const submissionStatus = data.submissionStatus || {}; if (submissionStatus.hasOwnProperty(studentId)) { const newSubmissionStatus = { ...submissionStatus }; delete newSubmissionStatus[studentId]; batch.set(docRef, { submissionStatus: newSubmissionStatus }, { merge: true }); updateCount++; } }); await batch.commit(); setAlertMessage(`成功刪除 ${studentName} 的所有訂正紀錄 (${updateCount} 筆作業文件受到影響)。`); } catch (e) { console.error("Error deleting student data:", e); setAlertMessage("刪除學生數據失敗，請檢查權限或連線。"); } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
