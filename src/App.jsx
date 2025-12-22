@@ -32,13 +32,13 @@ import {
    Coins, Eraser, Moon, PlusCircle, TrendingUp, TrendingDown, Activity,
    BarChart2
 } from 'lucide-react';
- 
+
 // --- 版本資訊 ---
-const VERSION = 'v16.4.1 - 座號看報表/姓名看聚焦'; 
- 
+const VERSION = 'v17.0.0 - 雙重檢核警報版'; 
+
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
- 
+
 const firebaseConfig = {
  apiKey: "AIzaSyArwz6gPeW9lNq_8LOfnKYwZmkRN-Wgtb8",
  authDomain: "class-5a-app.firebaseapp.com",
@@ -48,14 +48,14 @@ const firebaseConfig = {
  appId: "1:828328241350:web:5d39d529209f87a2540fc7",
  measurementId: "G-8VGE0WKD01"
 };
- 
+
 // --- 音效與圖片資源設定 ---
 const ASSETS = {
    BRONZE_SOUND: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3', 
    GOLD_SOUND: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3', 
    CONFETTI_BG: 'https://i.gifer.com/origin/e2/e29a997a3a304523b087050074697df0_w200.gif'
 };
- 
+
 // --- 客製化硬幣元件 ---
 const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w-3/5 h-3/5" }) => {
    const baseClasses = `rounded-full border-[4px] flex items-center justify-center shadow-lg ${size} bg-white`;
@@ -79,7 +79,7 @@ const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w
        </div>
    );
 };
- 
+
 // --- 預設學生名單 ---
 const DEFAULT_STUDENTS = [
   { id: '1', name: '陳昕佑' },
@@ -93,7 +93,7 @@ const DEFAULT_STUDENTS = [
   { id: '9', name: '周筱涵' },
   { id: '10', name: '李婕妤' },
 ];
- 
+
 // 預設作業項目
 const INITIAL_CATEGORIES = [
     { name: '數課', order: 0 },
@@ -103,32 +103,29 @@ const INITIAL_CATEGORIES = [
     { name: '聯P.', order: 4 }, 
     { name: '國', order: 5 },
 ];
- 
+
 const ItemTypes = {
  ASSIGNMENT: 'assignment',
 };
- 
+
 // 公開路徑
 const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assignments`;
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
- 
-// --- [新] SVG 折線圖元件 ---
+
+// --- SVG 折線圖元件 ---
 const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
    if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
- 
    const padding = 40;
    const chartWidth = width - padding * 2;
    const chartHeight = height - padding * 2;
    const maxY = 100;
- 
    const points = data.map((d, i) => {
        const x = (i / (data.length - 1)) * chartWidth + padding;
        const safeValue = isNaN(d.value) ? 0 : d.value;
        const y = chartHeight - (safeValue / maxY) * chartHeight + padding;
        return `${x},${y}`;
    }).join(' ');
- 
    const gridLines = [0, 60, 80, 100].map(val => {
        const y = chartHeight - (val / maxY) * chartHeight + padding;
        let color = "#e5e7eb"; 
@@ -141,7 +138,6 @@ const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
            </g>
        );
    });
- 
    return (
        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100">
            {gridLines}
@@ -167,46 +163,33 @@ const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
         </svg>
    );
 };
- 
-// --- [新] SVG 堆疊長條圖元件 ---
+
+// --- SVG 堆疊長條圖元件 ---
 const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
    if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
- 
    const padding = 40;
    const chartWidth = width - padding * 2;
    const chartHeight = height - padding * 2;
- 
    const maxTotal = Math.max(...data.map(d => d.details.count), 5); 
    const barWidth = Math.min(60, chartWidth / data.length * 0.6); 
- 
    return (
        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100">
            <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" />
            <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" />
-           
            {data.map((d, i) => {
                const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2;
-               
                const totalHeight = chartHeight;
                const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight;
                const lateHeight = (d.details.late / maxTotal) * totalHeight;
                const missingHeight = (d.details.missing / maxTotal) * totalHeight;
- 
                const yGreen = (height - padding) - onTimeHeight;
                const yYellow = yGreen - lateHeight;
                const yRed = yYellow - missingHeight;
- 
                return (
                    <g key={i} className="group">
-                       {d.details.onTime > 0 && (
-                           <rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>
-                       )}
-                       {d.details.late > 0 && (
-                           <rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>
-                       )}
-                       {d.details.missing > 0 && (
-                           <rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>
-                       )}
+                       {d.details.onTime > 0 && (<rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)}
+                       {d.details.late > 0 && (<rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)}
+                       {d.details.missing > 0 && (<rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)}
                        <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text>
                        <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text>
                        <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title>
@@ -216,11 +199,22 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
        </svg>
    );
 };
-// --- [修改版] 學生學習歷程 Dashboard Modal ---
+
+// --- [已更新] 學生學習歷程 Dashboard Modal (Option B: 雙重檢核機制) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('SCORE');
 
-    // 修改：以「日期」為單位進行統計，並計算分數 (100/60/0)
+    // 計算兩個日期間的天數差
+    const getDaysDiff = (dateString) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const target = new Date(dateString);
+        target.setHours(0, 0, 0, 0);
+        const diffTime = today - target;
+        return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    };
+
+    // 計算每月統計資料與分數
     const chartData = useMemo(() => {
         const statsByMonth = {};
         const sortedDates = Object.keys(allAssignmentsByDate).sort();
@@ -229,24 +223,14 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         sortedDates.forEach(date => {
             const dateObj = new Date(date);
             const monthKey = `${dateObj.getMonth() + 1}月`;
-            
             if (!statsByMonth[monthKey]) {
-                statsByMonth[monthKey] = { 
-                    totalScorePoints: 0, 
-                    count: 0, // 這裡現在代表「天數」
-                    onTime: 0, 
-                    late: 0, 
-                    missing: 0 
-                };
+                statsByMonth[monthKey] = { totalScorePoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
             }
-
             const assignments = allAssignmentsByDate[date];
             
-            // 判斷當日狀態 (以天為單位)
-            // 邏輯：只要有一個缺交就是缺交(0分)，沒有缺交但有遲交就是遲交(60分)，全部完成才是準時(100分)
+            // 每日狀態判定：全好=100，有遲交=60，有缺交=0
             let isMissing = false;
             let isLate = false;
-
             assignments.forEach(assign => {
                 const status = assign.submissionStatus[student.id];
                 if (status === false) isMissing = true;
@@ -266,22 +250,21 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             }
             
             statsByMonth[monthKey].totalScorePoints += dailyScore;
-            statsByMonth[monthKey].count++; // 增加一天
+            statsByMonth[monthKey].count++;
         });
 
         return Object.keys(statsByMonth).map(key => {
             const data = statsByMonth[key];
-            // 計算當月平均分數
             const avgScore = data.count === 0 ? 0 : (data.totalScorePoints / data.count);
             return {
                 label: key,
-                value: avgScore, // 當月分數
+                value: avgScore,
                 details: data
             };
         });
     }, [allAssignmentsByDate, student.id]);
 
-    // 修改：計算學期總平均分數 (總積分 / 總天數)
+    // 計算學期總平均分數
     const currentAverage = useMemo(() => {
         if (chartData.length === 0) return 0;
         const totalPoints = chartData.reduce((acc, cur) => acc + cur.details.totalScorePoints, 0);
@@ -289,124 +272,109 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         return totalDays === 0 ? 0 : (totalPoints / totalDays).toFixed(1);
     }, [chartData]);
 
-    const getFeedback = (score, data) => {
-        if (viewMode === 'SCORE') {
-            if (score >= 90) return { text: "🌟 非常優秀！保持這種學習態度，你是大家的榜樣。", color: "text-green-600" };
-            if (score >= 80) return { text: "👍 表現很好！大部分作業都準時完成，繼續加油。", color: "text-green-500" };
-            if (score >= 60) return { text: "💪 還不錯，但偶爾會遲交。記得要在期限內完成喔！", color: "text-yellow-600" };
-            return { text: "⚠️ 需要加油！缺交次數較多，請家長協助督促作業狀況。", color: "text-red-500" };
-        } else {
-            let totalMissing = 0;
-            let totalCount = 0;
-            data.forEach(d => { totalMissing += d.details.missing; totalCount += d.details.count; });
-            const missingRate = totalCount === 0 ? 0 : (totalMissing / totalCount);
-            if (missingRate === 0) return { text: "🛡️ 完美全勤！沒有任何缺交紀錄，太厲害了！", color: "text-blue-600" };
-            if (missingRate <= 0.1) return { text: "✨ 狀況很穩定！絕大多數作業都有完成。", color: "text-blue-500" };
-            if (missingRate <= 0.3) return { text: "🔨 有些作業缺交了，請找時間補上喔！", color: "text-orange-500" };
-            return { text: "❌ 紅燈太多囉！請注意缺交的作業量，不要累積太多。", color: "text-red-500" };
+    // 【核心】雙重檢核警報判定
+    const missingAnalysis = useMemo(() => {
+        let currentMissingCount = 0;
+        let maxDelayDays = 0;
+        const missingItems = [];
+
+        Object.keys(allAssignmentsByDate).forEach(date => {
+            const assignments = allAssignmentsByDate[date];
+            assignments.forEach(assign => {
+                if (assign.submissionStatus[student.id] === false) {
+                    currentMissingCount++;
+                    const delay = getDaysDiff(date);
+                    if (delay > maxDelayDays) maxDelayDays = delay;
+                    missingItems.push({ item: assign.assignmentName, days: delay });
+                }
+            });
+        });
+
+        // 紅燈條件：缺交超過3天 或 缺交數量超過3項
+        const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
+        return { isEmergency, maxDelayDays, currentMissingCount, missingItems };
+    }, [allAssignmentsByDate, student.id]);
+
+    // 決定顯示的評語 (Option B: 紅燈優先)
+    const getFeedback = (score, emergencyData) => {
+        if (emergencyData.isEmergency) {
+            return {
+                text: "❌ 紅燈警報！缺交太多了，請務必每天確實完成功課，並檢查聯絡簿。",
+                color: "text-red-600",
+                bg: "bg-red-50",
+                border: "border-red-500",
+                isAlert: true
+            };
         }
+
+        const numScore = parseFloat(score);
+        if (numScore >= 100) return { text: "🏆 完美無瑕！全勤且準時，你是全班的作業楷模！", color: "text-blue-600", bg: "bg-white", border: "border-blue-600" };
+        if (numScore >= 95) return { text: "✨ 超級優秀！只差一點點就滿分，你的自律讓人佩服。", color: "text-blue-500", bg: "bg-white", border: "border-blue-500" };
+        if (numScore >= 90) return { text: "🌟 表現極佳！絕大多數時間都能準時完成，態度很棒。", color: "text-green-600", bg: "bg-white", border: "border-green-600" };
+        if (numScore >= 85) return { text: "👍 很不錯喔！作業狀況穩定，偶爾的小失誤修正就好。", color: "text-green-500", bg: "bg-white", border: "border-green-500" };
+        if (numScore >= 80) return { text: "👌 保持水準！大部分都有完成，但要減少遲交的情況。", color: "text-lime-600", bg: "bg-white", border: "border-lime-600" };
+        if (numScore >= 70) return { text: "💪 再加油點！遲交或缺交的頻率變高了，要更積極些。", color: "text-yellow-600", bg: "bg-white", border: "border-yellow-600" };
+        if (numScore >= 60) return { text: "⚠️ 勉強及格！你的作業狀況令人擔心，必須調整步調。", color: "text-orange-500", bg: "bg-white", border: "border-orange-500" };
+        return { text: "❌ 成績紅燈！請持續努力補交作業，拉高平時成績。", color: "text-red-500", bg: "bg-white", border: "border-red-400" };
     };
 
-    const feedback = getFeedback(currentAverage, chartData);
+    const feedback = getFeedback(currentAverage, missingAnalysis);
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 border-white">
-                <div className={`p-6 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${viewMode === 'SCORE' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500'}`}>
+            <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 ${feedback.isAlert ? 'border-red-500' : 'border-white'}`}>
+                <div className={`p-6 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${feedback.isAlert ? 'bg-red-600' : (viewMode === 'SCORE' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
                     <div className="flex items-center gap-4">
-                        <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 ${viewMode === 'SCORE' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200'}`}>
+                        <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 ${feedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'SCORE' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>
                             {student.id}
                         </div>
                         <div>
                             <h2 className="text-4xl font-bold tracking-wide">{student.name} 的學習歷程</h2>
-                            <p className="text-white/90 text-xl font-medium mt-1 flex items-center gap-2">
-                                <Activity className="w-5 h-5" /> 
-                                {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表
-                            </p>
+                            <p className="text-white/90 text-xl font-medium mt-1 flex items-center gap-2"><Activity className="w-5 h-5" /> {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md">
-                        <X className="w-8 h-8" />
-                    </button>
+                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md"><X className="w-8 h-8" /></button>
                 </div>
-
-                <div className="flex-1 overflow-auto p-8 bg-gray-50">
+                <div className={`flex-1 overflow-auto p-8 ${feedback.bg}`}>
                     <div className="flex justify-center mb-8">
                         <div className="bg-gray-200 p-1 rounded-xl flex gap-1 shadow-inner">
-                            <button onClick={() => setViewMode('SCORE')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'SCORE' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>
-                                🎯 績效分數 (折線圖)
-                            </button>
-                            <button onClick={() => setViewMode('COUNT')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'COUNT' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>
-                                📊 作業狀況統計 (長條圖)
-                            </button>
+                            <button onClick={() => setViewMode('SCORE')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'SCORE' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>🎯 績效分數</button>
+                            <button onClick={() => setViewMode('COUNT')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'COUNT' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📊 狀況統計</button>
                         </div>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div className="p-4 bg-yellow-100 text-yellow-600 rounded-2xl">
-                                <Coins className="w-10 h-10" />
-                            </div>
+                            <div className="p-4 bg-yellow-100 text-yellow-600 rounded-2xl"><Coins className="w-10 h-10" /></div>
                             <div>
                                 <p className="text-gray-500 text-lg font-bold">目前資產</p>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.gold || 0}</span>
-                                    <span className="text-sm text-yellow-500 font-bold">金</span>
+                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.gold || 0}</span><span className="text-sm text-yellow-500 font-bold">金</span>
                                     <span className="text-2xl font-bold text-gray-400">/</span>
-                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.silver || 0}</span>
-                                    <span className="text-sm text-gray-400 font-bold">銀</span>
+                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.silver || 0}</span><span className="text-sm text-gray-400 font-bold">銀</span>
                                 </div>
                             </div>
                         </div>
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div className={`p-4 rounded-2xl ${currentAverage >= 80 ? (viewMode==='SCORE'?'bg-green-100 text-green-600':'bg-blue-100 text-blue-600') : (currentAverage >= 60 ? 'bg-yellow-100 text-yellow-600' : 'bg-red-100 text-red-600')}`}>
+                            <div className={`p-4 rounded-2xl ${feedback.isAlert ? 'bg-red-100 text-red-600' : (currentAverage >= 80 ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600')}`}>
                                 {viewMode === 'SCORE' ? <TrendingUp className="w-10 h-10" /> : <BarChart2 className="w-10 h-10" />}
                             </div>
                             <div>
-                                <p className="text-gray-500 text-lg font-bold">
-                                    {viewMode === 'SCORE' ? '學期總平均分數' : '本學期統計天數'}
-                                </p>
-                                <p className={`text-5xl font-black ${viewMode === 'SCORE' ? (currentAverage >= 80 ? 'text-green-600' : (currentAverage >= 60 ? 'text-yellow-600' : 'text-red-600')) : 'text-indigo-600'}`}>
-                                    {viewMode === 'SCORE' ? currentAverage : chartData.reduce((acc, cur) => acc + cur.details.count, 0)}
-                                    <span className="text-xl ml-1 text-gray-400 font-medium">
-                                        {viewMode === 'SCORE' ? '分' : '天'}
-                                    </span>
+                                <p className="text-gray-500 text-lg font-bold">{viewMode === 'SCORE' ? '學期總平均分數' : '本學期統計天數'}</p>
+                                <p className={`text-5xl font-black ${feedback.isAlert ? 'text-red-600' : (viewMode === 'SCORE' ? (currentAverage >= 80 ? 'text-green-600' : 'text-yellow-600') : 'text-indigo-600')}`}>
+                                    {feedback.isAlert && viewMode === 'SCORE' ? "警報" : (viewMode === 'SCORE' ? currentAverage : chartData.reduce((acc, cur) => acc + cur.details.count, 0))}
+                                    {!feedback.isAlert && <span className="text-xl ml-1 text-gray-400 font-medium">{viewMode === 'SCORE' ? '分' : '天'}</span>}
                                 </p>
                             </div>
                         </div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
-                            <p className="text-gray-500 font-bold mb-2">評語建議</p>
-                            <p className={`${feedback.color} font-bold text-xl`}>{feedback.text}</p>
+                        <div className={`p-6 rounded-2xl shadow-sm border-l-8 flex flex-col justify-center transition-all ${feedback.border} ${feedback.isAlert ? 'bg-red-50' : 'bg-white'}`}>
+                            <p className="text-gray-500 font-bold mb-2">作業健康指數分析</p>
+                            <p className={`${feedback.color} font-bold text-xl leading-relaxed`}>{feedback.text}</p>
                         </div>
                     </div>
-
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 mb-8">
-                        <h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
-                            {viewMode === 'SCORE' ? (
-                                <><TrendingUp className="w-6 h-6 mr-2 text-blue-500" /> 作業慣性趨勢圖 (Habit Trend)</>
-                            ) : (
-                                <><BarChart2 className="w-6 h-6 mr-2 text-indigo-500" /> 每月作業狀況分佈 (Status Distribution)</>
-                            )}
-                        </h3>
-                        <div className="h-[350px] w-full">
-                            {viewMode === 'SCORE' ? ( <SimpleLineChart data={chartData} /> ) : ( <SimpleStackedBarChart data={chartData} /> )}
-                        </div>
-                        {viewMode === 'SCORE' && (
-                            <div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500">
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-400"></div>80分以上 (優秀)</div>
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-400"></div>60-79分 (尚可)</div>
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div>60分以下 (需努力)</div>
-                            </div>
-                        )}
-                        {viewMode === 'COUNT' && (
-                            <div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500">
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-green-400"></div>準時完成(天)</div>
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-yellow-400"></div>後來補交(天)</div>
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-red-400"></div>缺交未補(天)</div>
-                            </div>
-                        )}
+                        <h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">{viewMode === 'SCORE' ? (<><TrendingUp className="w-6 h-6 mr-2 text-blue-500" /> 作業慣性趨勢圖</>) : (<><BarChart2 className="w-6 h-6 mr-2 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
+                        <div className="h-[350px] w-full">{viewMode === 'SCORE' ? ( <SimpleLineChart data={chartData} /> ) : ( <SimpleStackedBarChart data={chartData} /> )}</div>
                     </div>
-
                     <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-100">
@@ -415,9 +383,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                                     <th className="px-6 py-4 text-center text-xl font-bold text-green-600">準時(天)</th>
                                     <th className="px-6 py-4 text-center text-xl font-bold text-yellow-600">補交(天)</th>
                                     <th className="px-6 py-4 text-center text-xl font-bold text-red-600">缺交(天)</th>
-                                    <th className={`px-6 py-4 text-center text-xl font-bold ${viewMode === 'SCORE' ? 'text-blue-600' : 'text-indigo-600'}`}>
-                                        {viewMode === 'SCORE' ? '當月分數' : '總天數'}
-                                    </th>
+                                    <th className={`px-6 py-4 text-center text-xl font-bold ${viewMode === 'SCORE' ? 'text-blue-600' : 'text-indigo-600'}`}>{viewMode === 'SCORE' ? '當月分數' : '總天數'}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -427,11 +393,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                                         <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime}</td>
                                         <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late}</td>
                                         <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${viewMode === 'SCORE' ? (row.value >= 80 ? 'bg-green-100 text-green-700' : (row.value >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')) : 'bg-gray-100 text-gray-700'}`}>
-                                                {viewMode === 'SCORE' ? row.value.toFixed(1) : row.details.count}
-                                            </span>
-                                        </td>
+                                        <td className="px-6 py-4 text-center"><span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${viewMode === 'SCORE' ? (row.value >= 80 ? 'bg-green-100 text-green-700' : (row.value >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')) : 'bg-gray-100 text-gray-700'}`}>{viewMode === 'SCORE' ? row.value.toFixed(1) : row.details.count}</span></td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -442,51 +404,41 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         </div>
     );
 };
- 
+
+// --- (Part 1 結束，請接 Part 2) ---
+// --- (接 Part 1) ---
+
 // --- 獎勵回饋元件 ---
 const RewardOverlay = ({ type, onClose }) => {
    const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
    const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
- 
    useEffect(() => {
-       const timer = setTimeout(() => {
-           onClose();
-       }, duration);
+       const timer = setTimeout(() => { onClose(); }, duration);
        return () => clearTimeout(timer);
    }, [duration, onClose]);
- 
    if (type === 'GOLD_CLEAR') {
        return (
            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 animate-fade-in overflow-hidden">
                <audio src={soundUrl} autoPlay />
-               <div className="absolute inset-0 opacity-70 pointer-events-none">
-                   <img src={ASSETS.CONFETTI_BG} alt="Confetti" className="w-full h-full object-cover" />
-               </div>
+               <div className="absolute inset-0 opacity-70 pointer-events-none"><img src={ASSETS.CONFETTI_BG} alt="Confetti" className="w-full h-full object-cover" /></div>
                <div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in text-center p-8">
-                   <div className="mb-12 drop-shadow-[0_0_60px_rgba(255,223,0,0.8)] animate-pulse transform scale-[2.5]">
-                       <CoinIcon type="GOLD" size="w-32 h-32" innerSize="w-20 h-20" />
-                   </div>
-                   <h2 className="text-6xl md:text-8xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] tracking-widest leading-snug">
-                       恭喜你🎉<br/>完成所有作業😁<br/>你真棒👍
-                   </h2>
+                   <div className="mb-12 drop-shadow-[0_0_60px_rgba(255,223,0,0.8)] animate-pulse transform scale-[2.5]"><CoinIcon type="GOLD" size="w-32 h-32" innerSize="w-20 h-20" /></div>
+                   <h2 className="text-6xl md:text-8xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] tracking-widest leading-snug">恭喜你🎉<br/>完成所有作業😁<br/>你真棒👍</h2>
                </div>
            </div>
        );
     }
- 
    return (
        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-30 animate-fade-in pointer-events-none">
            <audio src={soundUrl} autoPlay />
            <div className="flex flex-col gap-6 items-center justify-center animate-bounce-in transform scale-110 bg-white/95 p-12 rounded-[3rem] shadow-2xl border-8 border-orange-400 min-w-[320px]">
                <CoinIcon type="BRONZE" size="w-40 h-40" textSize="text-8xl" />
-               <h2 className="text-7xl font-black text-orange-700 drop-shadow-sm tracking-wider whitespace-nowrap">
-                   + 10 銅幣
-               </h2>
+               <h2 className="text-7xl font-black text-orange-700 drop-shadow-sm tracking-wider whitespace-nowrap">+ 10 銅幣</h2>
            </div>
        </div>
    );
 };
- 
+
 // --- 學生存簿 Hook ---
 const useStudentBank = (db, isAuthReady, isOffline, students) => {
    const initialData = useMemo(() => {
@@ -494,9 +446,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
        students.forEach(s => data[s.id] = { bronze: 0, silver: 0, gold: 0 });
        return data;
    }, [students]);
- 
    const [bankData, setBankData] = useState(initialData);
-   
    useEffect(() => {
        if (isOffline) return;
        if (!isAuthReady || !db) return;
@@ -507,28 +457,21 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
            setBankData(prev => {
                const newData = { ...prev };
                Object.keys(remoteData).forEach(key => {
-                   newData[key] = {
-                       bronze: Number(remoteData[key].bronze) || 0,
-                       silver: Number(remoteData[key].silver) || 0,
-                       gold: Number(remoteData[key].gold) || 0,
-                   };
+                   newData[key] = { bronze: Number(remoteData[key].bronze) || 0, silver: Number(remoteData[key].silver) || 0, gold: Number(remoteData[key].gold) || 0 };
                });
                return newData;
            });
        }, (error) => { console.error("Bank sync error:", error); });
        return () => unsubscribe();
    }, [isAuthReady, db, isOffline, initialData]);
- 
    const updateBankBalance = useCallback(async (studentId, addBronze, addSilver, addGold) => {
        const calculateNewBalance = (current, adds) => {
            let newBronze = (current.bronze || 0) + adds.bronze;
            let newSilver = (current.silver || 0) + adds.silver;
            let newGold = (current.gold || 0) + adds.gold;
- 
            if (adds.bronze === 'RESET') newBronze = 0;
            if (adds.silver === 'RESET') newSilver = 0;
            if (adds.gold === 'RESET') newGold = 0;
- 
            if (adds.bronze !== 'RESET' && adds.silver !== 'RESET' && adds.gold !== 'RESET') {
                 if (newBronze >= 100) {
                    const silverGain = Math.floor(newBronze / 100);
@@ -543,15 +486,12 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
            }
            return { bronze: Math.max(0, newBronze), silver: Math.max(0, newSilver), gold: Math.max(0, newGold) };
        };
- 
        const adds = { bronze: addBronze, silver: addSilver, gold: addGold };
- 
        setBankData(prev => {
            const current = prev[studentId] || { bronze: 0, silver: 0, gold: 0 };
            const newState = calculateNewBalance(current, adds);
            return { ...prev, [studentId]: newState };
        });
- 
        if (isOffline || !db) return;
        try {
             const docRef = doc(db, getBankCollectionPath(), studentId);
@@ -565,10 +505,9 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
             await setDoc(docRef, { ...newState, lastUpdated: serverTimestamp() }, { merge: true });
        } catch (e) { console.error("Error updating bank:", e); }
    }, [db, isOffline]);
- 
    return { bankData, updateBankBalance };
 };
- 
+
 // --- 學生存簿 Modal ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode, students }) => {
    const sortedStudents = [...students].sort((a, b) => {
@@ -579,7 +518,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode, studen
        if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze;
        return parseInt(a.id) - parseInt(b.id);
    });
- 
    const handleReset = (studentId, type) => {
        const labels = { 'BRONZE': '銅幣', 'SILVER': '銀幣', 'GOLD': '金幣' };
        if (!window.confirm(`確定要將此學生的【${labels[type]}】全部歸零嗎？`)) return;
@@ -587,7 +525,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode, studen
        if (type === 'SILVER') onUpdateBalance(studentId, 0, 'RESET', 0);
        if (type === 'GOLD') onUpdateBalance(studentId, 0, 0, 'RESET');
    };
- 
    const handleManualAdd = (studentId, type) => {
        const labels = { 'BRONZE': '銅幣', 'SILVER': '銀幣', 'GOLD': '金幣' };
        const input = prompt(`【補發模式】\n請輸入要補發給學生的【${labels[type]}】數量：\n(輸入負數可進行扣除)`, "1");
@@ -598,29 +535,15 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode, studen
        if (type === 'SILVER') onUpdateBalance(studentId, 0, amount, 0);
        if (type === 'GOLD') onUpdateBalance(studentId, 0, 0, amount);
    };
- 
    return (
        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4">
            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-7xl h-[90vh] flex flex-col border border-green-200">
                <div className="flex justify-between items-center mb-6 border-b border-green-200 pb-4">
-                   <h3 className="text-4xl font-bold text-gray-800 flex items-center">
-                       <div className="mr-3 transform scale-125"><CoinIcon type="GOLD" /></div>訂正存簿
-                   </h3>
+                   <h3 className="text-4xl font-bold text-gray-800 flex items-center"><div className="mr-3 transform scale-125"><CoinIcon type="GOLD" /></div>訂正存簿</h3>
                    <div className="flex items-center gap-4">
-                       <div className="text-xl text-gray-600 font-bold bg-gray-100 px-4 py-2 rounded-lg border border-gray-300 flex items-center gap-3">
-                           <span>匯率：</span>
-                           <span className="flex items-center text-orange-700"><div className="mr-1 transform scale-75"><CoinIcon type="BRONZE"/></div>100</span>
-                           ➔
-                           <span className="flex items-center text-gray-500"><div className="mr-1 transform scale-75"><CoinIcon type="SILVER"/></div>1</span>
-                           ，
-                           <span className="flex items-center text-gray-500"><div className="mr-1 transform scale-75"><CoinIcon type="SILVER"/></div>10</span>
-                           ➔
-                           <span className="flex items-center text-yellow-600"><div className="mr-1 transform scale-75"><CoinIcon type="GOLD"/></div>1</span>
-                       </div>
                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200"><X className="w-8 h-8" /></button>
                    </div>
                </div>
- 
                <div className="flex-1 overflow-auto bg-green-50 rounded-xl p-4 border border-green-100">
                    <table className="min-w-full divide-y divide-green-200">
                        <thead className="bg-green-100 sticky top-0 z-10 shadow-sm">
@@ -631,7 +554,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode, studen
                                <th className="px-4 py-4 text-2xl font-bold text-yellow-600 text-center">金幣</th>
                                <th className="px-4 py-4 text-2xl font-bold text-gray-500 text-center">銀幣</th>
                                <th className="px-4 py-4 text-2xl font-bold text-orange-700 text-center">銅幣</th>
-                               {authMode === 'ADMIN' && ( <th className="px-4 py-4 text-2xl font-bold text-green-900 text-center">操作 (補發/歸零)</th> )}
+                               {authMode === 'ADMIN' && ( <th className="px-4 py-4 text-2xl font-bold text-green-900 text-center">操作</th> )}
                            </tr>
                        </thead>
                        <tbody className="bg-white divide-y divide-green-100">
@@ -640,42 +563,31 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, authMode, studen
                                let rankIcon = index < 3 ? ["🥇","🥈","🥉"][index] : index + 1;
                                return (
                                    <tr key={student.id} className="hover:bg-green-50 transition duration-100">
-                                       <td className="px-4 py-4 text-3xl font-black text-gray-700 text-center">{rankIcon}</td>
-                                       <td className="px-4 py-4 text-2xl text-gray-600 font-medium text-center">{student.id}</td>
-                                       <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center">{student.name[0] + 'O' + student.name.slice(2)}</td>
-                                       <td className="px-4 py-4 text-center"><div className="inline-flex items-center justify-center bg-yellow-50 border border-yellow-200 px-4 py-2 rounded-full shadow-sm min-w-[100px]"><div className="mr-2"><CoinIcon type="GOLD" size="w-8 h-8"/></div><span className="text-3xl font-black text-yellow-600">{data.gold}</span></div></td>
-                                       <td className="px-4 py-4 text-center"><div className="inline-flex items-center justify-center bg-gray-50 border border-gray-200 px-4 py-2 rounded-full shadow-sm min-w-[100px]"><div className="mr-2"><CoinIcon type="SILVER" size="w-8 h-8"/></div><span className="text-3xl font-black text-gray-600">{data.silver}</span></div></td>
-                                       <td className="px-4 py-4 text-center"><div className="inline-flex items-center justify-center bg-orange-50 border border-orange-200 px-4 py-2 rounded-full shadow-sm min-w-[100px]"><div className="mr-2"><CoinIcon type="BRONZE" size="w-8 h-8" textSize="text-lg"/></div><span className="text-3xl font-bold text-orange-700">{data.bronze}</span></div></td>
-                                       {authMode === 'ADMIN' && (
-                                           <td className="px-4 py-4 text-center">
-                                               <div className="flex flex-row items-center justify-center gap-4">
-                                                   <div className="flex gap-1 items-center bg-yellow-50 p-1 rounded-lg border border-yellow-200">
-                                                       <button onClick={() => handleManualAdd(student.id, 'GOLD')} className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg shadow-sm" title="補發金幣"><PlusCircle className="w-5 h-5"/></button>
-                                                       <button onClick={() => handleReset(student.id, 'GOLD')} className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg shadow-sm" title="歸零金幣"><Eraser className="w-5 h-5"/></button>
+                                           <td className="px-4 py-4 text-3xl font-black text-gray-700 text-center">{rankIcon}</td>
+                                           <td className="px-4 py-4 text-2xl text-gray-600 font-medium text-center">{student.id}</td>
+                                           <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center">{student.name[0] + 'O' + student.name.slice(2)}</td>
+                                           <td className="px-4 py-4 text-center"><div className="inline-flex items-center justify-center bg-yellow-50 border border-yellow-200 px-4 py-2 rounded-full shadow-sm min-w-[100px]"><div className="mr-2"><CoinIcon type="GOLD" size="w-8 h-8"/></div><span className="text-3xl font-black text-yellow-600">{data.gold}</span></div></td>
+                                           <td className="px-4 py-4 text-center"><div className="inline-flex items-center justify-center bg-gray-50 border border-gray-200 px-4 py-2 rounded-full shadow-sm min-w-[100px]"><div className="mr-2"><CoinIcon type="SILVER" size="w-8 h-8"/></div><span className="text-3xl font-black text-gray-600">{data.silver}</span></div></td>
+                                           <td className="px-4 py-4 text-center"><div className="inline-flex items-center justify-center bg-orange-50 border border-orange-200 px-4 py-2 rounded-full shadow-sm min-w-[100px]"><div className="mr-2"><CoinIcon type="BRONZE" size="w-8 h-8" textSize="text-lg"/></div><span className="text-3xl font-bold text-orange-700">{data.bronze}</span></div></td>
+                                           {authMode === 'ADMIN' && (
+                                               <td className="px-4 py-4 text-center">
+                                                   <div className="flex flex-row items-center justify-center gap-4">
+                                                       <button onClick={() => handleManualAdd(student.id, 'GOLD')} className="p-2 bg-green-100 text-green-700 rounded-lg"><PlusCircle className="w-5 h-5"/></button>
+                                                       <button onClick={() => handleReset(student.id, 'GOLD')} className="p-2 bg-red-100 text-red-600 rounded-lg"><Eraser className="w-5 h-5"/></button>
                                                    </div>
-                                                   <div className="flex gap-1 items-center bg-gray-50 p-1 rounded-lg border border-gray-200">
-                                                       <button onClick={() => handleManualAdd(student.id, 'SILVER')} className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg shadow-sm" title="補發銀幣"><PlusCircle className="w-5 h-5"/></button>
-                                                       <button onClick={() => handleReset(student.id, 'SILVER')} className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg shadow-sm" title="歸零銀幣"><Eraser className="w-5 h-5"/></button>
-                                                   </div>
-                                                   <div className="flex gap-1 items-center bg-orange-50 p-1 rounded-lg border border-orange-200">
-                                                       <button onClick={() => handleManualAdd(student.id, 'BRONZE')} className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg shadow-sm" title="補發銅幣"><PlusCircle className="w-5 h-5"/></button>
-                                                       <button onClick={() => handleReset(student.id, 'BRONZE')} className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg shadow-sm" title="歸零銅幣"><Eraser className="w-5 h-5"/></button>
-                                                   </div>
-                                               </div>
-                                           </td>
-                                       )}
+                                               </td>
+                                           )}
                                    </tr>
                                );
                            })}
                        </tbody>
                    </table>
                </div>
-               <div className="mt-4 pt-4 border-t border-green-200 text-right"><button onClick={onClose} className="bg-green-600 text-white py-3 px-8 rounded-xl hover:bg-green-700 transition text-2xl font-bold shadow-md">關閉存簿</button></div>
            </div>
        </div>
    );
 };
-// ... (Standard Components: Alert, Login, etc. remain unchanged)
+
 const CustomAlert = ({ message, onClose }) => ( <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"> <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> <h3 className="text-4xl font-semibold text-gray-800 mb-4">通知</h3> <p className="text-3xl text-gray-600 mb-6">{message}</p> <button onClick={onClose} className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-4xl">確定</button> </div> </div> );
 const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => { const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [mode, setMode] = useState('GUEST'); const handleAdminSubmit = (e) => { e.preventDefault(); onAdminLogin(email, password); }; return ( <div className="fixed inset-0 bg-[#F0F8FF] flex items-center justify-center z-[10000]"> <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100"> <div className="text-center mb-8"> <h1 className="text-4xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1> <p className="text-gray-400 text-xl font-medium">請選擇您的身分</p> </div> <div className="flex bg-gray-100 p-1 rounded-xl mb-6"> <button onClick={() => setMode('GUEST')} className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'GUEST' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>學生/家長</button> <button onClick={() => setMode('ADMIN')} className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'ADMIN' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:text-gray-700'}`}>老師 (管理員)</button> </div> {mode === 'ADMIN' ? ( <form onSubmit={handleAdminSubmit} className="space-y-4 animate-fade-in"> <div><label className="block text-gray-600 text-lg font-bold mb-1">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all" autoFocus /></div> <div><label className="block text-gray-600 text-lg font-bold mb-1">密碼</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="請輸入密碼" className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all" /></div> {errorMsg && (<p className="text-red-500 text-lg font-bold">{errorMsg}</p>)} <button type="submit" disabled={isLoading} className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-red-500 hover:bg-red-600'}`}>{isLoading ? '驗證中...' : <><Key className="w-6 h-6" /> 管理員登入</>}</button> </form> ) : ( <div className="space-y-6 animate-fade-in"> <div className="bg-blue-50 p-4 rounded-xl text-blue-800 text-lg"><p className="font-bold flex items-center gap-2"><Shield className="w-5 h-5"/> 訪客模式說明：</p><p className="mt-1">您可以查看所有作業進度，但無法修改作業名稱或刪除紀錄。</p></div> <button onClick={onGuestLogin} disabled={isLoading} className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-blue-500 hover:bg-blue-600'}`}>{isLoading ? '進入中...' : <><User className="w-6 h-6" /> 進入系統</>}</button> </div> )} <div className="mt-8 text-center text-gray-400 text-lg">系統版本：{VERSION}</div> </div> </div> ); };
 const AllMissingAssignmentsModal = ({ missingStats, onClose }) => { const studentsWithMissing = missingStats.filter(s => s.missingCount > 0); return ( <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4"> <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200"> <div className="flex justify-between items-center mb-6 border-b pb-4"><h3 className="text-4xl font-bold text-gray-800 flex items-center"><AlertCircle className="w-10 h-10 text-red-500 mr-3" />全班未完成作業總表</h3><button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200"><X className="w-8 h-8" /></button></div> <div className="flex-1 overflow-auto"> {studentsWithMissing.length === 0 ? (<div className="h-full flex flex-col items-center justify-center text-gray-400"><Check className="w-24 h-24 mb-4 text-green-400" /><p className="text-4xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p></div>) : ( <table className="min-w-full divide-y divide-gray-300"> <thead className="bg-gray-100 sticky top-0 z-10"><tr><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th><th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th></tr></thead> <tbody className="bg-white divide-y divide-gray-200">{studentsWithMissing.map((student) => (<tr key={student.id} className="hover:bg-red-50 transition duration-100"><td className="px-4 py-4 text-2xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td><td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td><td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td><td className="px-6 py-4 text-xl text-gray-700"><ul className="list-disc list-inside space-y-1">{[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW')).map((detail, idx) => (<li key={idx} className="flex items-start"><span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span><span className="font-mono font-medium text-gray-400 text-lg">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span></li>))}</ul></td></tr>))}</tbody> </table> )} </div> <div className="mt-4 pt-4 border-t border-gray-200 text-right"><button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">關閉視窗</button></div> </div> </div> ); };
@@ -689,8 +601,6 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
 const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment, handleEditSave, handleMoveAssignment, setEditingAssignmentId, setEditingAssignmentName, editingAssignmentId, editingAssignmentName, authMode }) => { const isEditing = editingAssignmentId === assignment.id; const [{ isDragging }, drag] = useDrag({ type: ItemTypes.ASSIGNMENT, item: { id: assignment.id, type: ItemTypes.ASSIGNMENT }, collect: (monitor) => ({ isDragging: monitor.isDragging() }) }); const [, drop] = useDrop({ accept: ItemTypes.ASSIGNMENT, hover: (draggedItem) => { if (draggedItem.id !== assignment.id) { handleMoveAssignment(draggedItem.id, assignment.id); draggedItem.id = assignment.id; } } }); const handleEditStart = useCallback(() => { if (isGlobalLoading) return; if (authMode !== 'ADMIN') { alert("只有老師可以修改作業名稱。"); return; } setEditingAssignmentId(assignment.id); setEditingAssignmentName(assignment.assignmentName); }, [assignment.id, assignment.assignmentName, setEditingAssignmentId, setEditingAssignmentName, isGlobalLoading, authMode]); const handleLocalEditSave = useCallback(() => { if (!isEditing || !editingAssignmentName.trim() || isGlobalLoading) return; handleEditSave(assignment.id, editingAssignmentName).finally(() => { setEditingAssignmentId(null); setEditingAssignmentName(''); }); }, [assignment.id, editingAssignmentName, handleEditSave, isEditing, setEditingAssignmentId, setEditingAssignmentName, isGlobalLoading]); const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]); return ( <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-2 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100 break-words`}> <div className="flex flex-col items-center justify-center group relative min-w-[150px]"> <div className={`relative p-2 rounded-xl shadow-md transition duration-100 border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}> {isEditing ? ( <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-3xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} /> ) : <span className={`font-bold ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'} break-words`}>{assignment.assignmentName}</span>} {!isEditing && authMode === 'ADMIN' && ( <button onClick={handleDeleteClick} disabled={isGlobalLoading} className="absolute -top-3 -right-3 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition duration-150 p-1 rounded-full bg-white shadow-lg"> <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> </button> )} </div> </div> </th> ); };
 const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => { const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); const handleDoubleClick = (e) => { if (authMode === 'ADMIN' && isSelected && onEdit) { e.stopPropagation(); onEdit(); } }; return ( <div className="relative group"> <button onClick={() => onClick(date)} onDoubleClick={handleDoubleClick} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`} title={authMode === 'ADMIN' && isSelected ? "雙擊以修改日期" : ""}> {formattedDate} {isSelected && authMode === 'ADMIN' && ( <span onClick={(e) => { e.stopPropagation(); onEdit(); }} className="inline-flex items-center justify-center p-1 bg-white/20 rounded-full hover:bg-white/40 cursor-pointer transition-colors" title="點擊修改日期"> <Pencil className="w-4 h-4 text-white" /> </span> )} </button> </div> ); };
 const ProtectedButton = ({ onClick, disabled, className, title, children }) => { return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> ); };
- 
-// --- 【已新增】學生名單 Hook ---
 const useStudents = (db, isOffline) => {
    const [students, setStudents] = useState(DEFAULT_STUDENTS);
    const [loadingStudents, setLoadingStudents] = useState(true);
@@ -713,8 +623,6 @@ const useStudents = (db, isOffline) => {
    }, [db, isOffline]);
    return { students, loadingStudents };
 };
- 
-// --- 【已修改】useCategories Hook (接收 students) ---
 const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, students) => { 
    const [categories, setCategories] = useState([]); 
    const [loadingCategories, setLoadingCategories] = useState(true); 
@@ -722,6 +630,10 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, stud
    const initializeCategories = useCallback(async (db, userId) => { if (!db || !userId) return; setLoadingCategories(true); const path = getCategoryCollectionPath(); const categoriesCollection = collection(db, path); try { const snapshot = await getDocs(categoriesCollection); if (snapshot.empty) { const batchPromises = INITIAL_CATEGORIES.map(cat => { const newDocRef = doc(categoriesCollection); return setDoc(newDocRef, { ...cat, createdAt: Timestamp.now() }); }); await Promise.all(batchPromises); } } catch (e) { console.error("Error initializing categories:", e); } setLoadingCategories(false); }, []); 
    useEffect(() => { if (isOffline) { setCategories(INITIAL_CATEGORIES.map((cat, i) => ({ ...cat, id: `offline-cat-${i}` }))); setLoadingCategories(false); return; } if (isAuthReady && db && userId) { initializeCategories(db, userId); const path = getCategoryCollectionPath(); const unsubscribe = onSnapshot(collection(db, path), (snapshot) => { const loadedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); loadedCategories.sort((a, b) => (a.order || 0) - (b.order || 0)); setCategories(loadedCategories); setLoadingCategories(false); }, (e) => { console.error("Error fetching categories:", e); if (e.code !== 'permission-denied') { setAlertMessage("讀取作業項目清單時發生錯誤。"); } setLoadingCategories(false); }); return () => unsubscribe(); } }, [isAuthReady, db, userId, setAlertMessage, initializeCategories, isOffline]);
    const addCategory = useCallback(async (name) => { const trimmedName = name.trim(); if (!trimmedName) return false; if (categories.some(c => c.name === trimmedName)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return false; } if (isOffline) { const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; setCategories(prev => [...prev, { id: `offline-cat-${Date.now()}`, name: trimmedName, order: newOrder }]); return true; } if (!db || !userId) return false; const newDocRef = doc(collection(db, getCategoryCollectionPath())); const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; try { await setDoc(newDocRef, { name: trimmedName, order: newOrder, createdAt: Timestamp.now() }); return true; } catch (e) { console.error("Error adding category:", e); setAlertMessage("新增科目模板失敗。"); return false; } }, [db, userId, categories, setAlertMessage, isOffline]); const deleteCategory = useCallback(async (categoryId, categoryName) => { if (!window.confirm(`確定要刪除科目模板「${categoryName}」嗎？此操作只會將該科目從「自動新增」清單中移除。`)) return; if (isOffline) { setCategories(prev => prev.filter(c => c.id !== categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除 (離線)。`); return; } if (!db || !userId) return; try { await deleteDoc(doc(db, getCategoryCollectionPath(), categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除。`); } catch (e) { console.error("Error deleting category:", e); setAlertMessage("刪除科目模板失敗。"); } }, [db, userId, setAlertMessage, isOffline]); const editCategory = useCallback(async (categoryId, currentName, newName) => { const trimmedName = newName.trim(); if (!trimmedName || trimmedName === currentName) return; if (categories.some(c => c.name === trimmedName && c.id !== categoryId)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return; } if (isOffline) { setCategories(prev => prev.map(c => c.id === categoryId ? { ...c, name: trimmedName } : c)); return; } if (!db || !userId) return; try { await setDoc(doc(db, getCategoryCollectionPath(), categoryId), { name: trimmedName }, { merge: true }); setAlertMessage(`科目模板名稱已從「${currentName}」更新為「${trimmedName}」。`); } catch (e) { console.error("Error editing category:", e); setAlertMessage("編輯科目模板失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); const moveCategory = useCallback(async (dragId, hoverId) => { const dragIndex = categories.findIndex(c => c.id === dragId); const hoverIndex = categories.findIndex(c => c.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; const dragCategory = categories[dragIndex]; const hoverCategory = categories[hoverIndex]; if (isOffline) { const newCategories = [...categories]; newCategories[dragIndex] = { ...dragCategory, order: hoverCategory.order }; newCategories[hoverIndex] = { ...hoverCategory, order: dragCategory.order }; newCategories.sort((a, b) => a.order - b.order); setCategories(newCategories); return; } if (!db || !userId) return; const batch = writeBatch(db); const path = getCategoryCollectionPath(); batch.set(doc(db, path, dragCategory.id), { order: hoverCategory.order }, { merge: true }); batch.set(doc(db, path, hoverCategory.id), { order: dragCategory.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving category:", e); setAlertMessage("調整項目順序失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); return { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus }; };
+
+// --- (Part 2 結束，請接 Part 3) ---
+// --- (接 Part 2) ---
+
 // --- Main App Component ---
 const App = () => {
  const [db, setDb] = useState(null);
@@ -799,16 +711,16 @@ const App = () => {
        {authTimeout && ( <div className="text-center animate-fade-in"> <p className="text-2xl text-amber-600 mb-4">連線似乎有點慢，或是無法連接到伺服器。</p> <button onClick={handleGoOffline} className="bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 rounded-xl text-3xl font-bold shadow-lg transition transform hover:scale-105 flex items-center gap-3 mx-auto"> <WifiOff className="w-8 h-8" /> 強制進入 (離線/演示模式) </button> </div> )}
      </div> 
    );
-  }
- 
-  if (!isAuthenticated && !loading && !loadingCategories) {
+ }
+
+ if (!isAuthenticated && !loading && !loadingCategories) {
      return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
-  }
- 
-  if (error) {
+ }
+
+ if (error) {
    return ( <div className="p-8 text-center bg-red-100 border-l-8 border-red-500 text-red-700"> <h2 className="text-3xl font-bold mb-2">發生錯誤 (Error Occurred)</h2> <p className="text-xl whitespace-pre-line">{error}</p> <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-lg text-xl hover:bg-red-700 transition flex items-center justify-center mx-auto"> <RefreshCw className="w-6 h-6 mr-2" /> 重新整理 </button> </div> );
-  }
- 
+ }
+
  return (
    <DndProvider backend={HTML5Backend}>
    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
@@ -818,12 +730,12 @@ const App = () => {
      {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
      {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={students.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} /> )}
      {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
- 
+
      <div className="bg-white shadow-xl w-full flex flex-col h-full">
        <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
          {isOffline && ( <div className="absolute top-0 left-0 w-full bg-gray-800 text-white text-center py-2 text-xl font-bold tracking-wider z-10"> ⚠️ 目前為離線演示模式 (Guest Mode) </div> )}
           <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20" title="登出系統"> <LogOut className="w-5 h-5" /> 登出 {authMode === 'ADMIN' ? '(老師)' : '(訪客)'} </button>
- 
+
          <div className={`flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2 ${isOffline ? 'mt-8' : ''}`}><span className="text-orange-500 text-6xl mr-3">🐻‍❄️</span><span className="text-5xl">五年甲班訂正作業表</span><span className="text-green-600 text-6xl ml-3">🐼</span></div>
          <p className="text-3xl text-gray-600 mb-4"> {new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'long' })}</p>
          <p className={`absolute right-4 text-xl text-gray-500 font-bold z-30 transition-all ${authMode === 'ADMIN' ? 'top-20' : 'top-4'}`}> 版本: {VERSION}</p>
@@ -852,7 +764,7 @@ const App = () => {
                    <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isGlobalLoading} title="選擇 JSON 檔案匯入紀錄" />
                    <button onClick={() => document.getElementById('importFile').click()} className={`${authMode === 'ADMIN' ? 'px-4 py-2 w-full' : 'px-5 py-3 w-full'} text-3xl font-medium rounded-lg text-white bg-cyan-500 hover:bg-cyan-600 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading}> <Upload className="h-6 w-6 mr-1" />匯入 </button>
                </div>
- 
+
                {authMode === 'ADMIN' && (
                    <>
                        <ProtectedButton onClick={() => handleDeleteDateAssignments()} disabled={isGlobalLoading || assignmentsForSelectedDate.length === 0} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-gray-900 hover:bg-gray-800`} title="刪除該日所有作業 (需按住 Shift)"><span className="text-4xl mr-1">🧨</span>刪除日期</ProtectedButton>
@@ -879,7 +791,7 @@ const App = () => {
                    <button onClick={handleAddNewAssignment} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center ${isGlobalLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-500'}`} disabled={isGlobalLoading || !selectedDisplayDate}><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>新增作業</button>
                </div>
            </div>
- 
+
            {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
            
            <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-y-auto overflow-x-auto h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
@@ -898,24 +810,24 @@ const App = () => {
                            <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
                                {(focusedStudentId ? students.filter(s => s.id === focusedStudentId) : students).map((student) => (
                                    <tr key={student.id} className={`group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
-                                       <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 sticky left-0 bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words align-middle transition-colors" title="點擊查看學習歷程" style={{ minWidth: '100px', width: '100px', maxWidth: '100px', left: '0px' }}>
-                                           {student.id}
-                                       </td>
-                                       <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold sticky bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 align-middle transition-colors" title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"} style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '100px' }}>
-                                           {student.name[0] + 'O' + student.name.slice(2)}
-                                       </td>
-                                       {assignmentsForSelectedDate.map((assignment) => {
-                                           const assignmentName = assignment.assignmentName;
-                                           const assignmentData = assignmentMap[assignmentName];
-                                           const status = assignmentData ? assignmentData.submissionStatus[student.id] ?? true : true;
-                                           return (
-                                               <td key={`${student.id}-${assignmentName}`} className="px-1 py-4 whitespace-nowrap text-center" style={{ minWidth: '150px' }}>
-                                                   <div className="relative inline-block">
-                                                       <button onClick={() => handleToggleSubmission(assignmentName, student.id, status)} disabled={isGlobalLoading} className={`p-2 rounded-lg transition duration-150 shadow-md disabled:cursor-not-allowed relative ${status === true ? 'bg-green-200 text-green-700 hover:bg-green-300' : (status === 'late' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-white border-4 border-red-300 text-red-500 hover:bg-red-50')}`} aria-label={status === true ? '已完成' : (status === 'late' ? '遲繳' : '待完成')}> {status === false ? ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg> )} </button>
-                                                   </div>
-                                               </td>
-                                           );
-                                       })}
+                                           <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 sticky left-0 bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words align-middle transition-colors" title="點擊查看學習歷程" style={{ minWidth: '100px', width: '100px', maxWidth: '100px', left: '0px' }}>
+                                                   {student.id}
+                                           </td>
+                                           <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold sticky bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 align-middle transition-colors" title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"} style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '100px' }}>
+                                                   {student.name[0] + 'O' + student.name.slice(2)}
+                                           </td>
+                                           {assignmentsForSelectedDate.map((assignment) => {
+                                               const assignmentName = assignment.assignmentName;
+                                               const assignmentData = assignmentMap[assignmentName];
+                                               const status = assignmentData ? assignmentData.submissionStatus[student.id] ?? true : true;
+                                               return (
+                                                   <td key={`${student.id}-${assignmentName}`} className="px-1 py-4 whitespace-nowrap text-center" style={{ minWidth: '150px' }}>
+                                                       <div className="relative inline-block">
+                                                           <button onClick={() => handleToggleSubmission(assignmentName, student.id, status)} disabled={isGlobalLoading} className={`p-2 rounded-lg transition duration-150 shadow-md disabled:cursor-not-allowed relative ${status === true ? 'bg-green-200 text-green-700 hover:bg-green-300' : (status === 'late' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-white border-4 border-red-300 text-red-500 hover:bg-red-50')}`} aria-label={status === true ? '已完成' : (status === 'late' ? '遲繳' : '待完成')}> {status === false ? ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg> )} </button>
+                                                       </div>
+                                                   </td>
+                                               );
+                                           })}
                                    </tr>
                                ))}
                            </tbody>
@@ -940,7 +852,7 @@ const App = () => {
      </div>
    </div>
    </DndProvider>
-  );
+ );
 };
- 
+
 export default App;
