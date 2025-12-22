@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v18.0.0 - 雙軌統計與細緻評級版'; 
+const VERSION = 'v18.0.0 - 雙軌統計最終版'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -199,7 +199,6 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
        </svg>
    );
 };
-
 // --- [已更新] 學生學習歷程 Dashboard Modal (雙軌制：健康統計 vs 績效趨勢) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); // STATUS (健康/長條圖) 或 TREND (績效/折線圖)
@@ -353,7 +352,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         return { text: "⚠️ 勉強及格！你的作業狀況令人擔心，必須調整步調。", color: "text-orange-500", bg: "bg-white", border: "border-orange-500" };
     };
 
-    // 5. 評語邏輯 B：績效分數 (Trend Mode) - 18級細緻分級
+    // 5. 評語邏輯 B：績效分數 (Trend Mode) - 18級細緻分級 (已更新文案)
     const getTrendFeedback = (score) => {
         const s = parseFloat(score);
         if (s === 100) return { text: "👑 傳奇等級！完美的 100 分，無懈可擊！", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-500" };
@@ -363,15 +362,15 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         if (s >= 90) return { text: "👍 非常棒 (90+)，是大家學習的榜樣。", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" };
         if (s >= 85) return { text: "🌿 表現優異 (85+)，維持在高水準。", color: "text-green-600", bg: "bg-green-50", border: "border-green-500" };
         if (s >= 81) return { text: "😊 相當不錯 (81+)，繼續保持這個節奏。", color: "text-lime-600", bg: "bg-lime-50", border: "border-lime-500" };
-        if (s >= 75) return { text: "🆗 表現尚可 (75+)，但還有進步空間。", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-500" };
+        if (s >= 75) return { text: "🆗 表現尚可 (75+)，還有進步空間。", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-500" };
         if (s >= 70) return { text: "😐 普普通通 (70+)，遲交次數稍微多了點。", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" };
         if (s >= 65) return { text: "😟 需要注意 (65+)，分數開始下滑囉。", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-500" };
         if (s >= 60) return { text: "⚠️ 低空飛過 (60+)，請再多用點心。", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-600" };
         if (s >= 50) return { text: "🛑 不及格邊緣 (50+)，必須立刻修正態度！", color: "text-red-500", bg: "bg-red-50", border: "border-red-400" };
         if (s >= 40) return { text: "🌧️ 狀況不佳 (40+)，缺交或遲交太頻繁了。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500" };
-        if (s >= 30) return { text: "⛈️ 雷雨警報 (30+)，請家長務必協助。", color: "text-red-700", bg: "bg-red-100", border: "border-red-600" };
+        if (s >= 30) return { text: "⛈️ 雷雨警報 (30+)，信用分數嚴重透支，請自我反省並修正態度。", color: "text-red-700", bg: "bg-red-100", border: "border-red-600" };
         if (s >= 20) return { text: "💔 令人擔憂 (20+)，作業幾乎都沒完成。", color: "text-red-800", bg: "bg-red-100", border: "border-red-700" };
-        if (s >= 10) return { text: "🆘 緊急狀態 (10+)，請趕快找老師討論。", color: "text-red-900", bg: "bg-red-200", border: "border-red-800" };
+        if (s >= 10) return { text: "🆘 緊急狀態 (10+)，你的作業幾乎一片空白，請面對現實。", color: "text-red-900", bg: "bg-red-200", border: "border-red-800" };
         if (s >= 5) return { text: "🌫️ 幾近空白 (5+)，請不要放棄學習！", color: "text-gray-600", bg: "bg-gray-200", border: "border-gray-500" };
         return { text: "🌑 完全空白 (0-4.9)，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" };
     };
@@ -468,14 +467,12 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
 
                         {/* 3. 評語區：左右分割佈局 (A方案) */}
                         <div className={`p-0 rounded-2xl shadow-sm border-l-8 flex overflow-hidden transition-all ${currentFeedback.border} ${currentFeedback.bg}`}>
-                            {/* 左半部：顯示分數/狀態 */}
+                            {/* 左半部：顯示分數 (紅燈時依舊顯示分數) */}
                             <div className="w-1/3 flex flex-col items-center justify-center border-r border-gray-100 bg-white/50 p-2">
                                 <span className={`text-4xl font-black ${currentFeedback.color}`}>
-                                    {currentFeedback.isAlert ? "⚠️" : (viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore)}
+                                    {viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}
                                 </span>
-                                <span className="text-sm text-gray-500 font-bold mt-1">
-                                    {currentFeedback.isAlert ? "警報" : "分"}
-                                </span>
+                                <span className="text-sm text-gray-500 font-bold mt-1">分</span>
                             </div>
                             {/* 右半部：顯示評語 */}
                             <div className="w-2/3 p-4 flex flex-col justify-center">
