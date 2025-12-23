@@ -1,45 +1,36 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
-import { 
-   getAuth, 
-   signInAnonymously, 
-   signInWithEmailAndPassword, 
-   signOut, 
-   onAuthStateChanged 
+import { 
+   getAuth, 
+   signInAnonymously, 
+   signInWithEmailAndPassword, 
+   signOut, 
+   onAuthStateChanged 
 } from 'firebase/auth';
-import { 
- getFirestore, 
- collection, 
- onSnapshot, 
- doc, 
- setDoc, 
- deleteDoc, 
- query, 
- Timestamp, 
- getDocs, 
- writeBatch, 
- serverTimestamp, 
- getDoc,
- orderBy,
- where
+import { 
+ getFirestore, 
+ collection, 
+ onSnapshot, 
+ doc, 
+ setDoc, 
+ deleteDoc, 
+ query, 
+ Timestamp, 
+ getDocs, 
+ writeBatch, 
+ serverTimestamp, 
+ getDoc,
+ where
 } from 'firebase/firestore';
-import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
+import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { 
-   BookOpen, Trash2, Calendar, Download, Upload, Plus, X, Check, 
-   RefreshCw, WifiOff, Lock, Settings, LogOut, FileText, AlertCircle, 
-   Eye, EyeOff, Shield, User, Key, Edit, Pencil, Star, PartyPopper,
-   Coins, Eraser, Moon, PlusCircle, TrendingUp, TrendingDown, Activity,
-   BarChart2
+import { 
+   BookOpen, Download, Upload, X, Check, 
+   RefreshCw, WifiOff, LogOut, FileText, AlertCircle, 
+   Eye, Shield, User, Key, Edit, Pencil, Star,
+   Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity,
+   BarChart2
 } from 'lucide-react';
-
-// --- 版本資訊 ---
-const VERSION = 'v18.0.0 - 雙軌統計最終版'; 
-
-// --- 全域變數與 Firebase 設定 ---
-const appId = 'class-5a-app'; 
-
-const firebaseConfig = {
  apiKey: "AIzaSyArwz6gPeW9lNq_8LOfnKYwZmkRN-Wgtb8",
  authDomain: "class-5a-app.firebaseapp.com",
  projectId: "class-5a-app",
