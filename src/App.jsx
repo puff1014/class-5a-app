@@ -199,7 +199,7 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
        </svg>
    );
 };
-// --- [已更新] 學生學習歷程 Dashboard Modal (雙軌制：健康統計 vs 績效趨勢) ---
+// --- [已更新] 學生學習歷程 Dashboard Modal (雙軌制 + 上下雙層標題列) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); // STATUS (健康/長條圖) 或 TREND (績效/折線圖)
 
@@ -229,11 +229,10 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     };
 
     // 3. 雙軌資料處理核心
-    const { healthData, trendData, summaryStats, trendStats, emergencyData } = useMemo(() => {
+    const { healthData, trendData, summaryStats, trendStats, emergencyData, overallData } = useMemo(() => {
         const healthByMonth = {};
         const trendByMonth = {};
         
-        // 總結變數
         let totalAssigments = 0;
         let totalHealthPoints = 0; // 舊制總分
         let totalTrendPoints = 0;  // 新制總分
@@ -242,7 +241,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         let countLate = 0;
         let countMissing = 0;
 
-        // 警報變數
         let currentMissingCount = 0;
         let maxDelayDays = 0;
 
@@ -252,7 +250,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             const dateObj = new Date(date);
             const monthKey = `${dateObj.getMonth() + 1}月`;
             
-            // 初始化月報表
             if (!healthByMonth[monthKey]) {
                 healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
                 trendByMonth[monthKey] = { totalPoints: 0, count: 0 };
@@ -260,40 +257,21 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
 
             const assignments = allAssignmentsByDate[date];
             
+            // --- 狀況統計 (每日計分) ---
+            let isDayMissing = false;
+            let isDayLate = false;
+            
             assignments.forEach(assign => {
                 const status = assign.submissionStatus[student.id];
-                const completedAt = assign.completedAt?.[student.id]; // 取得補交時間戳記
-
-                // --- A. 狀態統計 (Health) 100/60/0 ---
-                let hScore = 0;
-                if (status === true) {
-                    hScore = 100;
-                    healthByMonth[monthKey].onTime++;
-                    countCompleted++;
-                } else if (status === 'late') {
-                    hScore = 60; // 舊制遲交固定60
-                    healthByMonth[monthKey].late++;
-                    countLate++;
-                } else {
-                    hScore = 0;
-                    healthByMonth[monthKey].missing++;
-                    countMissing++;
-                    
-                    // 警報檢核：只有「目前仍缺交」的才算
-                    currentMissingCount++;
-                    const delay = getDelayFromToday(date);
-                    if (delay > maxDelayDays) maxDelayDays = delay;
-                }
-                healthByMonth[monthKey].totalPoints += hScore;
-                healthByMonth[monthKey].count++;
-                totalHealthPoints += hScore;
-
-                // --- B. 績效分數 (Trend) 100倒扣制 ---
+                if (status === false) isDayMissing = true;
+                else if (status === 'late') isDayLate = true;
+                
+                // --- 績效分數 (每項計分) ---
+                const completedAt = assign.completedAt?.[student.id];
                 let tScore = 0;
                 if (status === true) {
                     tScore = 100;
                 } else if (status === 'late') {
-                    // 如果有補交時間紀錄，計算倒扣；否則(舊資料)給60
                     if (completedAt) {
                         const daysLate = getDaysDiff(date, completedAt);
                         tScore = Math.max(0, 100 - (daysLate * 5));
@@ -301,14 +279,35 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                         tScore = 60; 
                     }
                 } else {
-                    tScore = 0; // 缺交
+                    tScore = 0;
+                    currentMissingCount++;
+                    const delay = getDelayFromToday(date);
+                    if (delay > maxDelayDays) maxDelayDays = delay;
                 }
                 trendByMonth[monthKey].totalPoints += tScore;
                 trendByMonth[monthKey].count++;
                 totalTrendPoints += tScore;
-                
                 totalAssigments++;
             });
+
+            // 結算當日狀況分數
+            let hScore = 0;
+            if (isDayMissing) {
+                hScore = 0;
+                healthByMonth[monthKey].missing++;
+                countMissing++;
+            } else if (isDayLate) {
+                hScore = 60;
+                healthByMonth[monthKey].late++;
+                countLate++;
+            } else {
+                hScore = 100;
+                healthByMonth[monthKey].onTime++;
+                countCompleted++;
+            }
+            healthByMonth[monthKey].totalPoints += hScore;
+            healthByMonth[monthKey].count++; // 這裡 count 代表天數
+            totalHealthPoints += hScore;
         });
 
         // 轉換為圖表格式
@@ -324,13 +323,22 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         }));
 
         const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
+        
+        // 計算平均
+        const totalDays = countCompleted + countLate + countMissing;
+        const avgHealthScore = totalDays === 0 ? 0 : (totalHealthPoints / totalDays).toFixed(1);
+        const avgTrendScore = totalAssigments === 0 ? 0 : (totalTrendPoints / totalAssigments).toFixed(1);
+        
+        // 綜合總分
+        const overallScore = ((parseFloat(avgHealthScore) + parseFloat(avgTrendScore)) / 2).toFixed(1);
 
         return {
             healthData: healthChart,
             trendData: trendChart,
-            summaryStats: { total: totalAssigments, completed: countCompleted, late: countLate, missing: countMissing, avgScore: totalAssigments === 0 ? 0 : (totalHealthPoints / totalAssigments).toFixed(1) },
-            trendStats: { avgScore: totalAssigments === 0 ? 0 : (totalTrendPoints / totalAssigments).toFixed(1) },
-            emergencyData: { isEmergency, maxDelayDays, currentMissingCount }
+            summaryStats: { total: totalDays, completed: countCompleted, late: countLate, missing: countMissing, avgScore: avgHealthScore },
+            trendStats: { avgScore: avgTrendScore },
+            emergencyData: { isEmergency, maxDelayDays, currentMissingCount },
+            overallData: { score: overallScore }
         };
     }, [allAssignmentsByDate, student.id]);
 
@@ -375,28 +383,461 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         return { text: "🌑 完全空白 (0-4.9)，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" };
     };
 
+    // 6. 綜合總分動物圖鑑 (17階學習習慣版)
+    const getOverallBadge = (score) => {
+        const s = parseFloat(score);
+        if (s >= 100) return { animal: "🐲 神龍", comment: "作業全勤無缺，品質完美無瑕，無可挑剔。" };
+        if (s >= 97) return { animal: "🦁 獅王", comment: "態度極度自律，對自我要求高，細節處理極佳。" };
+        if (s >= 94) return { animal: "🦅 雄鷹", comment: "繳交迅速確實，準確率非常高，學習態度積極。" };
+        if (s >= 91) return { animal: "🐆 獵豹", comment: "訂正效率驚人，很少拖泥帶水，行動力極強。" };
+        if (s >= 88) return { animal: "🐴 駿馬", comment: "保持穩定節奏，作業習慣良好，充滿學習幹勁。" };
+        if (s >= 85) return { animal: "🐺 戰狼", comment: "能夠自我鞭策，按時完成任務，錯誤越來越少。" };
+        if (s >= 82) return { animal: "🦊 靈狐", comment: "作業繳交穩定，若能多點細心，表現會更出色。" };
+        if (s >= 77) return { animal: "🦉 貓頭鷹", comment: "逐漸掌握要領，學習狀況回穩，請持續保持。" };
+        if (s >= 72) return { animal: "🐻 大熊", comment: "累積實力中，雖然細心度不足，但大多能完成。" };
+        if (s >= 67) return { animal: "🐘 大象", comment: "腳踏實地完成，雖然速度較慢，但願意補救。" };
+        if (s >= 60) return { animal: "🦈 鯊魚", comment: "努力跟上進度，正視缺交問題，積極修正中。" };
+        if (s >= 50) return { animal: "🦘 袋鼠", comment: "再跳一步就及格，請補齊缺交，別讓分數停滯。" };
+        if (s >= 40) return { animal: "🐿️ 松鼠", comment: "積少成多，每一項作業都很重要，請勿隨意放棄。" };
+        if (s >= 30) return { animal: "🐇 白兔", comment: "別因貪玩而偷懶，趕快追上進度，你可以做得到。" };
+        if (s >= 20) return { animal: "🦔 刺蝟", comment: "卸下防備與藉口，面對作業不逃避，勇敢承擔責任。" };
+        if (s >= 10) return { animal: "🐢 烏龜", comment: "只要肯開始動筆，總會完成一項，哪怕慢也沒關係。" };
+        return { animal: "🌱 種子", comment: "埋入土裡太久了，請翻開作業本，讓學習重新發芽。" };
+    };
+
     const currentFeedback = viewMode === 'STATUS' 
         ? getStatusFeedback(summaryStats.avgScore, emergencyData)
         : getTrendFeedback(trendStats.avgScore);
+        
+    const overallBadge = getOverallBadge(overallData.score);
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
             <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 ${currentFeedback.isAlert ? 'border-red-500' : 'border-white'}`}>
-                {/* 頂部 Header */}
-                <div className={`p-6 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
-                    <div className="flex items-center gap-4">
-                        <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>
+                {/* 頂部 Header (上下雙層設計) */}
+                <div className={`px-6 py-4 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
+                    <div className="flex items-center gap-6 w-full">
+                        <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 shrink-0 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>
                             {student.id}
                         </div>
-                        <div>
-                            <h2 className="text-4xl font-bold tracking-wide">{student.name} 的學習歷程</h2>
-                            <p className="text-white/90 text-xl font-medium mt-1 flex items-center gap-2">
-                                <Activity className="w-5 h-5" /> 
+                        <div className="flex flex-col justify-center flex-1">
+                            <h2 className="text-4xl font-bold tracking-wide leading-none mb-1">{student.name} 的學習歷程</h2>
+                            <p className="text-white/80 text-lg font-medium flex items-center gap-2">
+                                <Activity className="w-4 h-4" /> 
                                 {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表
                             </p>
                         </div>
+                        {/* 右側：綜合總分徽章 (上下雙層) */}
+                        <div className="flex flex-col items-end justify-center bg-white/20 rounded-xl px-4 py-2 backdrop-blur-sm border border-white/30 min-w-[280px]">
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-sm font-bold text-white/90">🏆 綜合總分</span>
+                                <span className="text-3xl font-black text-yellow-300 drop-shadow-md">{overallData.score}</span>
+                                <span className="text-2xl font-bold text-white">| {overallBadge.animal}</span>
+                            </div>
+                            <div className="text-right text-sm font-medium text-white/90 mt-1 max-w-[300px] leading-tight">
+                                {overallBadge.comment}
+                            </div>
+                        </div>
                     </div>
-                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md">
+                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md ml-4 shrink-0">
+                        <X className="w-8 h-8" />
+                    </button>
+                </div>
+
+                <div className={`flex-1 overflow-auto p-8 ${currentFeedback.bg}`}>
+                    {/* 切換按鈕 */}
+                    <div className="flex justify-center mb-8">
+                        <div className="bg-gray-200 p-1 rounded-xl flex gap-1 shadow-inner">
+                            <button onClick={() => setViewMode('STATUS')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'STATUS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>
+                                📊 狀況統計 (Status)
+                            </button>
+                            <button onClick={() => setViewMode('TREND')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'TREND' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>
+                                📈 績效分數 (Trend)
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 數據卡片區 */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        {/* 1. 資產 */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div className="p-4 bg-yellow-100 text-yellow-600 rounded-2xl">
+                                <Coins className="w-10 h-10" />
+                            </div>
+                            <div>
+                                <p className="text-gray-500 text-lg font-bold">目前資產</p>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.gold || 0}</span>
+                                    <span className="text-sm text-yellow-500 font-bold">金</span>
+                                    <span className="text-2xl font-bold text-gray-400">/</span>
+                                    <span className="text-4xl font-black text-gray-800">{bankBalance?.silver || 0}</span>
+                                    <span className="text-sm text-gray-400 font-bold">銀</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 2. 中間卡片：根據模式變換內容 */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div className={`p-4 rounded-2xl ${viewMode === 'TREND' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                                {viewMode === 'TREND' ? <TrendingUp className="w-10 h-10" /> : <BarChart2 className="w-10 h-10" />}
+                            </div>
+                            <div className="flex-1">
+                                {viewMode === 'STATUS' ? (
+                                    <>
+                                        <p className="text-gray-500 text-lg font-bold mb-1">本學期統計天數</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-5xl font-black text-indigo-600">{summaryStats.total}</span>
+                                            <span className="text-xl text-gray-400 font-medium">天</span>
+                                        </div>
+                                        <div className="flex gap-3 mt-2 text-sm font-bold">
+                                            <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded">準時 {summaryStats.completed}</span>
+                                            <span className="text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded">遲交 {summaryStats.late}</span>
+                                            <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded">缺交 {summaryStats.missing}</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-gray-500 text-lg font-bold">本學期績效平均</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-5xl font-black text-blue-600">{trendStats.avgScore}</span>
+                                            <span className="text-xl text-gray-400 font-medium">分</span>
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-1">*採計新制倒扣評分</p>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 3. 評語區：左右分割佈局 (A方案) */}
+                        <div className={`p-0 rounded-2xl shadow-sm border-l-8 flex overflow-hidden transition-all ${currentFeedback.border} ${currentFeedback.bg}`}>
+                            {/* 左半部：顯示分數 (紅燈時依舊顯示分數) */}
+                            <div className="w-1/3 flex flex-col items-center justify-center border-r border-gray-100 bg-white/50 p-2">
+                                <span className={`text-4xl font-black ${currentFeedback.color}`}>
+                                    {viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}
+                                </span>
+                                <span className="text-sm text-gray-500 font-bold mt-1">分</span>
+                            </div>
+                            {/* 右半部：顯示評語 */}
+                            <div className="w-2/3 p-4 flex flex-col justify-center">
+                                <p className="text-gray-500 text-xs font-bold mb-1">
+                                    {viewMode === 'STATUS' ? '健康指數分析' : '績效評級分析'}
+                                </p>
+                                <p className={`${currentFeedback.color} font-bold text-lg leading-tight`}>
+                                    {currentFeedback.text}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 圖表區 */}
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 mb-8">
+                        <h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">
+                            {viewMode === 'TREND' ? (
+                                <><TrendingUp className="w-6 h-6 mr-2 text-blue-500" /> 作業績效趨勢圖 (Performance Trend)</>
+                            ) : (
+                                <><BarChart2 className="w-6 h-6 mr-2 text-indigo-500" /> 每月作業狀況分佈 (Status Distribution)</>
+                            )}
+                        </h3>
+                        <div className="h-[350px] w-full">
+                            {viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} /> ) : ( <SimpleStackedBarChart data={healthData} /> )}
+                        </div>
+                        
+                        {/* 圖例說明 */}
+                        {viewMode === 'TREND' && (
+                            <div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500">
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-400"></div>90分以上 (優異)</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-400"></div>60-89分 (及格)</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div>60分以下 (落後)</div>
+                            </div>
+                        )}
+                        {viewMode === 'STATUS' && (
+                            <div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500">
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-green-400"></div>準時完成(天)</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-yellow-400"></div>後來補交(天)</div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-red-400"></div>缺交未補(天)</div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 詳細數據表格 (固定顯示長條圖數據，保持一致性) */}
+                    <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-500">詳細數據列表</div>
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-white">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-xl font-bold text-gray-600">月份</th>
+                                    <th className="px-6 py-4 text-center text-xl font-bold text-green-600">準時(天)</th>
+                                    <th className="px-6 py-4 text-center text-xl font-bold text-yellow-600">補交(天)</th>
+                                    <th className="px-6 py-4 text-center text-xl font-bold text-red-600">缺交(天)</th>
+                                    <th className="px-6 py-4 text-center text-xl font-bold text-blue-600">績效平均</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {healthData.map((row, idx) => {
+                                    const tVal = trendData[idx]?.value || 0;
+                                    return (
+                                        <tr key={idx} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-xl font-bold text-gray-800">{row.label}</td>
+                                            <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime}</td>
+                                            <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late}</td>
+                                            <td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>
+                                                    {tVal.toFixed(1)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+// --- [已更新] 學生學習歷程 Dashboard Modal (雙軌制 + 上下雙層標題列) ---
+const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
+    const [viewMode, setViewMode] = useState('STATUS'); // STATUS (健康/長條圖) 或 TREND (績效/折線圖)
+
+    // 1. 輔助：計算遲交天數
+    const getDaysDiff = (dateString, completedAtString) => {
+        const targetDate = new Date(dateString);
+        targetDate.setHours(0,0,0,0);
+        
+        let completedDate = new Date(); // 預設今天
+        if (completedAtString) {
+            completedDate = new Date(completedAtString);
+        }
+        completedDate.setHours(0,0,0,0);
+
+        const diffTime = completedDate - targetDate;
+        return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+    };
+
+    // 2. 輔助：計算兩個日期間的天數差 (用於即時警報檢核，比較「今天」)
+    const getDelayFromToday = (dateString) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const target = new Date(dateString);
+        target.setHours(0, 0, 0, 0);
+        const diffTime = today - target;
+        return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    };
+
+    // 3. 雙軌資料處理核心
+    const { healthData, trendData, summaryStats, trendStats, emergencyData, overallData } = useMemo(() => {
+        const healthByMonth = {};
+        const trendByMonth = {};
+        
+        let totalAssigments = 0;
+        let totalHealthPoints = 0; // 舊制總分
+        let totalTrendPoints = 0;  // 新制總分
+        
+        let countCompleted = 0;
+        let countLate = 0;
+        let countMissing = 0;
+
+        let currentMissingCount = 0;
+        let maxDelayDays = 0;
+
+        const sortedDates = Object.keys(allAssignmentsByDate).sort();
+
+        sortedDates.forEach(date => {
+            const dateObj = new Date(date);
+            const monthKey = `${dateObj.getMonth() + 1}月`;
+            
+            if (!healthByMonth[monthKey]) {
+                healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+                trendByMonth[monthKey] = { totalPoints: 0, count: 0 };
+            }
+
+            const assignments = allAssignmentsByDate[date];
+            
+            // --- 狀況統計 (每日計分) ---
+            let isDayMissing = false;
+            let isDayLate = false;
+            
+            assignments.forEach(assign => {
+                const status = assign.submissionStatus[student.id];
+                if (status === false) isDayMissing = true;
+                else if (status === 'late') isDayLate = true;
+                
+                // --- 績效分數 (每項計分) ---
+                const completedAt = assign.completedAt?.[student.id];
+                let tScore = 0;
+                if (status === true) {
+                    tScore = 100;
+                } else if (status === 'late') {
+                    if (completedAt) {
+                        const daysLate = getDaysDiff(date, completedAt);
+                        tScore = Math.max(0, 100 - (daysLate * 5));
+                    } else {
+                        tScore = 60; 
+                    }
+                } else {
+                    tScore = 0;
+                    currentMissingCount++;
+                    const delay = getDelayFromToday(date);
+                    if (delay > maxDelayDays) maxDelayDays = delay;
+                }
+                trendByMonth[monthKey].totalPoints += tScore;
+                trendByMonth[monthKey].count++;
+                totalTrendPoints += tScore;
+                totalAssigments++;
+            });
+
+            // 結算當日狀況分數
+            let hScore = 0;
+            if (isDayMissing) {
+                hScore = 0;
+                healthByMonth[monthKey].missing++;
+                countMissing++;
+            } else if (isDayLate) {
+                hScore = 60;
+                healthByMonth[monthKey].late++;
+                countLate++;
+            } else {
+                hScore = 100;
+                healthByMonth[monthKey].onTime++;
+                countCompleted++;
+            }
+            healthByMonth[monthKey].totalPoints += hScore;
+            healthByMonth[monthKey].count++; // 這裡 count 代表天數
+            totalHealthPoints += hScore;
+        });
+
+        // 轉換為圖表格式
+        const healthChart = Object.keys(healthByMonth).map(key => ({
+            label: key,
+            value: healthByMonth[key].count === 0 ? 0 : (healthByMonth[key].totalPoints / healthByMonth[key].count),
+            details: healthByMonth[key]
+        }));
+
+        const trendChart = Object.keys(trendByMonth).map(key => ({
+            label: key,
+            value: trendByMonth[key].count === 0 ? 0 : (trendByMonth[key].totalPoints / trendByMonth[key].count)
+        }));
+
+        const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
+        
+        // 計算平均
+        const totalDays = countCompleted + countLate + countMissing;
+        const avgHealthScore = totalDays === 0 ? 0 : (totalHealthPoints / totalDays).toFixed(1);
+        const avgTrendScore = totalAssigments === 0 ? 0 : (totalTrendPoints / totalAssigments).toFixed(1);
+        
+        // 綜合總分
+        const overallScore = ((parseFloat(avgHealthScore) + parseFloat(avgTrendScore)) / 2).toFixed(1);
+
+        return {
+            healthData: healthChart,
+            trendData: trendChart,
+            summaryStats: { total: totalDays, completed: countCompleted, late: countLate, missing: countMissing, avgScore: avgHealthScore },
+            trendStats: { avgScore: avgTrendScore },
+            emergencyData: { isEmergency, maxDelayDays, currentMissingCount },
+            overallData: { score: overallScore }
+        };
+    }, [allAssignmentsByDate, student.id]);
+
+    // 4. 評語邏輯 A：健康狀況 (Status Mode) - 7級 + 雙重檢核
+    const getStatusFeedback = (score, emergency) => {
+        if (emergency.isEmergency) {
+            return {
+                text: "❌ 紅燈警報！缺交太多了，請務必每天確實完成功課，並檢查聯絡簿。",
+                color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true
+            };
+        }
+        const s = parseFloat(score);
+        if (s >= 100) return { text: "🏆 完美無瑕！全勤且準時，你是全班的作業楷模！", color: "text-blue-600", bg: "bg-white", border: "border-blue-600" };
+        if (s >= 95) return { text: "✨ 超級優秀！只差一點點就滿分，你的自律讓人佩服。", color: "text-blue-500", bg: "bg-white", border: "border-blue-500" };
+        if (s >= 90) return { text: "🌟 表現極佳！絕大多數時間都能準時完成，態度很棒。", color: "text-green-600", bg: "bg-white", border: "border-green-600" };
+        if (s >= 85) return { text: "👍 很不錯喔！作業狀況穩定，偶爾的小失誤修正就好。", color: "text-green-500", bg: "bg-white", border: "border-green-500" };
+        if (s >= 80) return { text: "👌 保持水準！大部分都有完成，但要減少遲交的情況。", color: "text-lime-600", bg: "bg-white", border: "border-lime-600" };
+        if (s >= 70) return { text: "💪 再加油點！遲交或缺交的頻率變高了，要更積極些。", color: "text-yellow-600", bg: "bg-white", border: "border-yellow-600" };
+        return { text: "⚠️ 勉強及格！你的作業狀況令人擔心，必須調整步調。", color: "text-orange-500", bg: "bg-white", border: "border-orange-500" };
+    };
+
+    // 5. 評語邏輯 B：績效分數 (Trend Mode) - 18級細緻分級 (已更新文案)
+    const getTrendFeedback = (score) => {
+        const s = parseFloat(score);
+        if (s === 100) return { text: "👑 傳奇等級！完美的 100 分，無懈可擊！", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-500" };
+        if (s >= 98) return { text: "🎖️ 頂尖卓越 (98+)，幾乎完美的表現！", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" };
+        if (s >= 96) return { text: "🌟 出類拔萃 (96+)，令人驚嘆的自律！", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" };
+        if (s >= 94) return { text: "✨ 極度優秀 (94+)，保持得非常好！", color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-500" };
+        if (s >= 90) return { text: "👍 非常棒 (90+)，是大家學習的榜樣。", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" };
+        if (s >= 85) return { text: "🌿 表現優異 (85+)，維持在高水準。", color: "text-green-600", bg: "bg-green-50", border: "border-green-500" };
+        if (s >= 81) return { text: "😊 相當不錯 (81+)，繼續保持這個節奏。", color: "text-lime-600", bg: "bg-lime-50", border: "border-lime-500" };
+        if (s >= 75) return { text: "🆗 表現尚可 (75+)，還有進步空間。", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-500" };
+        if (s >= 70) return { text: "😐 普普通通 (70+)，遲交次數稍微多了點。", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" };
+        if (s >= 65) return { text: "😟 需要注意 (65+)，分數開始下滑囉。", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-500" };
+        if (s >= 60) return { text: "⚠️ 低空飛過 (60+)，請再多用點心。", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-600" };
+        if (s >= 50) return { text: "🛑 不及格邊緣 (50+)，必須立刻修正態度！", color: "text-red-500", bg: "bg-red-50", border: "border-red-400" };
+        if (s >= 40) return { text: "🌧️ 狀況不佳 (40+)，缺交或遲交太頻繁了。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500" };
+        if (s >= 30) return { text: "⛈️ 雷雨警報 (30+)，信用分數嚴重透支，請自我反省並修正態度。", color: "text-red-700", bg: "bg-red-100", border: "border-red-600" };
+        if (s >= 20) return { text: "💔 令人擔憂 (20+)，作業幾乎都沒完成。", color: "text-red-800", bg: "bg-red-100", border: "border-red-700" };
+        if (s >= 10) return { text: "🆘 緊急狀態 (10+)，你的作業幾乎一片空白，請面對現實。", color: "text-red-900", bg: "bg-red-200", border: "border-red-800" };
+        if (s >= 5) return { text: "🌫️ 幾近空白 (5+)，請不要放棄學習！", color: "text-gray-600", bg: "bg-gray-200", border: "border-gray-500" };
+        return { text: "🌑 完全空白 (0-4.9)，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" };
+    };
+
+    // 6. 綜合總分動物圖鑑 (17階學習習慣版)
+    const getOverallBadge = (score) => {
+        const s = parseFloat(score);
+        if (s >= 100) return { animal: "🐲 神龍", comment: "作業全勤無缺，品質完美無瑕，無可挑剔。" };
+        if (s >= 97) return { animal: "🦁 獅王", comment: "態度極度自律，對自我要求高，細節處理極佳。" };
+        if (s >= 94) return { animal: "🦅 雄鷹", comment: "繳交迅速確實，準確率非常高，學習態度積極。" };
+        if (s >= 91) return { animal: "🐆 獵豹", comment: "訂正效率驚人，很少拖泥帶水，行動力極強。" };
+        if (s >= 88) return { animal: "🐴 駿馬", comment: "保持穩定節奏，作業習慣良好，充滿學習幹勁。" };
+        if (s >= 85) return { animal: "🐺 戰狼", comment: "能夠自我鞭策，按時完成任務，錯誤越來越少。" };
+        if (s >= 82) return { animal: "🦊 靈狐", comment: "作業繳交穩定，若能多點細心，表現會更出色。" };
+        if (s >= 77) return { animal: "🦉 貓頭鷹", comment: "逐漸掌握要領，學習狀況回穩，請持續保持。" };
+        if (s >= 72) return { animal: "🐻 大熊", comment: "累積實力中，雖然細心度不足，但大多能完成。" };
+        if (s >= 67) return { animal: "🐘 大象", comment: "腳踏實地完成，雖然速度較慢，但願意補救。" };
+        if (s >= 60) return { animal: "🦈 鯊魚", comment: "努力跟上進度，正視缺交問題，積極修正中。" };
+        if (s >= 50) return { animal: "🦘 袋鼠", comment: "再跳一步就及格，請補齊缺交，別讓分數停滯。" };
+        if (s >= 40) return { animal: "🐿️ 松鼠", comment: "積少成多，每一項作業都很重要，請勿隨意放棄。" };
+        if (s >= 30) return { animal: "🐇 白兔", comment: "別因貪玩而偷懶，趕快追上進度，你可以做得到。" };
+        if (s >= 20) return { animal: "🦔 刺蝟", comment: "卸下防備與藉口，面對作業不逃避，勇敢承擔責任。" };
+        if (s >= 10) return { animal: "🐢 烏龜", comment: "只要肯開始動筆，總會完成一項，哪怕慢也沒關係。" };
+        return { animal: "🌱 種子", comment: "埋入土裡太久了，請翻開作業本，讓學習重新發芽。" };
+    };
+
+    const currentFeedback = viewMode === 'STATUS' 
+        ? getStatusFeedback(summaryStats.avgScore, emergencyData)
+        : getTrendFeedback(trendStats.avgScore);
+        
+    const overallBadge = getOverallBadge(overallData.score);
+
+    return (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
+            <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 ${currentFeedback.isAlert ? 'border-red-500' : 'border-white'}`}>
+                {/* 頂部 Header (上下雙層設計) */}
+                <div className={`px-6 py-4 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
+                    <div className="flex items-center gap-6 w-full">
+                        <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 shrink-0 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>
+                            {student.id}
+                        </div>
+                        <div className="flex flex-col justify-center flex-1">
+                            <h2 className="text-4xl font-bold tracking-wide leading-none mb-1">{student.name} 的學習歷程</h2>
+                            <p className="text-white/80 text-lg font-medium flex items-center gap-2">
+                                <Activity className="w-4 h-4" /> 
+                                {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表
+                            </p>
+                        </div>
+                        {/* 右側：綜合總分徽章 (上下雙層) */}
+                        <div className="flex flex-col items-end justify-center bg-white/20 rounded-xl px-4 py-2 backdrop-blur-sm border border-white/30 min-w-[280px]">
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-sm font-bold text-white/90">🏆 綜合總分</span>
+                                <span className="text-3xl font-black text-yellow-300 drop-shadow-md">{overallData.score}</span>
+                                <span className="text-2xl font-bold text-white">| {overallBadge.animal}</span>
+                            </div>
+                            <div className="text-right text-sm font-medium text-white/90 mt-1 max-w-[300px] leading-tight">
+                                {overallBadge.comment}
+                            </div>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md ml-4 shrink-0">
                         <X className="w-8 h-8" />
                     </button>
                 </div>
@@ -833,9 +1274,23 @@ const App = () => {
  const handleAddNewDate = useCallback(async () => { const targetDate = newAssignmentDate; if (!targetDate || categories.length === 0) { setAlertMessage("請選擇一個日期並確保科目模板清單不為空。"); return; } if (allAssignmentsByDate[targetDate]) { setAlertMessage(`日期 ${targetDate} 已經有作業紀錄了。請直接選擇查看。`); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); return; } await handleBatchAddDefaultAssignments(targetDate, categories); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); }, [newAssignmentDate, categories, allAssignmentsByDate, handleBatchAddDefaultAssignments]);
  const handleAddNewAssignment = useCallback(async () => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增作業。"); return; } if (!selectedDisplayDate) { setAlertMessage("請先選擇一個日期。"); return; } if (isOffline) { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newAssignment = { id: `offline-single-${Date.now()}`, assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }; setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: [...(prev[selectedDisplayDate] || []), newAssignment] })); return; } if (!db || !userId) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newDocRef = doc(assignmentCollection); await setDoc(newDocRef, { assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); } catch (e) { console.error("Error adding new assignment:", e); setAlertMessage("新增單項作業失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
  const handleMoveAssignment = useCallback(async (dragId, hoverId) => { if (authMode !== 'ADMIN' && !isOffline) return; const assignments = assignmentsForSelectedDate; const dragIndex = assignments.findIndex(a => a.id === dragId); const hoverIndex = assignments.findIndex(a => a.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; const currentList = [...(newMap[selectedDisplayDate] || [])]; const dragItem = currentList[dragIndex]; const hoverItem = currentList[hoverIndex]; currentList[dragIndex] = { ...dragItem, order: hoverItem.order }; currentList[hoverIndex] = { ...hoverItem, order: dragItem.order }; newMap[selectedDisplayDate] = currentList.sort((a,b) => a.order - b.order); return newMap; }); return; } if (!db || !userId) return; const dragAssignment = assignments[dragIndex]; const hoverAssignment = assignments[hoverIndex]; const batch = writeBatch(db); const path = getAssignmentCollectionPath(); const docRef1 = doc(db, path, dragAssignment.id); const docRef2 = doc(db, path, hoverAssignment.id); batch.set(docRef1, { order: hoverAssignment.order }, { merge: true }); batch.set(docRef2, { order: dragAssignment.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving assignment:", e); setAlertMessage("調整欄位順序失敗。"); } }, [db, userId, assignmentsForSelectedDate, setAlertMessage, isOffline, selectedDisplayDate, authMode]);
+ // --- [已修改] 自動扣幣邏輯 ---
  const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => { const assignmentData = assignmentMap[assignmentName]; if (!assignmentData) { setAlertMessage(`找不到作業「${assignmentName}」的紀錄。`); return; } const cellKey = `${studentId}-${assignmentData.id}`; let newStatus; let shouldUpdateDb = true; let completedAtUpdate = {}; 
  if (currentStatus === true || currentStatus === undefined) { newStatus = false; setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); } else if (currentStatus === false) { newStatus = 'late'; completedAtUpdate = { [`completedAt.${studentId}`]: new Date().toISOString() }; setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); } else { const currentCount = unlockClicks[cellKey] || 0; if (currentCount < 2) { setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); shouldUpdateDb = false; return; } else { newStatus = true; setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); } } 
- if (shouldUpdateDb) { let bronzeToAdd = 0; let goldToAdd = 0; if (newStatus === 'late' && currentStatus === false) { bronzeToAdd = 10; let currentMissingCount = 0; Object.keys(allAssignmentsByDate).forEach(date => { const assignments = allAssignmentsByDate[date]; assignments.forEach(a => { if (a.submissionStatus[studentId] === false) currentMissingCount++; }); }); if (currentMissingCount === 1) { goldToAdd = 1; setRewardState({ type: 'GOLD_CLEAR' }); } else { setRewardState({ type: 'BRONZE' }); } } if (bronzeToAdd > 0 || goldToAdd > 0) { updateBankBalance(studentId, bronzeToAdd, 0, goldToAdd); } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => { if (a.id === assignmentData.id) { const updatedCompletedAt = newStatus === 'late' ? { ...(a.completedAt || {}), [studentId]: new Date().toISOString() } : a.completedAt; return { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus }, completedAt: updatedCompletedAt }; } return a; }); }); return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentData.id); await setDoc(docRef, { submissionStatus: { [studentId]: newStatus }, ...completedAtUpdate }, { merge: true }); } catch (e) { console.error("Error updating submission status: ", e); setAlertMessage("更新訂正狀態失敗，請檢查網路連線或權限。"); } finally { setLoading(false); } } }, [db, userId, assignmentMap, unlockClicks, setAlertMessage, isOffline, allAssignmentsByDate, updateBankBalance, selectedDisplayDate]);
+ if (shouldUpdateDb) { let bronzeChange = 0; let goldChange = 0; 
+ // Case 1: 紅 -> 黃 (補交獎勵)
+ if (newStatus === 'late' && currentStatus === false) { 
+     bronzeChange = 10; 
+     let currentMissingCount = 0; Object.keys(allAssignmentsByDate).forEach(date => { const assignments = allAssignmentsByDate[date]; assignments.forEach(a => { if (a.submissionStatus[studentId] === false) currentMissingCount++; }); }); if (currentMissingCount === 1) { goldChange = 1; setRewardState({ type: 'GOLD_CLEAR' }); } else { setRewardState({ type: 'BRONZE' }); } 
+ } 
+ // Case 2: 綠 -> 紅 (誤點還原/重置) -> 扣除之前可能的獎勵
+ else if (newStatus === false && currentStatus === true) {
+     bronzeChange = -10;
+ }
+ 
+ if (bronzeChange !== 0 || goldChange !== 0) { updateBankBalance(studentId, bronzeChange, 0, goldChange); } 
+ 
+ if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => { if (a.id === assignmentData.id) { const updatedCompletedAt = newStatus === 'late' ? { ...(a.completedAt || {}), [studentId]: new Date().toISOString() } : a.completedAt; return { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus }, completedAt: updatedCompletedAt }; } return a; }); }); return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentData.id); await setDoc(docRef, { submissionStatus: { [studentId]: newStatus }, ...completedAtUpdate }, { merge: true }); } catch (e) { console.error("Error updating submission status: ", e); setAlertMessage("更新訂正狀態失敗，請檢查網路連線或權限。"); } finally { setLoading(false); } } }, [db, userId, assignmentMap, unlockClicks, setAlertMessage, isOffline, allAssignmentsByDate, updateBankBalance, selectedDisplayDate]);
  const handleEditCurrentDate = useCallback(async (targetOldDate) => { const oldDate = typeof targetOldDate === 'string' ? targetOldDate : selectedDisplayDate; if (authMode !== 'ADMIN' || !oldDate) return; const newDate = prompt(`請輸入新的日期以取代 ${oldDate} (格式: YYYY-MM-DD)`, oldDate); if (!newDate || newDate === oldDate) return; const datePattern = /^\d{4}-\d{2}-\d{2}$/; if (!datePattern.test(newDate)) { alert("日期格式不正確，請使用 YYYY-MM-DD 格式。"); return; } if (allAssignmentsByDate[newDate]) { alert(`日期 ${newDate} 已經存在作業資料，無法直接修改日期至此日。請手動遷移或刪除目標日期資料。`); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; newMap[newDate] = newMap[oldDate].map(a => ({...a, assignmentDate: newDate})); delete newMap[oldDate]; return newMap; }); setSelectedDisplayDate(newDate); setAlertMessage(`[離線] 日期已修改為 ${newDate}`); return; } if (!db || !userId) return; setLoading(true); try { const batch = writeBatch(db); const assignments = allAssignmentsByDate[oldDate] || []; const path = getAssignmentCollectionPath(); if (assignments.length === 0) { setAlertMessage("該日期沒有作業資料可供移動。"); setLoading(false); return; } assignments.forEach(assignment => { const docRef = doc(db, path, assignment.id); batch.update(docRef, { assignmentDate: newDate }); }); await batch.commit(); setSelectedDisplayDate(newDate); setAlertMessage(`日期已成功從 ${oldDate} 修改為 ${newDate}`); } catch(e) { console.error("Error modifying date:", e); setAlertMessage("修改日期失敗，請檢查網路或權限。"); } finally { setLoading(false); } }, [authMode, selectedDisplayDate, allAssignmentsByDate, isOffline, db, userId]);
  const handleBatchDelete = useCallback(async (assignmentIds, successMessage, failureMessage) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以執行批次刪除。"); return false; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].filter(a => !assignmentIds.includes(a.id)); }); return newMap; }); setAlertMessage(successMessage + " (離線)"); return true; } if (!db || !userId || assignmentIds.length === 0) return false; setLoading(true); try { const batch = writeBatch(db); const path = getAssignmentCollectionPath(); assignmentIds.forEach(id => { if (id) { const docRef = doc(db, path, id); batch.delete(docRef); } }); await batch.commit(); setAlertMessage(successMessage); return true; } catch (e) { console.error("Error during batch delete: ", e); setAlertMessage(failureMessage); return false; } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
  const handleDeleteStudentGlobalData = useCallback(async (studentId, studentName) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足。"); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => { const newStatus = { ...a.submissionStatus }; delete newStatus[studentId]; return { ...a, submissionStatus: newStatus }; }); }); return newMap; }); setAlertMessage(`[離線] 成功刪除 ${studentName} 的所有訂正紀錄。`); return; } if (!db || !userId) return; if (!window.confirm(`【極度危險】確定要永久刪除學生 ${studentName} (${studentId}) 在所有日期上的所有訂正紀錄嗎？此操作不可逆轉！`)) { return; } setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const snapshot = await getDocs(assignmentCollection); const batch = writeBatch(db); let updateCount = 0; snapshot.docs.forEach(doc => { const docRef = doc.ref; const data = doc.data(); const submissionStatus = data.submissionStatus || {}; if (submissionStatus.hasOwnProperty(studentId)) { const newSubmissionStatus = { ...submissionStatus }; delete newSubmissionStatus[studentId]; batch.set(docRef, { submissionStatus: newSubmissionStatus }, { merge: true }); updateCount++; } }); await batch.commit(); setAlertMessage(`成功刪除 ${studentName} 的所有訂正紀錄 (${updateCount} 筆作業文件受到影響)。`); } catch (e) { console.error("Error deleting student data:", e); setAlertMessage("刪除學生數據失敗，請檢查權限或連線。"); } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
