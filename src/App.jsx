@@ -167,7 +167,7 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
        </svg>
    );
 };
-// --- [v18.0.5 修正版] 學生學習歷程 Dashboard Modal ---
+// --- [v18.0.6 修正版] 學生學習歷程 Dashboard Modal ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
 
@@ -289,6 +289,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         });
 
         // 轉換為圖表格式
+        // [修正 1] healthChart 的 value 改回真實分數計算，不再是 100
         const healthChart = Object.keys(healthByMonth).map(key => ({
             label: key,
             value: healthByMonth[key].count === 0 ? 0 : (healthByMonth[key].totalPoints / healthByMonth[key].count),
@@ -298,7 +299,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         const trendChart = Object.keys(trendByMonth).map(key => ({
             label: key,
             value: trendByMonth[key].count === 0 ? 0 : (trendByMonth[key].totalPoints / trendByMonth[key].count),
-            details: trendByMonth[key] // 這裡也要有 details 供表格切換使用
+            details: trendByMonth[key]
         }));
 
         const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
@@ -310,7 +311,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         return {
             healthData: healthChart,
             trendData: trendChart,
-            summaryStats: { // 這裡會根據模式傳送不同數據
+            summaryStats: { 
                 days: { total: totalDays, completed: daysCompleted, late: daysLate, missing: daysMissing },
                 items: { total: totalItems, completed: itemsCompleted, late: itemsLate, missing: itemsMissing },
                 avgScore: avgHealthScore 
@@ -435,10 +436,11 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                     <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-500">詳細數據列表</div>
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-white"><tr><th className="px-6 py-4 text-left text-xl font-bold text-gray-600">月份</th><th className="px-6 py-4 text-center text-xl font-bold text-green-600">準時({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-yellow-600">補交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-red-600">缺交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-blue-600">績效平均</th></tr></thead>
+                            <thead className="bg-white"><tr><th className="px-6 py-4 text-left text-xl font-bold text-gray-600">月份</th><th className="px-6 py-4 text-center text-xl font-bold text-green-600">準時({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-yellow-600">補交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-red-600">缺交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
                             <tbody className="divide-y divide-gray-200">
                                 {chartData.map((row, idx) => {
-                                    const tVal = trendData[idx]?.value || 0;
+                                    // [修正 2] 表格分數使用 row.value，讓它跟隨當前模式 (Status or Trend)
+                                    const tVal = row.value || 0;
                                     return (
                                         <tr key={idx} className="hover:bg-gray-50"><td className="px-6 py-4 text-xl font-bold text-gray-800">{row.label}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing}</td><td className="px-6 py-4 text-center"><span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>{tVal.toFixed(1)}</span></td></tr>
                                     );
