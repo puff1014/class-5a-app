@@ -422,7 +422,7 @@ const useDailySettlements = (db, isAuthReady, isOffline) => {
 
     return settlements;
 };
-// --- [v19.0.0 核心] App Component (結算發布機制) ---
+// --- [v19.0.1 核心] App Component (含獲獎名單顯示) ---
 const App = () => {
  const [db, setDb] = useState(null);
  const [auth, setAuth] = useState(null);
@@ -483,18 +483,18 @@ const App = () => {
  const handleAddNewAssignment = useCallback(async () => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增作業。"); return; } if (!selectedDisplayDate) { setAlertMessage("請先選擇一個日期。"); return; } if (isOffline) { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newAssignment = { id: `offline-single-${Date.now()}`, assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }; setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: [...(prev[selectedDisplayDate] || []), newAssignment] })); return; } if (!db || !userId) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newDocRef = doc(assignmentCollection); await setDoc(newDocRef, { assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); } catch (e) { console.error("Error adding new assignment:", e); setAlertMessage("新增單項作業失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
  const handleMoveAssignment = useCallback(async (dragId, hoverId) => { if (authMode !== 'ADMIN' && !isOffline) return; const assignments = assignmentsForSelectedDate; const dragIndex = assignments.findIndex(a => a.id === dragId); const hoverIndex = assignments.findIndex(a => a.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; const currentList = [...(newMap[selectedDisplayDate] || [])]; const dragItem = currentList[dragIndex]; const hoverItem = currentList[hoverIndex]; currentList[dragIndex] = { ...dragItem, order: hoverItem.order }; currentList[hoverIndex] = { ...hoverItem, order: dragItem.order }; newMap[selectedDisplayDate] = currentList.sort((a,b) => a.order - b.order); return newMap; }); return; } if (!db || !userId) return; const dragAssignment = assignments[dragIndex]; const hoverAssignment = assignments[hoverIndex]; const batch = writeBatch(db); const path = getAssignmentCollectionPath(); const docRef1 = doc(db, path, dragAssignment.id); const docRef2 = doc(db, path, hoverAssignment.id); batch.set(docRef1, { order: hoverAssignment.order }, { merge: true }); batch.set(docRef2, { order: dragAssignment.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving assignment:", e); setAlertMessage("調整欄位順序失敗。"); } }, [db, userId, assignmentsForSelectedDate, setAlertMessage, isOffline, selectedDisplayDate, authMode]);
 
- // --- [v19.0.0 新增] 結算發布邏輯 ---
+ // --- [v19.0.1 優化] 結算發布邏輯 (顯示獲獎名單) ---
  const isDaySettled = useMemo(() => dailySettlements[selectedDisplayDate]?.isSettled || false, [dailySettlements, selectedDisplayDate]);
+ 
  const handleBatchSettlement = useCallback(async () => {
     if (!selectedDisplayDate) return;
     if (isDaySettled) { alert("此日期已經結算發布過了！"); return; }
-    if (!window.confirm(`確定要結算 ${selectedDisplayDate} 的作業嗎？\n\n1. 所有【全綠燈】的學生將獲得 2 枚銀幣。\n2. 結算後，此日期的獎勵規則將進入「補救模式」。\n3. 此操作不可撤銷！`)) return;
-
+    
+    // 找出全綠的學生
     const assignments = assignmentsForSelectedDate;
     if (assignments.length === 0) return;
 
-    setLoading(true);
-    // 找出全綠的學生
+    // 預先計算獲獎名單，用於確認視窗
     const greenStudentIds = [];
     students.forEach(s => {
         const isAllGreen = assignments.every(a => {
@@ -504,18 +504,28 @@ const App = () => {
         if (isAllGreen) greenStudentIds.push(s.id);
     });
 
+    // 將 ID 轉換為學生姓名
+    const greenStudentNames = greenStudentIds.map(id => {
+        const s = students.find(stud => stud.id === id);
+        return s ? `${s.id}.${s.name[0]}O${s.name.slice(2)}` : id; 
+    });
+
+    const nameListString = greenStudentNames.length > 0 ? greenStudentNames.join('、') : "無";
+
+    // 修改確認視窗，讓老師先看到名單再按下確定
+    if (!window.confirm(`確定要結算 ${selectedDisplayDate} 的作業嗎？\n\n🏆 預計獲獎學生 (${greenStudentIds.length}位)：\n${nameListString}\n\n注意：\n1. 這些學生將獲得 2 枚銀幣。\n2. 結算後將進入「補救模式」。\n3. 此操作不可撤銷！`)) return;
+
+    setLoading(true);
+
     if (isOffline) {
-        // 離線模擬結算
         greenStudentIds.forEach(sid => updateBankBalance(sid, 0, 2, 0));
-        // 更新本地 state 模擬已結算
-        alert(`[離線] 結算成功！已發放銀幣給 ${greenStudentIds.length} 位學生。`);
+        alert(`[離線] 結算成功！\n\n🎉 已發放銀幣給以下 ${greenStudentIds.length} 位學生：\n${nameListString}`);
         setLoading(false);
         return;
     }
 
     try {
         const batch = writeBatch(db);
-        // 1. 建立結算紀錄 Doc
         const settlementRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
         const silverRewardMap = {};
         greenStudentIds.forEach(id => silverRewardMap[id] = true);
@@ -525,21 +535,13 @@ const App = () => {
             settledAt: serverTimestamp() 
         });
 
-        // 2. 發錢 (因為 batch 寫入銀行太複雜，這裡簡化為前端逐一發送，或後端處理。為求穩定，這裡使用前端循環調用 updateBankBalance)
-        // 注意：為了數據一致性，理想是 batch，但 bank 是分散 doc。這裡我們相信 updateBankBalance 的 atomic 性質。
-        // 我們先執行 batch 設定 isSettled，成功後再發錢。
         await batch.commit();
 
-        // 3. 發放銀幣 (非 Transaction，但足夠安全)
         greenStudentIds.forEach(sid => {
-            // 直接寫入資料庫以免依賴 state
-            const bankRef = doc(db, getBankCollectionPath(), sid);
-            // 這裡無法直接用 updateBankBalance 因為它依賴 state，我們直接用 setDoc merge
-            // 為了簡單，我們呼叫 updateBankBalance，它會處理 local + remote
             updateBankBalance(sid, 0, 2, 0); 
         });
 
-        setAlertMessage(`結算完成！共 ${greenStudentIds.length} 位學生獲得銀幣獎勵。`);
+        setAlertMessage(`✅ 結算完成！\n\n共 ${greenStudentIds.length} 位學生獲得銀幣獎勵：\n${nameListString}`);
     } catch (e) {
         console.error("Settlement failed:", e);
         setAlertMessage("結算發布失敗，請稍後再試。");
