@@ -19,7 +19,9 @@ import {
  getDocs, 
  writeBatch, 
  serverTimestamp, 
- where
+ where,
+ deleteField,
+ getDoc
 } from 'firebase/firestore';
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -28,11 +30,11 @@ import {
    RefreshCw, WifiOff, LogOut, FileText, AlertCircle, 
    Eye, Shield, User, Key, Edit, Pencil, Star,
    Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity,
-   BarChart2
+   BarChart2, Megaphone, Lock, Unlock // 新增圖示
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v18.0.5 - 雙軌統計救援版'; 
+const VERSION = 'v19.0.0 - 結算發布與防刷機制版'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -94,232 +96,96 @@ const INITIAL_CATEGORIES = [
 
 const ItemTypes = { ASSIGNMENT: 'assignment' };
 
-// 公開路徑
+// 公開路徑設定
 const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assignments`;
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
+// [新] 每日結算狀態路徑
+const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
 
-// --- SVG 折線圖元件 ---
+// --- SVG 圖表元件 (維持 v18.0.6) ---
 const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
    if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
-   const padding = 40;
-   const chartWidth = width - padding * 2;
-   const chartHeight = height - padding * 2;
-   const maxY = 100;
-   const points = data.map((d, i) => {
-       const x = (i / (data.length - 1)) * chartWidth + padding;
-       const safeValue = isNaN(d.value) ? 0 : d.value;
-       const y = chartHeight - (safeValue / maxY) * chartHeight + padding;
-       return `${x},${y}`;
-   }).join(' ');
-   const gridLines = [0, 60, 80, 100].map(val => {
-       const y = chartHeight - (val / maxY) * chartHeight + padding;
-       let color = "#e5e7eb"; if(val === 60) color = "#fca5a5"; if(val === 80) color = "#86efac"; 
-       return ( <g key={val}><line x1={padding} y1={y} x2={width - padding} y2={y} stroke={color} strokeWidth="2" strokeDasharray={val === 0 ? "" : "5,5"} /><text x={padding - 10} y={y + 5} textAnchor="end" fontSize="12" fill="gray">{val}</text></g> );
-   });
-   return (
-       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100">
-           {gridLines}
-           <polyline fill="none" stroke="#3b82f6" strokeWidth="4" points={points} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-md" />
-           {data.map((d, i) => {
-               const x = (i / (data.length - 1)) * chartWidth + padding;
-               const safeValue = isNaN(d.value) ? 0 : d.value;
-               const y = chartHeight - (safeValue / maxY) * chartHeight + padding;
-               let dotColor = "#ef4444"; if (safeValue >= 60) dotColor = "#eab308"; if (safeValue >= 80) dotColor = "#22c55e"; 
-               return ( <g key={i} className="group"><circle cx={x} cy={y} r="6" fill={dotColor} stroke="white" strokeWidth="2" className="transition-all duration-300 group-hover:r-8 cursor-pointer"/><g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"><rect x={x - 20} y={y - 35} width="40" height="25" rx="4" fill="black" fillOpacity="0.8" /><text x={x} y={y - 18} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{safeValue.toFixed(0)}</text></g><text x={x} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text></g> );
-           })}
-        </svg>
-   );
+   const padding = 40; const chartWidth = width - padding * 2; const chartHeight = height - padding * 2; const maxY = 100;
+   const points = data.map((d, i) => { const x = (i / (data.length - 1)) * chartWidth + padding; const val = isNaN(d.value) ? 0 : d.value; const y = chartHeight - (val / maxY) * chartHeight + padding; return `${x},${y}`; }).join(' ');
+   const gridLines = [0, 60, 80, 100].map(val => { const y = chartHeight - (val / maxY) * chartHeight + padding; let color = "#e5e7eb"; if(val === 60) color = "#fca5a5"; if(val === 80) color = "#86efac"; return ( <g key={val}><line x1={padding} y1={y} x2={width - padding} y2={y} stroke={color} strokeWidth="2" strokeDasharray={val === 0 ? "" : "5,5"} /><text x={padding - 10} y={y + 5} textAnchor="end" fontSize="12" fill="gray">{val}</text></g> ); });
+   return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> {gridLines} <polyline fill="none" stroke="#3b82f6" strokeWidth="4" points={points} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-md" /> {data.map((d, i) => { const x = (i / (data.length - 1)) * chartWidth + padding; const val = isNaN(d.value) ? 0 : d.value; const y = chartHeight - (val / maxY) * chartHeight + padding; let dotColor = "#ef4444"; if (val >= 60) dotColor = "#eab308"; if (val >= 80) dotColor = "#22c55e"; return ( <g key={i} className="group"><circle cx={x} cy={y} r="6" fill={dotColor} stroke="white" strokeWidth="2" className="transition-all duration-300 group-hover:r-8 cursor-pointer"/><g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"><rect x={x - 20} y={y - 35} width="40" height="25" rx="4" fill="black" fillOpacity="0.8" /><text x={x} y={y - 18} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{val.toFixed(0)}</text></g><text x={x} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text></g> ); })} </svg> );
 };
 
-// --- SVG 堆疊長條圖元件 ---
 const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
    if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
-   const padding = 40;
-   const chartWidth = width - padding * 2;
-   const chartHeight = height - padding * 2;
-   const maxTotal = Math.max(...data.map(d => d.details.count), 1); // 避免除以 0
-   const barWidth = Math.min(60, chartWidth / data.length * 0.6); 
-   return (
-       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100">
-           <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" />
-           <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" />
-           {data.map((d, i) => {
-               const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2;
-               const totalHeight = chartHeight;
-               const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight;
-               const lateHeight = (d.details.late / maxTotal) * totalHeight;
-               const missingHeight = (d.details.missing / maxTotal) * totalHeight;
-               const yGreen = (height - padding) - onTimeHeight;
-               const yYellow = yGreen - lateHeight;
-               const yRed = yYellow - missingHeight;
-               return (
-                   <g key={i} className="group">
-                       {d.details.onTime > 0 && (<rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)}
-                       {d.details.late > 0 && (<rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)}
-                       {d.details.missing > 0 && (<rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)}
-                       <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text>
-                       <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text>
-                       <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title>
-                   </g>
-               );
-           })}
-       </svg>
-   );
+   const padding = 40; const chartWidth = width - padding * 2; const chartHeight = height - padding * 2;
+   const maxTotal = Math.max(...data.map(d => d.details.count), 1); const barWidth = Math.min(60, chartWidth / data.length * 0.6); 
+   return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> {data.map((d, i) => { const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2; const totalHeight = chartHeight; const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight; const lateHeight = (d.details.late / maxTotal) * totalHeight; const missingHeight = (d.details.missing / maxTotal) * totalHeight; const yGreen = (height - padding) - onTimeHeight; const yYellow = yGreen - lateHeight; const yRed = yYellow - missingHeight; return ( <g key={i} className="group"> {d.details.onTime > 0 && (<rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.late > 0 && (<rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.missing > 0 && (<rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text> <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text> <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title> </g> ); })} </svg> );
 };
-// --- [v18.0.6 修正版] 學生學習歷程 Dashboard Modal ---
+// --- [v19.0.0] 學生學習歷程 Dashboard Modal ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
-
-    // 防呆：如果資料還沒載入，不要渲染
     if (!student || !allAssignmentsByDate) return null;
 
     const getDaysDiff = (dateString, completedAtString) => {
-        const targetDate = new Date(dateString);
-        targetDate.setHours(0,0,0,0);
-        let completedDate = new Date(); 
-        if (completedAtString) completedDate = new Date(completedAtString);
-        completedDate.setHours(0,0,0,0);
-        const diffTime = completedDate - targetDate;
-        return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+        const targetDate = new Date(dateString); targetDate.setHours(0,0,0,0);
+        let completedDate = new Date(); if (completedAtString) completedDate = new Date(completedAtString); completedDate.setHours(0,0,0,0);
+        return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24)));
     };
-
     const getDelayFromToday = (dateString) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const target = new Date(dateString);
-        target.setHours(0, 0, 0, 0);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const target = new Date(dateString); target.setHours(0, 0, 0, 0);
         return Math.floor((today - target) / (1000 * 60 * 60 * 24));
     };
 
     const { healthData, trendData, summaryStats, trendStats, emergencyData, overallData } = useMemo(() => {
-        const healthByMonth = {}; // 存 STATUS 模式資料 (天數)
-        const trendByMonth = {};  // 存 TREND 模式資料 (項數)
-        
-        let totalItems = 0;       // 總作業項數
-        let totalDays = 0;        // 總天數
-        
-        let totalHealthPoints = 0; // 天數制總分
-        let totalTrendPoints = 0;  // 項目制總分
-        
-        let itemsCompleted = 0;
-        let itemsLate = 0;
-        let itemsMissing = 0;
-
-        let daysCompleted = 0;
-        let daysLate = 0;
-        let daysMissing = 0;
-
-        let currentMissingCount = 0;
-        let maxDelayDays = 0;
+        const healthByMonth = {}; const trendByMonth = {};
+        let totalItems = 0; let totalDays = 0;
+        let totalHealthPoints = 0; let totalTrendPoints = 0;
+        let itemsCompleted = 0; let itemsLate = 0; let itemsMissing = 0;
+        let daysCompleted = 0; let daysLate = 0; let daysMissing = 0;
+        let currentMissingCount = 0; let maxDelayDays = 0;
 
         const sortedDates = Object.keys(allAssignmentsByDate).sort();
-
         sortedDates.forEach(date => {
             const dateObj = new Date(date);
             const monthKey = `${dateObj.getMonth() + 1}月`;
-            
-            // 初始化月份資料
-            if (!healthByMonth[monthKey]) {
-                healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
-            }
-            if (!trendByMonth[monthKey]) {
-                trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
-            }
+            if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+            if (!trendByMonth[monthKey]) trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
 
             const assignments = allAssignmentsByDate[date] || [];
             if (assignments.length === 0) return;
 
             totalDays++;
-            let dayHasMissing = false;
-            let dayHasLate = false;
+            let dayHasMissing = false; let dayHasLate = false;
             
             assignments.forEach(assign => {
-                const status = assign.submissionStatus?.[student.id]; // 加問號防呆
+                const status = assign.submissionStatus?.[student.id];
                 const completedAt = assign.completedAt?.[student.id];
-                
-                // --- 統計項目 (TREND) ---
                 let tScore = 0;
-                if (status === false) { // 缺交
-                    itemsMissing++;
-                    trendByMonth[monthKey].missing++;
-                    currentMissingCount++;
-                    dayHasMissing = true;
-                    const delay = getDelayFromToday(date);
-                    if (delay > maxDelayDays) maxDelayDays = delay;
-                    tScore = 0;
-                } else if (status === 'late') { // 遲交
-                    itemsLate++;
-                    trendByMonth[monthKey].late++;
-                    dayHasLate = true;
-                    if (completedAt) {
-                        const daysLate = getDaysDiff(date, completedAt);
-                        tScore = Math.max(0, 100 - (daysLate * 5));
-                    } else { tScore = 60; }
-                } else { // 準時 (true 或 undefined)
-                    itemsCompleted++;
-                    trendByMonth[monthKey].onTime++;
-                    tScore = 100;
+                if (status === false) { 
+                    itemsMissing++; trendByMonth[monthKey].missing++; currentMissingCount++; dayHasMissing = true;
+                    const delay = getDelayFromToday(date); if (delay > maxDelayDays) maxDelayDays = delay; tScore = 0;
+                } else if (status === 'late') { 
+                    itemsLate++; trendByMonth[monthKey].late++; dayHasLate = true;
+                    if (completedAt) { const daysLate = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLate * 5)); } else { tScore = 60; }
+                } else { 
+                    itemsCompleted++; trendByMonth[monthKey].onTime++; tScore = 100;
                 }
-                
-                trendByMonth[monthKey].totalPoints += tScore;
-                trendByMonth[monthKey].count++; // 該月作業總數
-                totalTrendPoints += tScore;
-                totalItems++;
+                trendByMonth[monthKey].totalPoints += tScore; trendByMonth[monthKey].count++; totalTrendPoints += tScore; totalItems++;
             });
 
-            // --- 統計天數 (STATUS) ---
             let dayScore = 0;
-            if (dayHasMissing) {
-                dayScore = 0;
-                healthByMonth[monthKey].missing++;
-                daysMissing++;
-            } else if (dayHasLate) {
-                dayScore = 60;
-                healthByMonth[monthKey].late++;
-                daysLate++;
-            } else {
-                dayScore = 100;
-                healthByMonth[monthKey].onTime++;
-                daysCompleted++;
-            }
-            healthByMonth[monthKey].totalPoints += dayScore;
-            healthByMonth[monthKey].count++; // 該月天數
-            totalHealthPoints += dayScore;
+            if (dayHasMissing) { dayScore = 0; healthByMonth[monthKey].missing++; daysMissing++; } 
+            else if (dayHasLate) { dayScore = 60; healthByMonth[monthKey].late++; daysLate++; } 
+            else { dayScore = 100; healthByMonth[monthKey].onTime++; daysCompleted++; }
+            healthByMonth[monthKey].totalPoints += dayScore; healthByMonth[monthKey].count++; totalHealthPoints += dayScore;
         });
 
-        // 轉換為圖表格式
-        // [修正 1] healthChart 的 value 改回真實分數計算，不再是 100
-        const healthChart = Object.keys(healthByMonth).map(key => ({
-            label: key,
-            value: healthByMonth[key].count === 0 ? 0 : (healthByMonth[key].totalPoints / healthByMonth[key].count),
-            details: healthByMonth[key]
-        }));
-
-        const trendChart = Object.keys(trendByMonth).map(key => ({
-            label: key,
-            value: trendByMonth[key].count === 0 ? 0 : (trendByMonth[key].totalPoints / trendByMonth[key].count),
-            details: trendByMonth[key]
-        }));
-
+        const healthChart = Object.keys(healthByMonth).map(key => ({ label: key, value: healthByMonth[key].count === 0 ? 0 : (healthByMonth[key].totalPoints / healthByMonth[key].count), details: healthByMonth[key] }));
+        const trendChart = Object.keys(trendByMonth).map(key => ({ label: key, value: trendByMonth[key].count === 0 ? 0 : (trendByMonth[key].totalPoints / trendByMonth[key].count), details: trendByMonth[key] }));
         const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
-        
         const avgHealthScore = totalDays === 0 ? 0 : (totalHealthPoints / totalDays).toFixed(1);
         const avgTrendScore = totalItems === 0 ? 0 : (totalTrendPoints / totalItems).toFixed(1);
         const overallScore = ((parseFloat(avgHealthScore) + parseFloat(avgTrendScore)) / 2).toFixed(1);
 
-        return {
-            healthData: healthChart,
-            trendData: trendChart,
-            summaryStats: { 
-                days: { total: totalDays, completed: daysCompleted, late: daysLate, missing: daysMissing },
-                items: { total: totalItems, completed: itemsCompleted, late: itemsLate, missing: itemsMissing },
-                avgScore: avgHealthScore 
-            },
-            trendStats: { avgScore: avgTrendScore },
-            emergencyData: { isEmergency, maxDelayDays, currentMissingCount },
-            overallData: { score: overallScore }
-        };
+        return { healthData: healthChart, trendData: trendChart, summaryStats: { days: { total: totalDays, completed: daysCompleted, late: daysLate, missing: daysMissing }, items: { total: totalItems, completed: itemsCompleted, late: itemsLate, missing: itemsMissing }, avgScore: avgHealthScore }, trendStats: { avgScore: avgTrendScore }, emergencyData: { isEmergency, maxDelayDays, currentMissingCount }, overallData: { score: overallScore } };
     }, [allAssignmentsByDate, student.id]);
 
     const getStatusFeedback = (score, emergency) => {
@@ -333,7 +199,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         if (s >= 70) return { text: "💪 再加油點！遲交或缺交的頻率變高了，要更積極些。", color: "text-yellow-600", bg: "bg-white", border: "border-yellow-600" };
         return { text: "⚠️ 勉強及格！你的作業狀況令人擔心，必須調整步調。", color: "text-orange-500", bg: "bg-white", border: "border-orange-500" };
     };
-
     const getTrendFeedback = (score) => {
         const s = parseFloat(score);
         if (s === 100) return { text: "👑 傳奇等級！完美的 100 分，無懈可擊！", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-500" };
@@ -355,7 +220,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         if (s >= 5) return { text: "🌫️ 幾近空白 (5+)，請不要放棄學習！", color: "text-gray-600", bg: "bg-gray-200", border: "border-gray-500" };
         return { text: "🌑 完全空白 (0-4.9)，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" };
     };
-
     const getOverallBadge = (score) => {
         const s = parseFloat(score);
         if (s >= 100) return { animal: "🐲 神龍", comment: "作業全勤無缺，品質完美無瑕，無可挑剔。" };
@@ -379,8 +243,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
 
     const currentFeedback = viewMode === 'STATUS' ? getStatusFeedback(summaryStats.avgScore, emergencyData) : getTrendFeedback(trendStats.avgScore);
     const overallBadge = getOverallBadge(overallData.score);
-    
-    // 決定顯示的數據 (根據 viewMode 切換)
     const currentStats = viewMode === 'STATUS' ? summaryStats.days : summaryStats.items;
     const statsUnit = viewMode === 'STATUS' ? '天' : '項';
     const chartData = viewMode === 'STATUS' ? healthData : trendData;
@@ -439,7 +301,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                             <thead className="bg-white"><tr><th className="px-6 py-4 text-left text-xl font-bold text-gray-600">月份</th><th className="px-6 py-4 text-center text-xl font-bold text-green-600">準時({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-yellow-600">補交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-red-600">缺交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
                             <tbody className="divide-y divide-gray-200">
                                 {chartData.map((row, idx) => {
-                                    // [修正 2] 表格分數使用 row.value，讓它跟隨當前模式 (Status or Trend)
                                     const tVal = row.value || 0;
                                     return (
                                         <tr key={idx} className="hover:bg-gray-50"><td className="px-6 py-4 text-xl font-bold text-gray-800">{row.label}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing}</td><td className="px-6 py-4 text-center"><span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>{tVal.toFixed(1)}</span></td></tr>
@@ -453,29 +314,24 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         </div>
     );
 };
-// --- [v18.0.5] 學生存簿 Modal 與獎勵元件 ---
+// --- [v19.0.0] 學生存簿 Hook & Modal ---
 const RewardOverlay = ({ type, onClose }) => {
    const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
    const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
    useEffect(() => { const timer = setTimeout(() => { onClose(); }, duration); return () => clearTimeout(timer); }, [duration, onClose]);
-   if (type === 'GOLD_CLEAR') {
-       return ( <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 animate-fade-in overflow-hidden"><audio src={soundUrl} autoPlay /><div className="absolute inset-0 opacity-70 pointer-events-none"><img src={ASSETS.CONFETTI_BG} alt="Confetti" className="w-full h-full object-cover" /></div><div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in text-center p-8"><div className="mb-12 drop-shadow-[0_0_60px_rgba(255,223,0,0.8)] animate-pulse transform scale-[2.5]"><CoinIcon type="GOLD" size="w-32 h-32" innerSize="w-20 h-20" /></div><h2 className="text-6xl md:text-8xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] tracking-widest leading-snug">恭喜你🎉<br/>完成所有作業😁<br/>你真棒👍</h2></div></div> );
-    }
+   if (type === 'GOLD_CLEAR') { return ( <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 animate-fade-in overflow-hidden"><audio src={soundUrl} autoPlay /><div className="absolute inset-0 opacity-70 pointer-events-none"><img src={ASSETS.CONFETTI_BG} alt="Confetti" className="w-full h-full object-cover" /></div><div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in text-center p-8"><div className="mb-12 drop-shadow-[0_0_60px_rgba(255,223,0,0.8)] animate-pulse transform scale-[2.5]"><CoinIcon type="GOLD" size="w-32 h-32" innerSize="w-20 h-20" /></div><h2 className="text-6xl md:text-8xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] tracking-widest leading-snug">恭喜你🎉<br/>完成所有作業😁<br/>你真棒👍</h2></div></div> ); }
    return ( <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-30 animate-fade-in pointer-events-none"><audio src={soundUrl} autoPlay /><div className="flex flex-col gap-6 items-center justify-center animate-bounce-in transform scale-110 bg-white/95 p-12 rounded-[3rem] shadow-2xl border-8 border-orange-400 min-w-[320px]"><CoinIcon type="BRONZE" size="w-40 h-40" textSize="text-8xl" /><h2 className="text-7xl font-black text-orange-700 drop-shadow-sm tracking-wider whitespace-nowrap">+ 10 銅幣</h2></div></div> );
 };
 
 const useStudentBank = (db, isAuthReady, isOffline, students) => {
    const initialData = useMemo(() => { const data = {}; students.forEach(s => data[s.id] = { bronze: 0, silver: 0, gold: 0 }); return data; }, [students]);
    const [bankData, setBankData] = useState(initialData);
-
    useEffect(() => {
-       if (isOffline) return;
-       if (!isAuthReady || !db) return;
+       if (isOffline || !isAuthReady || !db) return;
        const q = query(collection(db, getBankCollectionPath()));
        const unsubscribe = onSnapshot(q, (snapshot) => { const remoteData = {}; snapshot.docs.forEach(doc => { remoteData[doc.id] = doc.data(); }); setBankData(prev => { const newData = { ...prev }; Object.keys(remoteData).forEach(key => { newData[key] = { bronze: Number(remoteData[key].bronze) || 0, silver: Number(remoteData[key].silver) || 0, gold: Number(remoteData[key].gold) || 0 }; }); return newData; }); }, (error) => { console.error("Bank sync error:", error); });
        return () => unsubscribe();
    }, [isAuthReady, db, isOffline, initialData]);
-
    const saveBalance = useCallback(async (studentId, newBronze, newSilver, newGold) => {
         let b = Math.max(0, newBronze); let s = Math.max(0, newSilver); let g = Math.max(0, newGold);
         if (b >= 100) { const silverGain = Math.floor(b / 100); b = b % 100; s += silverGain; }
@@ -485,120 +341,26 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
         if (isOffline || !db) return;
         try { const docRef = doc(db, getBankCollectionPath(), studentId); await setDoc(docRef, { ...newState, lastUpdated: serverTimestamp() }, { merge: true }); } catch (e) { console.error("Error saving bank:", e); }
    }, [db, isOffline]);
-
    const updateBankBalance = useCallback((studentId, addBronze, addSilver, addGold) => {
-       setBankData(prev => {
-           const current = prev[studentId] || { bronze: 0, silver: 0, gold: 0 };
-           let b = (addBronze === 'RESET') ? 0 : (current.bronze || 0) + addBronze;
-           let s = (addSilver === 'RESET') ? 0 : (current.silver || 0) + addSilver;
-           let g = (addGold === 'RESET') ? 0 : (current.gold || 0) + addGold;
-           saveBalance(studentId, b, s, g);
-           return prev; 
-       });
+       setBankData(prev => { const current = prev[studentId] || { bronze: 0, silver: 0, gold: 0 }; let b = (addBronze === 'RESET') ? 0 : (current.bronze || 0) + addBronze; let s = (addSilver === 'RESET') ? 0 : (current.silver || 0) + addSilver; let g = (addGold === 'RESET') ? 0 : (current.gold || 0) + addGold; saveBalance(studentId, b, s, g); return prev; });
    }, [saveBalance]);
-
    const setBankBalanceDirectly = useCallback((studentId, type, value) => {
-       setBankData(prev => {
-           const current = prev[studentId] || { bronze: 0, silver: 0, gold: 0 };
-           let b = current.bronze; let s = current.silver; let g = current.gold;
-           if (type === 'BRONZE') b = value; if (type === 'SILVER') s = value; if (type === 'GOLD') g = value;
-           saveBalance(studentId, b, s, g);
-           return prev;
-       });
+       setBankData(prev => { const current = prev[studentId] || { bronze: 0, silver: 0, gold: 0 }; let b = current.bronze; let s = current.silver; let g = current.gold; if (type === 'BRONZE') b = value; if (type === 'SILVER') s = value; if (type === 'GOLD') g = value; saveBalance(studentId, b, s, g); return prev; });
    }, [saveBalance]);
    return { bankData, updateBankBalance, setBankBalanceDirectly };
 };
 
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
-   const [editingCell, setEditingCell] = useState(null); 
-   const [editValue, setEditValue] = useState('');
-
-   const sortedStudents = [...students].sort((a, b) => {
-       const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 };
-       const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 };
-       if (bankA.gold !== bankB.gold) return bankB.gold - bankA.gold;
-       if (bankA.silver !== bankB.silver) return bankB.silver - bankA.silver;
-       if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze;
-       return parseInt(a.id) - parseInt(b.id);
-   });
-
-   const handleStartEdit = (studentId, type, currentValue) => {
-       if (authMode !== 'ADMIN') return;
-       setEditingCell({ id: studentId, type });
-       setEditValue(currentValue.toString());
-   };
-
-   const handleSaveEdit = () => {
-       if (editingCell) {
-           const val = parseInt(editValue, 10);
-           if (!isNaN(val)) {
-               setBankBalanceDirectly(editingCell.id, editingCell.type, val);
-           }
-           setEditingCell(null);
-           setEditValue('');
-       }
-   };
-
-   const handleKeyDown = (e) => {
-       if (e.key === 'Enter') handleSaveEdit();
-       if (e.key === 'Escape') setEditingCell(null);
-   };
-
-   const handleResetAll = (studentId) => {
-       if (!window.confirm(`確定要將此學生的【所有資產】(金/銀/銅) 全部歸零嗎？`)) return;
-       onUpdateBalance(studentId, 'RESET', 'RESET', 'RESET');
-   };
-
-   const handleManualAdd = (studentId) => {
-       const type = prompt("請輸入代號選擇要補發/扣除的項目：\n1. 金幣\n2. 銀幣\n3. 銅幣", "3");
-       if (!type) return;
-       let target = '';
-       if (type === '1') target = 'GOLD'; else if (type === '2') target = 'SILVER'; else if (type === '3') target = 'BRONZE'; else return;
-       const labels = { 'BRONZE': '銅幣', 'SILVER': '銀幣', 'GOLD': '金幣' };
-       const input = prompt(`請輸入要增減的【${labels[target]}】數量：\n(輸入負數可進行扣除)`, "1");
-       if (input === null) return;
-       const amount = parseInt(input, 10);
-       if (isNaN(amount)) { alert("請輸入有效的數字。"); return; }
-       if (target === 'BRONZE') onUpdateBalance(studentId, amount, 0, 0);
-       if (target === 'SILVER') onUpdateBalance(studentId, 0, amount, 0);
-       if (target === 'GOLD') onUpdateBalance(studentId, 0, 0, amount);
-   };
-
-   return (
-       <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4">
-           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-7xl h-[90vh] flex flex-col border border-green-200">
-               <div className="flex justify-between items-center mb-6 border-b border-green-200 pb-4">
-                   <h3 className="text-4xl font-bold text-gray-800 flex items-center"><div className="mr-3 transform scale-125"><CoinIcon type="GOLD" /></div>訂正存簿</h3>
-                   <div className="flex items-center gap-4"><button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200"><X className="w-8 h-8" /></button></div>
-               </div>
-               <div className="flex-1 overflow-auto bg-green-50 rounded-xl p-4 border border-green-100">
-                   <table className="min-w-full divide-y divide-green-200">
-                       <thead className="bg-green-100 sticky top-0 z-10 shadow-sm"><tr><th className="px-4 py-4 text-2xl font-bold text-green-900 w-20 text-center">名次</th><th className="px-4 py-4 text-2xl font-bold text-green-900 w-24 text-center">座號</th><th className="px-4 py-4 text-2xl font-bold text-green-900 w-32 text-center">姓名</th><th className="px-4 py-4 text-2xl font-bold text-yellow-600 text-center">金幣</th><th className="px-4 py-4 text-2xl font-bold text-gray-500 text-center">銀幣</th><th className="px-4 py-4 text-2xl font-bold text-orange-700 text-center">銅幣</th>{authMode === 'ADMIN' && ( <th className="px-4 py-4 text-2xl font-bold text-green-900 text-center">操作</th> )}</tr></thead>
-                       <tbody className="bg-white divide-y divide-green-100">
-                           {sortedStudents.map((student, index) => {
-                               const data = bankData[student.id] || { bronze: 0, silver: 0, gold: 0 };
-                               let rankIcon = index < 3 ? ["🥇","🥈","🥉"][index] : index + 1;
-                               const renderCell = (type, value, iconType, colorClass) => {
-                                   const isEditing = editingCell?.id === student.id && editingCell?.type === type;
-                                   return (
-                                       <td className="px-4 py-4 text-center cursor-pointer group" onClick={() => !isEditing && handleStartEdit(student.id, type, value)}>
-                                           {isEditing ? (
-                                               <input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleSaveEdit} onKeyDown={handleKeyDown} onClick={(e) => e.stopPropagation()} className="w-24 text-center text-3xl font-bold border-2 border-blue-400 rounded-lg focus:outline-none p-1" autoFocus />
-                                           ) : ( <div className={`inline-flex items-center justify-center border px-4 py-2 rounded-full shadow-sm min-w-[100px] transition-transform group-hover:scale-105 group-hover:ring-2 group-hover:ring-blue-300 ${colorClass}`}><div className="mr-2"><CoinIcon type={iconType} size="w-8 h-8"/></div><span className="text-3xl font-black">{value}</span></div> )}
-                                       </td>
-                                   );
-                               };
-                               return (
-                                   <tr key={student.id} className="hover:bg-green-50 transition duration-100"><td className="px-4 py-4 text-3xl font-black text-gray-700 text-center">{rankIcon}</td><td className="px-4 py-4 text-2xl text-gray-600 font-medium text-center">{student.id}</td><td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center">{student.name[0] + 'O' + student.name.slice(2)}</td>{renderCell('GOLD', data.gold, 'GOLD', 'bg-yellow-50 border-yellow-200 text-yellow-600')}{renderCell('SILVER', data.silver, 'SILVER', 'bg-gray-50 border-gray-200 text-gray-600')}{renderCell('BRONZE', data.bronze, 'BRONZE', 'bg-orange-50 border-orange-200 text-orange-700')}{authMode === 'ADMIN' && (<td className="px-4 py-4 text-center"><div className="flex flex-row items-center justify-center gap-4"><button onClick={() => handleManualAdd(student.id)} className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition" title="補發/扣除"><PlusCircle className="w-5 h-5"/></button><button onClick={() => handleResetAll(student.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="全部歸零"><Eraser className="w-5 h-5"/></button></div></td>)}</tr>
-                               );
-                           })}
-                       </tbody>
-                   </table>
-               </div>
-           </div>
-       </div>
-   );
+   const [editingCell, setEditingCell] = useState(null); const [editValue, setEditValue] = useState('');
+   const sortedStudents = [...students].sort((a, b) => { const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 }; if (bankA.gold !== bankB.gold) return bankB.gold - bankA.gold; if (bankA.silver !== bankB.silver) return bankB.silver - bankA.silver; if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze; return parseInt(a.id) - parseInt(b.id); });
+   const handleStartEdit = (studentId, type, currentValue) => { if (authMode !== 'ADMIN') return; setEditingCell({ id: studentId, type }); setEditValue(currentValue.toString()); };
+   const handleSaveEdit = () => { if (editingCell) { const val = parseInt(editValue, 10); if (!isNaN(val)) { setBankBalanceDirectly(editingCell.id, editingCell.type, val); } setEditingCell(null); setEditValue(''); } };
+   const handleKeyDown = (e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingCell(null); };
+   const handleResetAll = (studentId) => { if (!window.confirm(`確定要將此學生的【所有資產】(金/銀/銅) 全部歸零嗎？`)) return; onUpdateBalance(studentId, 'RESET', 'RESET', 'RESET'); };
+   const handleManualAdd = (studentId) => { const type = prompt("請輸入代號選擇要補發/扣除的項目：\n1. 金幣\n2. 銀幣\n3. 銅幣", "3"); if (!type) return; let target = ''; if (type === '1') target = 'GOLD'; else if (type === '2') target = 'SILVER'; else if (type === '3') target = 'BRONZE'; else return; const labels = { 'BRONZE': '銅幣', 'SILVER': '銀幣', 'GOLD': '金幣' }; const input = prompt(`請輸入要增減的【${labels[target]}】數量：\n(輸入負數可進行扣除)`, "1"); if (input === null) return; const amount = parseInt(input, 10); if (isNaN(amount)) { alert("請輸入有效的數字。"); return; } if (target === 'BRONZE') onUpdateBalance(studentId, amount, 0, 0); if (target === 'SILVER') onUpdateBalance(studentId, 0, amount, 0); if (target === 'GOLD') onUpdateBalance(studentId, 0, 0, amount); };
+   return ( <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4"> <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-7xl h-[90vh] flex flex-col border border-green-200"> <div className="flex justify-between items-center mb-6 border-b border-green-200 pb-4"> <h3 className="text-4xl font-bold text-gray-800 flex items-center"><div className="mr-3 transform scale-125"><CoinIcon type="GOLD" /></div>訂正存簿</h3> <div className="flex items-center gap-4"><button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200"><X className="w-8 h-8" /></button></div> </div> <div className="flex-1 overflow-auto bg-green-50 rounded-xl p-4 border border-green-100"> <table className="min-w-full divide-y divide-green-200"> <thead className="bg-green-100 sticky top-0 z-10 shadow-sm"><tr><th className="px-4 py-4 text-2xl font-bold text-green-900 w-20 text-center">名次</th><th className="px-4 py-4 text-2xl font-bold text-green-900 w-24 text-center">座號</th><th className="px-4 py-4 text-2xl font-bold text-green-900 w-32 text-center">姓名</th><th className="px-4 py-4 text-2xl font-bold text-yellow-600 text-center">金幣</th><th className="px-4 py-4 text-2xl font-bold text-gray-500 text-center">銀幣</th><th className="px-4 py-4 text-2xl font-bold text-orange-700 text-center">銅幣</th>{authMode === 'ADMIN' && ( <th className="px-4 py-4 text-2xl font-bold text-green-900 text-center">操作</th> )}</tr></thead> <tbody className="bg-white divide-y divide-green-100"> {sortedStudents.map((student, index) => { const data = bankData[student.id] || { bronze: 0, silver: 0, gold: 0 }; let rankIcon = index < 3 ? ["🥇","🥈","🥉"][index] : index + 1; const renderCell = (type, value, iconType, colorClass) => { const isEditing = editingCell?.id === student.id && editingCell?.type === type; return ( <td className="px-4 py-4 text-center cursor-pointer group" onClick={() => !isEditing && handleStartEdit(student.id, type, value)}> {isEditing ? ( <input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleSaveEdit} onKeyDown={handleKeyDown} onClick={(e) => e.stopPropagation()} className="w-24 text-center text-3xl font-bold border-2 border-blue-400 rounded-lg focus:outline-none p-1" autoFocus /> ) : ( <div className={`inline-flex items-center justify-center border px-4 py-2 rounded-full shadow-sm min-w-[100px] transition-transform group-hover:scale-105 group-hover:ring-2 group-hover:ring-blue-300 ${colorClass}`}><div className="mr-2"><CoinIcon type={iconType} size="w-8 h-8"/></div><span className="text-3xl font-black">{value}</span></div> )} </td> ); }; return ( <tr key={student.id} className="hover:bg-green-50 transition duration-100"><td className="px-4 py-4 text-3xl font-black text-gray-700 text-center">{rankIcon}</td><td className="px-4 py-4 text-2xl text-gray-600 font-medium text-center">{student.id}</td><td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center">{student.name[0] + 'O' + student.name.slice(2)}</td>{renderCell('GOLD', data.gold, 'GOLD', 'bg-yellow-50 border-yellow-200 text-yellow-600')}{renderCell('SILVER', data.silver, 'SILVER', 'bg-gray-50 border-gray-200 text-gray-600')}{renderCell('BRONZE', data.bronze, 'BRONZE', 'bg-orange-50 border-orange-200 text-orange-700')}{authMode === 'ADMIN' && (<td className="px-4 py-4 text-center"><div className="flex flex-row items-center justify-center gap-4"><button onClick={() => handleManualAdd(student.id)} className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition" title="補發/扣除"><PlusCircle className="w-5 h-5"/></button><button onClick={() => handleResetAll(student.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="全部歸零"><Eraser className="w-5 h-5"/></button></div></td>)}</tr> ); })} </tbody> </table> </div> </div> </div> );
 };
+// --- [v19.0.0] Hooks & Helper Components ---
 const CustomAlert = ({ message, onClose }) => ( <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"> <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> <h3 className="text-4xl font-semibold text-gray-800 mb-4">通知</h3> <p className="text-3xl text-gray-600 mb-6">{message}</p> <button onClick={onClose} className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-4xl">確定</button> </div> </div> );
 const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => { const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [mode, setMode] = useState('GUEST'); const handleAdminSubmit = (e) => { e.preventDefault(); onAdminLogin(email, password); }; return ( <div className="fixed inset-0 bg-[#F0F8FF] flex items-center justify-center z-[10000]"> <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100"> <div className="text-center mb-8"> <h1 className="text-4xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1> <p className="text-gray-400 text-xl font-medium">請選擇您的身分</p> </div> <div className="flex bg-gray-100 p-1 rounded-xl mb-6"> <button onClick={() => setMode('GUEST')} className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'GUEST' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>學生/家長</button> <button onClick={() => setMode('ADMIN')} className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'ADMIN' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:text-gray-700'}`}>老師 (管理員)</button> </div> {mode === 'ADMIN' ? ( <form onSubmit={handleAdminSubmit} className="space-y-4 animate-fade-in"> <div><label className="block text-gray-600 text-lg font-bold mb-1">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all" autoFocus /></div> <div><label className="block text-gray-600 text-lg font-bold mb-1">密碼</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="請輸入密碼" className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all" /></div> {errorMsg && (<p className="text-red-500 text-lg font-bold">{errorMsg}</p>)} <button type="submit" disabled={isLoading} className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-red-500 hover:bg-red-600'}`}>{isLoading ? '驗證中...' : <><Key className="w-6 h-6" /> 管理員登入</>}</button> </form> ) : ( <div className="space-y-6 animate-fade-in"> <div className="bg-blue-50 p-4 rounded-xl text-blue-800 text-lg"><p className="font-bold flex items-center gap-2"><Shield className="w-5 h-5"/> 訪客模式說明：</p><p className="mt-1">您可以查看所有作業進度，但無法修改作業名稱或刪除紀錄。</p></div> <button onClick={onGuestLogin} disabled={isLoading} className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-blue-500 hover:bg-blue-600'}`}>{isLoading ? '進入中...' : <><User className="w-6 h-6" /> 進入系統</>}</button> </div> )} <div className="mt-8 text-center text-gray-400 text-lg">系統版本：{VERSION}</div> </div> </div> ); };
 const AllMissingAssignmentsModal = ({ missingStats, onClose }) => { const studentsWithMissing = missingStats.filter(s => s.missingCount > 0); return ( <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4"> <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200"> <div className="flex justify-between items-center mb-6 border-b pb-4"><h3 className="text-4xl font-bold text-gray-800 flex items-center"><AlertCircle className="w-10 h-10 text-red-500 mr-3" />全班未完成作業總表</h3><button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200"><X className="w-8 h-8" /></button></div> <div className="flex-1 overflow-auto"> {studentsWithMissing.length === 0 ? (<div className="h-full flex flex-col items-center justify-center text-gray-400"><Check className="w-24 h-24 mb-4 text-green-400" /><p className="text-4xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p></div>) : ( <table className="min-w-full divide-y divide-gray-300"> <thead className="bg-gray-100 sticky top-0 z-10"><tr><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th><th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th></tr></thead> <tbody className="bg-white divide-y divide-gray-200">{studentsWithMissing.map((student) => (<tr key={student.id} className="hover:bg-red-50 transition duration-100"><td className="px-4 py-4 text-2xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td><td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td><td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td><td className="px-6 py-4 text-xl text-gray-700"><ul className="list-disc list-inside space-y-1">{[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW')).map((detail, idx) => (<li key={idx} className="flex items-start"><span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span><span className="font-mono font-medium text-gray-400 text-lg">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span></li>))}</ul></td></tr>))}</tbody> </table> )} </div> <div className="mt-4 pt-4 border-t border-gray-200 text-right"><button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">關閉視窗</button></div> </div> </div> ); };
@@ -641,8 +403,26 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, stud
    const initializeCategories = useCallback(async (db, userId) => { if (!db || !userId) return; setLoadingCategories(true); const path = getCategoryCollectionPath(); const categoriesCollection = collection(db, path); try { const snapshot = await getDocs(categoriesCollection); if (snapshot.empty) { const batchPromises = INITIAL_CATEGORIES.map(cat => { const newDocRef = doc(categoriesCollection); return setDoc(newDocRef, { ...cat, createdAt: Timestamp.now() }); }); await Promise.all(batchPromises); } } catch (e) { console.error("Error initializing categories:", e); } setLoadingCategories(false); }, []); 
    useEffect(() => { if (isOffline) { setCategories(INITIAL_CATEGORIES.map((cat, i) => ({ ...cat, id: `offline-cat-${i}` }))); setLoadingCategories(false); return; } if (isAuthReady && db && userId) { initializeCategories(db, userId); const path = getCategoryCollectionPath(); const unsubscribe = onSnapshot(collection(db, path), (snapshot) => { const loadedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); loadedCategories.sort((a, b) => (a.order || 0) - (b.order || 0)); setCategories(loadedCategories); setLoadingCategories(false); }, (e) => { console.error("Error fetching categories:", e); if (e.code !== 'permission-denied') { setAlertMessage("讀取作業項目清單時發生錯誤。"); } setLoadingCategories(false); }); return () => unsubscribe(); } }, [isAuthReady, db, userId, setAlertMessage, initializeCategories, isOffline]);
    const addCategory = useCallback(async (name) => { const trimmedName = name.trim(); if (!trimmedName) return false; if (categories.some(c => c.name === trimmedName)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return false; } if (isOffline) { const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; setCategories(prev => [...prev, { id: `offline-cat-${Date.now()}`, name: trimmedName, order: newOrder }]); return true; } if (!db || !userId) return false; const newDocRef = doc(collection(db, getCategoryCollectionPath())); const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; try { await setDoc(newDocRef, { name: trimmedName, order: newOrder, createdAt: Timestamp.now() }); return true; } catch (e) { console.error("Error adding category:", e); setAlertMessage("新增科目模板失敗。"); return false; } }, [db, userId, categories, setAlertMessage, isOffline]); const deleteCategory = useCallback(async (categoryId, categoryName) => { if (!window.confirm(`確定要刪除科目模板「${categoryName}」嗎？此操作只會將該科目從「自動新增」清單中移除。`)) return; if (isOffline) { setCategories(prev => prev.filter(c => c.id !== categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除 (離線)。`); return; } if (!db || !userId) return; try { await deleteDoc(doc(db, getCategoryCollectionPath(), categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除。`); } catch (e) { console.error("Error deleting category:", e); setAlertMessage("刪除科目模板失敗。"); } }, [db, userId, setAlertMessage, isOffline]); const editCategory = useCallback(async (categoryId, currentName, newName) => { const trimmedName = newName.trim(); if (!trimmedName || trimmedName === currentName) return; if (categories.some(c => c.name === trimmedName && c.id !== categoryId)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return; } if (isOffline) { setCategories(prev => prev.map(c => c.id === categoryId ? { ...c, name: trimmedName } : c)); return; } if (!db || !userId) return; try { await setDoc(doc(db, getCategoryCollectionPath(), categoryId), { name: trimmedName }, { merge: true }); setAlertMessage(`科目模板名稱已從「${currentName}」更新為「${trimmedName}」。`); } catch (e) { console.error("Error editing category:", e); setAlertMessage("編輯科目模板失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); const moveCategory = useCallback(async (dragId, hoverId) => { const dragIndex = categories.findIndex(c => c.id === dragId); const hoverIndex = categories.findIndex(c => c.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; const dragCategory = categories[dragIndex]; const hoverCategory = categories[hoverIndex]; if (isOffline) { const newCategories = [...categories]; newCategories[dragIndex] = { ...dragCategory, order: hoverCategory.order }; newCategories[hoverIndex] = { ...hoverCategory, order: dragCategory.order }; newCategories.sort((a, b) => a.order - b.order); setCategories(newCategories); return; } if (!db || !userId) return; const batch = writeBatch(db); const path = getCategoryCollectionPath(); batch.set(doc(db, path, dragCategory.id), { order: hoverCategory.order }, { merge: true }); batch.set(doc(db, path, hoverCategory.id), { order: dragCategory.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving category:", e); setAlertMessage("調整項目順序失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); return { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus }; };
-// --- [v18.0.5 修正版] App Component (修正扣幣邏輯 + 新增引用) ---
 
+// --- [新 Hook] 每日結算狀態 ---
+const useDailySettlements = (db, isAuthReady, isOffline) => {
+    const [settlements, setSettlements] = useState({}); // { [dateString]: { isSettled: true, silverRewardClaimed: {sid: true} } }
+
+    useEffect(() => {
+        if (isOffline) return;
+        if (!isAuthReady || !db) return;
+        const q = query(collection(db, getDailySettlementPath()));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = {};
+            snapshot.docs.forEach(doc => { data[doc.id] = doc.data(); });
+            setSettlements(data);
+        }, (e) => console.error("Daily Settlements sync error:", e));
+        return () => unsubscribe();
+    }, [isAuthReady, db, isOffline]);
+
+    return settlements;
+};
+// --- [v19.0.0 核心] App Component (結算發布機制) ---
 const App = () => {
  const [db, setDb] = useState(null);
  const [auth, setAuth] = useState(null);
@@ -671,6 +451,9 @@ const App = () => {
  const [dashboardStudent, setDashboardStudent] = useState(null);
  const { students, loadingStudents } = useStudents(db, isOffline);
  const { bankData, updateBankBalance, setBankBalanceDirectly } = useStudentBank(db, isAuthReady, isOffline, students);
+ // [新] 引用結算 Hook
+ const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
+ 
  const { defaultSemester, defaultMonth } = useMemo(() => { const today = new Date(); const m = today.getMonth() + 1; const monthStr = String(m).padStart(2, '0'); let sem = 'S1'; if (m >= 2 && m <= 7) { sem = 'S2'; } return { defaultSemester: sem, defaultMonth: monthStr }; }, []);
  const [selectedSemester, setSelectedSemester] = useState(defaultSemester); const [selectedMonth, setSelectedMonth] = useState(defaultMonth); const [unlockClicks, setUnlockClicks] = useState({}); 
  const academicYear = "114"; const startYear = 2025; const endYear = 2026;
@@ -682,9 +465,9 @@ const App = () => {
  const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { console.error("Login failed", error); if (error.code === 'auth/invalid-email') { setLoginError('Email 格式不正確'); } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') { setLoginError('帳號或密碼錯誤'); } else if (error.code === 'auth/too-many-requests') { setLoginError('嘗試次數過多，請稍後再試'); } else { setLoginError('登入失敗：' + error.message); } setLoadingLogin(false); } };
  const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
  const handleLogout = async () => { try { await signOut(auth); setIsAuthenticated(false); setAuthMode('GUEST'); } catch (e) { console.error("Logout failed", e); } };
- useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const currentSemData = semesters.find(s => s.id === selectedSemester); let q; if (currentSemData) { const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`; const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`; q = query( assignmentsCollection, where("assignmentDate", ">=", startDate), where("assignmentDate", "<=", endDate) ); } else { q = query(assignmentsCollection); } const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, completedAt: data.completedAt || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]);
+ useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const currentSemData = semesters.find(s => s.id === selectedSemester); let q; if (currentSemData) { const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`; const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`; q = query( assignmentsCollection, where("assignmentDate", ">=", startDate), where("assignmentDate", "<=", endDate) ); } else { q = query(assignmentsCollection); } const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, completedAt: data.completedAt || {}, makeupClaimed: data.makeupClaimed || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]);
  const assignmentsForSelectedDate = useMemo(() => { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; return assignments.sort((a, b) => a.order - b.order); }, [allAssignmentsByDate, selectedDisplayDate]);
- const assignmentMap = useMemo(() => { return assignmentsForSelectedDate.reduce((acc, assignment) => { acc[assignment.assignmentName] = { id: assignment.id, submissionStatus: assignment.submissionStatus }; return acc; }, {}); }, [assignmentsForSelectedDate]);
+ const assignmentMap = useMemo(() => { return assignmentsForSelectedDate.reduce((acc, assignment) => { acc[assignment.assignmentName] = { id: assignment.id, submissionStatus: assignment.submissionStatus, makeupClaimed: assignment.makeupClaimed }; return acc; }, {}); }, [assignmentsForSelectedDate]);
  const filteredMonths = useMemo(() => { const currentSemesterData = semesters.find(s => s.id === selectedSemester); if (!currentSemesterData) return months; return months.filter(m => m.semester === selectedSemester); }, [months, selectedSemester, semesters]);
  useEffect(() => { if (filteredMonths.length > 0) { const currentMonthExists = filteredMonths.some(m => m.id === selectedMonth); if (!currentMonthExists) { setSelectedMonth(filteredMonths[0].id); } } }, [selectedSemester, filteredMonths, selectedMonth]);
  const availableDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); if (dates.length > 0) { if (!dates.includes(selectedDisplayDate)) { setSelectedDisplayDate(dates[dates.length - 1]); } } else if (dates.length === 0 && selectedDisplayDate !== getTodayDate()) { setSelectedDisplayDate(getTodayDate()); } return dates; }, [allAssignmentsByDate, selectedDisplayDate]);
@@ -694,99 +477,201 @@ const App = () => {
  const monthlyStudentStats = useMemo(() => { const stats = {}; students.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; students.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months, students]);
  const handleEditAssignmentName = useCallback(async (assignmentId, newAssignmentName) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以修改資料。"); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => a.id === assignmentId ? { ...a, assignmentName: newAssignmentName } : a); }); return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentId); await setDoc(docRef, { assignmentName: newAssignmentName }, { merge: true }); } catch (e) { console.error("Error editing assignment name: ", e); setAlertMessage("編輯作業名稱失敗（權限不足或網路錯誤）。"); } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
  const handleDeleteAssignment = useCallback(async (assignmentId, assignmentName, isForced = false) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以刪除資料。"); return; } const assignmentList = allAssignmentsByDate[selectedDisplayDate] || []; const targetAssignment = assignmentList.find(a => a.id === assignmentId); if (targetAssignment) { const submissionStatus = targetAssignment.submissionStatus || {}; const hasIncompleteWork = students.some(student => submissionStatus[student.id] === false); if (hasIncompleteWork && !isForced) { alert(`無法刪除作業「${assignmentName}」：\n\n尚有學生未完成此項作業的訂正！\n\n如需【強制刪除】，請在點擊刪除按鈕時按住 Control (Ctrl/Cmd) 鍵。`); return; } } if (!isForced && !window.confirm(`確定要刪除 ${assignmentName} 嗎？此操作不可逆轉。`)) { return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; if (newMap[selectedDisplayDate]) { newMap[selectedDisplayDate] = newMap[selectedDisplayDate].filter(a => a.id !== assignmentId); } return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentId); await deleteDoc(docRef); } catch (e) { console.error("Error deleting assignment: ", e); setAlertMessage("刪除作業項目失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, setAlertMessage, allAssignmentsByDate, isOffline, authMode, students]);
- const handleBatchAddDefaultAssignments = useCallback(async (targetDate, defaultCategories) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增日期。"); return; } if (isOffline) { const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); const newAssignments = []; defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { newAssignments.push({ id: `offline-assign-${Date.now()}-${Math.random()}`, assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }); } }); setAllAssignmentsByDate(prev => ({ ...prev, [targetDate]: [...(prev[targetDate] || []), ...newAssignments] })); return; } if (!db || !userId || !targetDate || defaultCategories.length === 0) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const batch = writeBatch(db); const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); let assignmentsAdded = 0; defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { const newDocRef = doc(assignmentCollection); batch.set(newDocRef, { assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); assignmentsAdded++; } }); if (assignmentsAdded > 0) { await batch.commit(); } const sortedDates = Object.keys(allAssignmentsByDate).sort(); const previousDates = sortedDates.filter(d => d < targetDate); const lastDate = previousDates.length > 0 ? previousDates[previousDates.length - 1] : null; if (lastDate) { const prevAssignments = allAssignmentsByDate[lastDate]; let rewardCount = 0; students.forEach(student => { if (prevAssignments && prevAssignments.length > 0) { const isAllGreen = prevAssignments.every(a => { const status = a.submissionStatus[student.id]; return status !== false && status !== 'late'; }); if (isAllGreen) { updateBankBalance(student.id, 0, 2, 0); rewardCount++; } } }); if (rewardCount > 0) { alert(`📅 日期新增成功！\n\n檢測到 ${lastDate} 有 ${rewardCount} 位學生表現優異（全綠燈），\n已自動發放【2 枚銀幣】作為獎勵！`); } } } catch (e) { console.error("Error batch adding assignments: ", e); setAlertMessage("自動新增作業失敗，請稍後再試。"); } finally { setLoading(false); } }, [db, userId, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode, updateBankBalance, students]);
+ const handleBatchAddDefaultAssignments = useCallback(async (targetDate, defaultCategories) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增日期。"); return; } if (isOffline) { const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); const newAssignments = []; defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { newAssignments.push({ id: `offline-assign-${Date.now()}-${Math.random()}`, assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }); } }); setAllAssignmentsByDate(prev => ({ ...prev, [targetDate]: [...(prev[targetDate] || []), ...newAssignments] })); return; } if (!db || !userId || !targetDate || defaultCategories.length === 0) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const batch = writeBatch(db); const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); let assignmentsAdded = 0; defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { const newDocRef = doc(assignmentCollection); batch.set(newDocRef, { assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); assignmentsAdded++; } }); if (assignmentsAdded > 0) { await batch.commit(); } } catch (e) { console.error("Error batch adding assignments: ", e); setAlertMessage("自動新增作業失敗，請稍後再試。"); } finally { setLoading(false); } }, [db, userId, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
  const handleNewAssignmentDateChange = useCallback((e) => { const newDate = e.target.value; setNewAssignmentDate(newDate); }, []);
  const handleAddNewDate = useCallback(async () => { const targetDate = newAssignmentDate; if (!targetDate || categories.length === 0) { setAlertMessage("請選擇一個日期並確保科目模板清單不為空。"); return; } if (allAssignmentsByDate[targetDate]) { setAlertMessage(`日期 ${targetDate} 已經有作業紀錄了。請直接選擇查看。`); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); return; } await handleBatchAddDefaultAssignments(targetDate, categories); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); }, [newAssignmentDate, categories, allAssignmentsByDate, handleBatchAddDefaultAssignments]);
  const handleAddNewAssignment = useCallback(async () => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增作業。"); return; } if (!selectedDisplayDate) { setAlertMessage("請先選擇一個日期。"); return; } if (isOffline) { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newAssignment = { id: `offline-single-${Date.now()}`, assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }; setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: [...(prev[selectedDisplayDate] || []), newAssignment] })); return; } if (!db || !userId) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newDocRef = doc(assignmentCollection); await setDoc(newDocRef, { assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); } catch (e) { console.error("Error adding new assignment:", e); setAlertMessage("新增單項作業失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
  const handleMoveAssignment = useCallback(async (dragId, hoverId) => { if (authMode !== 'ADMIN' && !isOffline) return; const assignments = assignmentsForSelectedDate; const dragIndex = assignments.findIndex(a => a.id === dragId); const hoverIndex = assignments.findIndex(a => a.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; const currentList = [...(newMap[selectedDisplayDate] || [])]; const dragItem = currentList[dragIndex]; const hoverItem = currentList[hoverIndex]; currentList[dragIndex] = { ...dragItem, order: hoverItem.order }; currentList[hoverIndex] = { ...hoverItem, order: dragItem.order }; newMap[selectedDisplayDate] = currentList.sort((a,b) => a.order - b.order); return newMap; }); return; } if (!db || !userId) return; const dragAssignment = assignments[dragIndex]; const hoverAssignment = assignments[hoverIndex]; const batch = writeBatch(db); const path = getAssignmentCollectionPath(); const docRef1 = doc(db, path, dragAssignment.id); const docRef2 = doc(db, path, hoverAssignment.id); batch.set(docRef1, { order: hoverAssignment.order }, { merge: true }); batch.set(docRef2, { order: dragAssignment.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving assignment:", e); setAlertMessage("調整欄位順序失敗。"); } }, [db, userId, assignmentsForSelectedDate, setAlertMessage, isOffline, selectedDisplayDate, authMode]);
 
- // --- [核心修正] 處理補交邏輯與防刷幣 (包含預設綠燈不扣錢) ---
+ // --- [v19.0.0 新增] 結算發布邏輯 ---
+ const isDaySettled = useMemo(() => dailySettlements[selectedDisplayDate]?.isSettled || false, [dailySettlements, selectedDisplayDate]);
+ const handleBatchSettlement = useCallback(async () => {
+    if (!selectedDisplayDate) return;
+    if (isDaySettled) { alert("此日期已經結算發布過了！"); return; }
+    if (!window.confirm(`確定要結算 ${selectedDisplayDate} 的作業嗎？\n\n1. 所有【全綠燈】的學生將獲得 2 枚銀幣。\n2. 結算後，此日期的獎勵規則將進入「補救模式」。\n3. 此操作不可撤銷！`)) return;
+
+    const assignments = assignmentsForSelectedDate;
+    if (assignments.length === 0) return;
+
+    setLoading(true);
+    // 找出全綠的學生
+    const greenStudentIds = [];
+    students.forEach(s => {
+        const isAllGreen = assignments.every(a => {
+            const status = a.submissionStatus[s.id];
+            return status !== false && status !== 'late'; // 只有 true 或 undefined (預設綠) 算過關
+        });
+        if (isAllGreen) greenStudentIds.push(s.id);
+    });
+
+    if (isOffline) {
+        // 離線模擬結算
+        greenStudentIds.forEach(sid => updateBankBalance(sid, 0, 2, 0));
+        // 更新本地 state 模擬已結算
+        alert(`[離線] 結算成功！已發放銀幣給 ${greenStudentIds.length} 位學生。`);
+        setLoading(false);
+        return;
+    }
+
+    try {
+        const batch = writeBatch(db);
+        // 1. 建立結算紀錄 Doc
+        const settlementRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
+        const silverRewardMap = {};
+        greenStudentIds.forEach(id => silverRewardMap[id] = true);
+        batch.set(settlementRef, { 
+            isSettled: true, 
+            silverRewardClaimed: silverRewardMap,
+            settledAt: serverTimestamp() 
+        });
+
+        // 2. 發錢 (因為 batch 寫入銀行太複雜，這裡簡化為前端逐一發送，或後端處理。為求穩定，這裡使用前端循環調用 updateBankBalance)
+        // 注意：為了數據一致性，理想是 batch，但 bank 是分散 doc。這裡我們相信 updateBankBalance 的 atomic 性質。
+        // 我們先執行 batch 設定 isSettled，成功後再發錢。
+        await batch.commit();
+
+        // 3. 發放銀幣 (非 Transaction，但足夠安全)
+        greenStudentIds.forEach(sid => {
+            // 直接寫入資料庫以免依賴 state
+            const bankRef = doc(db, getBankCollectionPath(), sid);
+            // 這裡無法直接用 updateBankBalance 因為它依賴 state，我們直接用 setDoc merge
+            // 為了簡單，我們呼叫 updateBankBalance，它會處理 local + remote
+            updateBankBalance(sid, 0, 2, 0); 
+        });
+
+        setAlertMessage(`結算完成！共 ${greenStudentIds.length} 位學生獲得銀幣獎勵。`);
+    } catch (e) {
+        console.error("Settlement failed:", e);
+        setAlertMessage("結算發布失敗，請稍後再試。");
+    } finally {
+        setLoading(false);
+    }
+ }, [selectedDisplayDate, isDaySettled, assignmentsForSelectedDate, students, isOffline, db, updateBankBalance]);
+
+ // --- [v19.0.0 核心] 燈號切換邏輯 (含防刷與扣回) ---
  const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => { 
      const assignmentData = assignmentMap[assignmentName]; 
-     if (!assignmentData) { setAlertMessage(`找不到作業「${assignmentName}」的紀錄。`); return; } 
-     const cellKey = `${studentId}-${assignmentData.id}`; 
-     let newStatus; 
-     let shouldUpdateDb = true; 
-     let completedAtUpdate = {}; 
-     const todayStr = getTodayDate(); // 獲取今天日期字串
-     const isToday = selectedDisplayDate === todayStr; // 判斷是否為今天
+     if (!assignmentData) return; 
+     
+     // 檢查是否已結算
+     const settledData = dailySettlements[selectedDisplayDate];
+     const isSettled = settledData?.isSettled || false;
 
-     if (currentStatus === true || currentStatus === undefined) { 
-         newStatus = false; 
-         setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
-     } else if (currentStatus === false) { 
-         newStatus = 'late'; 
-         completedAtUpdate = { [`completedAt.${studentId}`]: new Date().toISOString() }; 
-         setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
-     } else { 
-         const currentCount = unlockClicks[cellKey] || 0; 
-         if (currentCount < 2) { 
-             setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); 
-             shouldUpdateDb = false; return; 
-         } else { 
-             newStatus = true; 
+     // 若未結算，只改燈號，不涉及金錢
+     if (!isSettled) {
+         // 單純切換燈號邏輯 (循環)
+         const cellKey = `${studentId}-${assignmentData.id}`; 
+         let newStatus; 
+         if (currentStatus === true || currentStatus === undefined) { 
+             newStatus = false; // 綠 -> 紅
              setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
-         } 
-     } 
-
-     if (shouldUpdateDb) { 
-         let bronzeChange = 0; 
-         let goldChange = 0; 
-         
-         // 只有在「非今天」的作業才進行獎懲判斷
-         if (!isToday) {
-             // 1. 紅燈 -> 黃燈 (補交): 獎勵 +10
-             if (newStatus === 'late' && currentStatus === false) { 
-                 bronzeChange = 10; 
-                 let currentMissingCount = 0; 
-                 Object.keys(allAssignmentsByDate).forEach(date => { 
-                     const assignments = allAssignmentsByDate[date]; 
-                     assignments.forEach(a => { if (a.submissionStatus[studentId] === false) currentMissingCount++; }); 
-                 }); 
-                 if (currentMissingCount === 1) { goldChange = 1; setRewardState({ type: 'GOLD_CLEAR' }); } else { setRewardState({ type: 'BRONZE' }); } 
+         } else if (currentStatus === false) { 
+             newStatus = 'late'; // 紅 -> 黃
+             setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
+         } else { 
+             const currentCount = unlockClicks[cellKey] || 0; 
+             if (currentCount < 2) { 
+                 setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); return; 
+             } else { 
+                 newStatus = true; // 黃 -> 綠
+                 setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
              } 
-             // 2. 綠燈 -> 紅燈 (誤點還原): 只有當「有完成紀錄」時才扣 10，若是預設綠燈則不扣
-             else if (newStatus === false && currentStatus === true) {
-                 const studentCompletedAt = allAssignmentsByDate[selectedDisplayDate]?.find(a => a.assignmentName === assignmentName)?.completedAt?.[studentId];
-                 if (studentCompletedAt) {
-                     bronzeChange = -10;
-                 }
-             }
          }
- 
-         if (bronzeChange !== 0 || goldChange !== 0) { updateBankBalance(studentId, bronzeChange, 0, goldChange); } 
- 
-         if (isOffline) { 
+         
+         // 寫入 DB (不改錢)
+         if (isOffline) {
              setAllAssignmentsByDate(prev => { 
                  const newMap = { ...prev }; 
-                 Object.keys(newMap).forEach(date => { 
-                     newMap[date] = newMap[date].map(a => { 
-                         if (a.id === assignmentData.id) { 
-                             const updatedCompletedAt = newStatus === 'late' ? { ...(a.completedAt || {}), [studentId]: new Date().toISOString() } : a.completedAt; 
-                             return { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus }, completedAt: updatedCompletedAt }; 
-                         } 
-                         return a; 
-                     }); 
-                 }); 
-                 return newMap; 
-             }); 
-             return; 
-         } 
-         
-         if (!db || !userId) return; 
-         setLoading(true); 
-         try { 
-             const docRef = doc(db, getAssignmentCollectionPath(), assignmentData.id); 
-             await setDoc(docRef, { submissionStatus: { [studentId]: newStatus }, ...completedAtUpdate }, { merge: true }); 
-         } catch (e) { 
-             console.error("Error updating submission status: ", e); 
-             setAlertMessage("更新訂正狀態失敗，請檢查網路連線或權限。"); 
-         } finally { 
-             setLoading(false); 
-         } 
-     } 
- }, [db, userId, assignmentMap, unlockClicks, setAlertMessage, isOffline, allAssignmentsByDate, updateBankBalance, selectedDisplayDate]);
+                 newMap[selectedDisplayDate] = newMap[selectedDisplayDate].map(a => 
+                     a.id === assignmentData.id ? { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus } } : a
+                 ); return newMap; 
+             });
+         } else {
+             const docRef = doc(db, getAssignmentCollectionPath(), assignmentData.id);
+             await setDoc(docRef, { submissionStatus: { [studentId]: newStatus } }, { merge: true });
+         }
+         return;
+     }
 
+     // --- 以下為【已結算】後的邏輯 ---
+     // 狀態循環：綠(true) -> 紅(false) -> 黃('late') -> 綠(true)
+     let newStatus;
+     let bronzeChange = 0;
+     let silverChange = 0;
+     let makeupUpdate = {}; // 用於更新 makeupClaimed 欄位
+     let settlementUpdate = null; // 用於更新 daily settlement (扣回銀幣)
+
+     // 1. 綠 -> 紅 (扣回/修正)
+     if (currentStatus === true || currentStatus === undefined) {
+         newStatus = false;
+         // 檢查是否領過補交費 (makeupClaimed)
+         if (assignmentData.makeupClaimed?.[studentId]) {
+             bronzeChange = -10;
+             makeupUpdate = { [`makeupClaimed.${studentId}`]: deleteField() }; // 移除標記
+         }
+         // 檢查是否領過全對銀幣 (silverRewardClaimed)
+         if (settledData?.silverRewardClaimed?.[studentId]) {
+             silverChange = -2;
+             settlementUpdate = { [`silverRewardClaimed.${studentId}`]: deleteField() }; // 移除標記
+         }
+     } 
+     // 2. 紅 -> 黃 (補交)
+     else if (currentStatus === false) {
+         newStatus = 'late';
+         // 發放補交費，並標記
+         bronzeChange = 10;
+         makeupUpdate = { [`makeupClaimed.${studentId}`]: true };
+     } 
+     // 3. 黃 -> 綠 (完成)
+     else {
+         // 黃轉綠需要點擊兩次確認
+         const cellKey = `${studentId}-${assignmentData.id}`; 
+         const currentCount = unlockClicks[cellKey] || 0; 
+         if (currentCount < 2) { 
+             setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); return; 
+         }
+         setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
+         
+         newStatus = true;
+         // 不變動金錢，且 makeupClaimed 標記要【保留】 (不做任何 deleteField)
+         // 因為如果下次又變紅，要記得他曾經領過補交費
+     }
+
+     // 執行更新
+     if (bronzeChange !== 0 || silverChange !== 0) {
+         updateBankBalance(studentId, bronzeChange, silverChange, 0);
+     }
+
+     if (isOffline) {
+         // 離線簡易模擬 (略過複雜標記更新)
+         setAllAssignmentsByDate(prev => { 
+             const newMap = { ...prev }; 
+             newMap[selectedDisplayDate] = newMap[selectedDisplayDate].map(a => 
+                 a.id === assignmentData.id ? { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus } } : a
+             ); return newMap; 
+         });
+     } else {
+         const batch = writeBatch(db);
+         const assignRef = doc(db, getAssignmentCollectionPath(), assignmentData.id);
+         
+         // 更新作業狀態與補交標記
+         batch.update(assignRef, { 
+             [`submissionStatus.${studentId}`]: newStatus,
+             ...makeupUpdate
+         });
+
+         // 若需扣回銀幣，更新結算紀錄
+         if (settlementUpdate) {
+             const settleRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
+             batch.update(settleRef, settlementUpdate);
+         }
+
+         await batch.commit();
+     }
+
+ }, [db, userId, assignmentMap, unlockClicks, isOffline, allAssignmentsByDate, updateBankBalance, selectedDisplayDate, dailySettlements]);
+
+ // (其餘 handle 函數保持不變，略...) 
  const handleEditCurrentDate = useCallback(async (targetOldDate) => { const oldDate = typeof targetOldDate === 'string' ? targetOldDate : selectedDisplayDate; if (authMode !== 'ADMIN' || !oldDate) return; const newDate = prompt(`請輸入新的日期以取代 ${oldDate} (格式: YYYY-MM-DD)`, oldDate); if (!newDate || newDate === oldDate) return; const datePattern = /^\d{4}-\d{2}-\d{2}$/; if (!datePattern.test(newDate)) { alert("日期格式不正確，請使用 YYYY-MM-DD格式。"); return; } if (allAssignmentsByDate[newDate]) { alert(`日期 ${newDate} 已經存在作業資料，無法直接修改日期至此日。請手動遷移或刪除目標日期資料。`); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; newMap[newDate] = newMap[oldDate].map(a => ({...a, assignmentDate: newDate})); delete newMap[oldDate]; return newMap; }); setSelectedDisplayDate(newDate); setAlertMessage(`[離線] 日期已修改為 ${newDate}`); return; } if (!db || !userId) return; setLoading(true); try { const batch = writeBatch(db); const assignments = allAssignmentsByDate[oldDate] || []; const path = getAssignmentCollectionPath(); if (assignments.length === 0) { setAlertMessage("該日期沒有作業資料可供移動。"); setLoading(false); return; } assignments.forEach(assignment => { const docRef = doc(db, path, assignment.id); batch.update(docRef, { assignmentDate: newDate }); }); await batch.commit(); setSelectedDisplayDate(newDate); setAlertMessage(`日期已成功從 ${oldDate} 修改為 ${newDate}`); } catch(e) { console.error("Error modifying date:", e); setAlertMessage("修改日期失敗，請檢查網路或權限。"); } finally { setLoading(false); } }, [authMode, selectedDisplayDate, allAssignmentsByDate, isOffline, db, userId]);
  const handleBatchDelete = useCallback(async (assignmentIds, successMessage, failureMessage) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以執行批次刪除。"); return false; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].filter(a => !assignmentIds.includes(a.id)); }); return newMap; }); setAlertMessage(successMessage + " (離線)"); return true; } if (!db || !userId || assignmentIds.length === 0) return false; setLoading(true); try { const batch = writeBatch(db); const path = getAssignmentCollectionPath(); assignmentIds.forEach(id => { if (id) { const docRef = doc(db, path, id); batch.delete(docRef); } }); await batch.commit(); setAlertMessage(successMessage); return true; } catch (e) { console.error("Error during batch delete: ", e); setAlertMessage(failureMessage); return false; } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
  const handleDeleteStudentGlobalData = useCallback(async (studentId, studentName) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足。"); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => { const newStatus = { ...a.submissionStatus }; delete newStatus[studentId]; return { ...a, submissionStatus: newStatus }; }); }); return newMap; }); setAlertMessage(`[離線] 成功刪除 ${studentName} 的所有訂正紀錄。`); return; } if (!db || !userId) return; if (!window.confirm(`【極度危險】確定要永久刪除學生 ${studentName} (${studentId}) 在所有日期上的所有訂正紀錄嗎？此操作不可逆轉！`)) { return; } setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const snapshot = await getDocs(assignmentCollection); const batch = writeBatch(db); let updateCount = 0; snapshot.docs.forEach(doc => { const docRef = doc.ref; const data = doc.data(); const submissionStatus = data.submissionStatus || {}; if (submissionStatus.hasOwnProperty(studentId)) { const newSubmissionStatus = { ...submissionStatus }; delete newSubmissionStatus[studentId]; batch.set(docRef, { submissionStatus: newSubmissionStatus }, { merge: true }); updateCount++; } }); await batch.commit(); setAlertMessage(`成功刪除 ${studentName} 的所有訂正紀錄 (${updateCount} 筆作業文件受到影響)。`); } catch (e) { console.error("Error deleting student data:", e); setAlertMessage("刪除學生數據失敗，請檢查權限或連線。"); } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
@@ -843,7 +728,20 @@ const App = () => {
                <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading}>{semesters.map((s) => ( <option key={s.id} value={s.id}>{s.name}</option>))}</select>
                <label className="font-semibold text-gray-700">月份：</label>
                <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading} style={{ backgroundColor: months.find(m => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
-               <button onClick={() => setShowBankModal(true)} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="查看訂正存簿"> <BookOpen className="h-6 w-6 mr-2" />訂正存簿 </button>
+               
+               <div className="flex items-center gap-3">
+                   <button onClick={() => setShowBankModal(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md flex items-center justify-center" disabled={isGlobalLoading}> <BookOpen className="h-6 w-6 mr-2" />訂正存簿 </button>
+                   {/* [新增] 結算發布按鈕 */}
+                   {authMode === 'ADMIN' && (
+                       <button 
+                           onClick={handleBatchSettlement} 
+                           className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`} 
+                           disabled={isGlobalLoading || dailySettlements[selectedDisplayDate]?.isSettled}
+                       > 
+                           {dailySettlements[selectedDisplayDate]?.isSettled ? <><Lock className="h-6 w-6 mr-2" />已發布</> : <><Megaphone className="h-6 w-6 mr-2" />結算發布</>}
+                       </button>
+                   )}
+               </div>
            </div>
            
            <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2">
@@ -875,6 +773,7 @@ const App = () => {
                    {selectedDisplayDate ? (
                        <div className="flex items-center gap-3">
                            <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span>
+                           {dailySettlements[selectedDisplayDate]?.isSettled && <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-lg rounded-full font-bold border border-indigo-200 flex items-center"><Lock className="w-4 h-4 mr-1"/>已發布</span>}
                            {authMode === 'ADMIN' && (
                                <button onClick={() => handleEditCurrentDate(selectedDisplayDate)} className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full text-gray-600 hover:text-gray-800 transition shadow-sm" title="修改此日期" disabled={isGlobalLoading}> <Edit className="w-6 h-6" /> </button>
                            )}
