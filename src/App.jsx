@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v19.0.0 - 結算發布與防刷機制版'; 
+const VERSION = 'v19.0.1 - 含獲獎名單顯示'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
