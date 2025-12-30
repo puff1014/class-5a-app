@@ -350,15 +350,146 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
    return { bankData, updateBankBalance, setBankBalanceDirectly };
 };
 
+// --- [v19.0.2 新增] 存簿與期末歸零功能 ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
-   const [editingCell, setEditingCell] = useState(null); const [editValue, setEditValue] = useState('');
-   const sortedStudents = [...students].sort((a, b) => { const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 }; if (bankA.gold !== bankB.gold) return bankB.gold - bankA.gold; if (bankA.silver !== bankB.silver) return bankB.silver - bankA.silver; if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze; return parseInt(a.id) - parseInt(b.id); });
-   const handleStartEdit = (studentId, type, currentValue) => { if (authMode !== 'ADMIN') return; setEditingCell({ id: studentId, type }); setEditValue(currentValue.toString()); };
-   const handleSaveEdit = () => { if (editingCell) { const val = parseInt(editValue, 10); if (!isNaN(val)) { setBankBalanceDirectly(editingCell.id, editingCell.type, val); } setEditingCell(null); setEditValue(''); } };
-   const handleKeyDown = (e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingCell(null); };
-   const handleResetAll = (studentId) => { if (!window.confirm(`確定要將此學生的【所有資產】(金/銀/銅) 全部歸零嗎？`)) return; onUpdateBalance(studentId, 'RESET', 'RESET', 'RESET'); };
-   const handleManualAdd = (studentId) => { const type = prompt("請輸入代號選擇要補發/扣除的項目：\n1. 金幣\n2. 銀幣\n3. 銅幣", "3"); if (!type) return; let target = ''; if (type === '1') target = 'GOLD'; else if (type === '2') target = 'SILVER'; else if (type === '3') target = 'BRONZE'; else return; const labels = { 'BRONZE': '銅幣', 'SILVER': '銀幣', 'GOLD': '金幣' }; const input = prompt(`請輸入要增減的【${labels[target]}】數量：\n(輸入負數可進行扣除)`, "1"); if (input === null) return; const amount = parseInt(input, 10); if (isNaN(amount)) { alert("請輸入有效的數字。"); return; } if (target === 'BRONZE') onUpdateBalance(studentId, amount, 0, 0); if (target === 'SILVER') onUpdateBalance(studentId, 0, amount, 0); if (target === 'GOLD') onUpdateBalance(studentId, 0, 0, amount); };
-   return ( <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4"> <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-7xl h-[90vh] flex flex-col border border-green-200"> <div className="flex justify-between items-center mb-6 border-b border-green-200 pb-4"> <h3 className="text-4xl font-bold text-gray-800 flex items-center"><div className="mr-3 transform scale-125"><CoinIcon type="GOLD" /></div>訂正存簿</h3> <div className="flex items-center gap-4"><button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200"><X className="w-8 h-8" /></button></div> </div> <div className="flex-1 overflow-auto bg-green-50 rounded-xl p-4 border border-green-100"> <table className="min-w-full divide-y divide-green-200"> <thead className="bg-green-100 sticky top-0 z-10 shadow-sm"><tr><th className="px-4 py-4 text-2xl font-bold text-green-900 w-20 text-center">名次</th><th className="px-4 py-4 text-2xl font-bold text-green-900 w-24 text-center">座號</th><th className="px-4 py-4 text-2xl font-bold text-green-900 w-32 text-center">姓名</th><th className="px-4 py-4 text-2xl font-bold text-yellow-600 text-center">金幣</th><th className="px-4 py-4 text-2xl font-bold text-gray-500 text-center">銀幣</th><th className="px-4 py-4 text-2xl font-bold text-orange-700 text-center">銅幣</th>{authMode === 'ADMIN' && ( <th className="px-4 py-4 text-2xl font-bold text-green-900 text-center">操作</th> )}</tr></thead> <tbody className="bg-white divide-y divide-green-100"> {sortedStudents.map((student, index) => { const data = bankData[student.id] || { bronze: 0, silver: 0, gold: 0 }; let rankIcon = index < 3 ? ["🥇","🥈","🥉"][index] : index + 1; const renderCell = (type, value, iconType, colorClass) => { const isEditing = editingCell?.id === student.id && editingCell?.type === type; return ( <td className="px-4 py-4 text-center cursor-pointer group" onClick={() => !isEditing && handleStartEdit(student.id, type, value)}> {isEditing ? ( <input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleSaveEdit} onKeyDown={handleKeyDown} onClick={(e) => e.stopPropagation()} className="w-24 text-center text-3xl font-bold border-2 border-blue-400 rounded-lg focus:outline-none p-1" autoFocus /> ) : ( <div className={`inline-flex items-center justify-center border px-4 py-2 rounded-full shadow-sm min-w-[100px] transition-transform group-hover:scale-105 group-hover:ring-2 group-hover:ring-blue-300 ${colorClass}`}><div className="mr-2"><CoinIcon type={iconType} size="w-8 h-8"/></div><span className="text-3xl font-black">{value}</span></div> )} </td> ); }; return ( <tr key={student.id} className="hover:bg-green-50 transition duration-100"><td className="px-4 py-4 text-3xl font-black text-gray-700 text-center">{rankIcon}</td><td className="px-4 py-4 text-2xl text-gray-600 font-medium text-center">{student.id}</td><td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center">{student.name[0] + 'O' + student.name.slice(2)}</td>{renderCell('GOLD', data.gold, 'GOLD', 'bg-yellow-50 border-yellow-200 text-yellow-600')}{renderCell('SILVER', data.silver, 'SILVER', 'bg-gray-50 border-gray-200 text-gray-600')}{renderCell('BRONZE', data.bronze, 'BRONZE', 'bg-orange-50 border-orange-200 text-orange-700')}{authMode === 'ADMIN' && (<td className="px-4 py-4 text-center"><div className="flex flex-row items-center justify-center gap-4"><button onClick={() => handleManualAdd(student.id)} className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition" title="補發/扣除"><PlusCircle className="w-5 h-5"/></button><button onClick={() => handleResetAll(student.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="全部歸零"><Eraser className="w-5 h-5"/></button></div></td>)}</tr> ); })} </tbody> </table> </div> </div> </div> );
+  // 處理單一學生的金錢修改
+  const handleEditBalance = (studentId, type, currentVal) => {
+      if (authMode !== 'ADMIN') return;
+      const amountStr = prompt(`請輸入新的${type === 'gold' ? '金幣' : type === 'silver' ? '銀幣' : '銅幣'}數量：`, currentVal);
+      const amount = parseInt(amountStr, 10);
+      if (!isNaN(amount) && amount >= 0) {
+          setBankBalanceDirectly(studentId, type, amount);
+      }
+  };
+
+  // [新增] 處理全班期末歸零
+  const handleResetAll = async () => {
+      if (authMode !== 'ADMIN') return;
+      
+      const confirm1 = window.confirm("⚠️ 【危險操作】您確定要進行「期末歸零」嗎？\n\n這將會把「全班所有學生」的金幣、銀幣、銅幣全部清空為 0！\n\n此操作通常用於「學期結束」時，且無法復原！");
+      if (!confirm1) return;
+
+      const confirm2 = window.confirm("🧨 請再次確認：\n\n您真的要刪除全班的財產嗎？\n\n建議您先執行「匯出」備份資料後再執行此操作。\n\n按「確定」將立即執行歸零。");
+      if (!confirm2) return;
+
+      // 執行歸零邏輯
+      try {
+          // 遍歷所有學生，將錢設為 0
+          for (const student of students) {
+              // 這裡我們直接呼叫 setBankBalanceDirectly 三次來歸零 (雖然不是最高效，但在前端用最安全)
+              // 如果是 Firebase 模式，建議在 useStudentBank 裡寫一個 batch update，但這裡為了方便您修改，我們沿用現有函式
+              await setBankBalanceDirectly(student.id, 'gold', 0);
+              await setBankBalanceDirectly(student.id, 'silver', 0);
+              await setBankBalanceDirectly(student.id, 'bronze', 0);
+          }
+          alert("✅ 全班財產已完成歸零！");
+      } catch (e) {
+          console.error(e);
+          alert("歸零過程中發生錯誤，請檢查網路連線。");
+      }
+  };
+
+  // 計算全班總資產 (選擇性顯示)
+  const totalAssets = students.reduce((acc, s) => {
+      const data = bankData[s.id] || { gold: 0, silver: 0, bronze: 0 };
+      return acc + (data.gold * 100) + (data.silver * 10) + data.bronze;
+  }, 0);
+
+  return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="p-6 bg-green-600 text-white flex justify-between items-center shrink-0">
+                  <div>
+                      <h2 className="text-3xl font-bold flex items-center gap-3">
+                          <span className="text-4xl">💰</span> 訂正存簿總覽
+                      </h2>
+                      <p className="text-green-100 mt-1 opacity-80">全班總資產估值：{totalAssets} (銅幣當量)</p>
+                  </div>
+                  <button onClick={onClose} className="p-2 hover:bg-green-700 rounded-full transition"><X className="w-8 h-8" /></button>
+              </div>
+              
+              <div className="flex-1 overflow-auto p-6 bg-gray-50">
+                  <table className="w-full">
+                      <thead className="bg-green-50 sticky top-0 shadow-sm">
+                          <tr>
+                              <th className="p-3 text-2xl text-gray-700 font-bold w-20">名次</th>
+                              <th className="p-3 text-2xl text-gray-700 font-bold w-20">座號</th>
+                              <th className="p-3 text-2xl text-gray-700 font-bold text-left">姓名</th>
+                              <th className="p-3 text-2xl text-yellow-600 font-bold">金幣</th>
+                              <th className="p-3 text-2xl text-gray-500 font-bold">銀幣</th>
+                              <th className="p-3 text-2xl text-orange-600 font-bold">銅幣</th>
+                              <th className="p-3 text-2xl text-gray-700 font-bold">操作</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                          {[...students].sort((a, b) => {
+                              // 簡單的財富排序演算法 (金>銀>銅)
+                              const balA = bankData[a.id] || { gold: 0, silver: 0, bronze: 0 };
+                              const balB = bankData[b.id] || { gold: 0, silver: 0, bronze: 0 };
+                              const valA = balA.gold * 10000 + balA.silver * 100 + balA.bronze;
+                              const valB = balB.gold * 10000 + balB.silver * 100 + balB.bronze;
+                              return valB - valA;
+                          }).map((student, index) => {
+                              const balance = bankData[student.id] || { gold: 0, silver: 0, bronze: 0 };
+                              const rank = index + 1;
+                              let rankIcon = rank;
+                              if (rank === 1) rankIcon = '🥇';
+                              if (rank === 2) rankIcon = '🥈';
+                              if (rank === 3) rankIcon = '🥉';
+
+                              return (
+                                  <tr key={student.id} className="hover:bg-white transition-colors">
+                                      <td className="p-4 text-3xl font-black text-center text-gray-400">{rankIcon}</td>
+                                      <td className="p-4 text-3xl text-center text-gray-600">{student.id}</td>
+                                      <td className="p-4 text-3xl font-bold text-gray-800">{student.name}</td>
+                                      <td className="p-2 text-center">
+                                          <button onClick={() => handleEditBalance(student.id, 'gold', balance.gold)} disabled={authMode !== 'ADMIN'} className={`px-4 py-2 rounded-full border-2 border-yellow-200 bg-yellow-50 text-yellow-700 font-bold text-2xl flex items-center justify-center gap-2 mx-auto min-w-[100px] ${authMode === 'ADMIN' ? 'hover:bg-yellow-100 cursor-pointer' : ''}`}>
+                                              <span className="text-2xl">🟡</span> {balance.gold}
+                                          </button>
+                                      </td>
+                                      <td className="p-2 text-center">
+                                          <button onClick={() => handleEditBalance(student.id, 'silver', balance.silver)} disabled={authMode !== 'ADMIN'} className={`px-4 py-2 rounded-full border-2 border-gray-200 bg-gray-50 text-gray-600 font-bold text-2xl flex items-center justify-center gap-2 mx-auto min-w-[100px] ${authMode === 'ADMIN' ? 'hover:bg-gray-100 cursor-pointer' : ''}`}>
+                                              <span className="text-2xl">⚪</span> {balance.silver}
+                                          </button>
+                                      </td>
+                                      <td className="p-2 text-center">
+                                          <button onClick={() => handleEditBalance(student.id, 'bronze', balance.bronze)} disabled={authMode !== 'ADMIN'} className={`px-4 py-2 rounded-full border-2 border-orange-200 bg-orange-50 text-orange-700 font-bold text-2xl flex items-center justify-center gap-2 mx-auto min-w-[100px] ${authMode === 'ADMIN' ? 'hover:bg-orange-100 cursor-pointer' : ''}`}>
+                                              <span className="text-2xl">🟤</span> {balance.bronze}
+                                          </button>
+                                      </td>
+                                      <td className="p-2 text-center">
+                                          <div className="flex justify-center gap-2">
+                                              <button onClick={() => onUpdateBalance(student.id, 10, 0, 0)} className="w-10 h-10 rounded-full bg-green-100 text-green-600 hover:bg-green-200 flex items-center justify-center" title="+10 銅"><Plus className="w-6 h-6" /></button>
+                                              <button onClick={() => onUpdateBalance(student.id, -10, 0, 0)} className="w-10 h-10 rounded-full bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center" title="-10 銅"><Minus className="w-6 h-6" /></button>
+                                          </div>
+                                      </td>
+                                  </tr>
+                              );
+                          })}
+                      </tbody>
+                  </table>
+              </div>
+
+              {/* 底部功能區 */}
+              <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
+                  {authMode === 'ADMIN' ? (
+                      <button 
+                          onClick={handleResetAll} 
+                          className="flex items-center gap-2 px-4 py-2 text-xl font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow transition"
+                          title="學期結束時使用"
+                      >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          期末歸零 (危險)
+                      </button>
+                  ) : <div></div>}
+                  
+                  <button onClick={onClose} className="px-6 py-2 text-2xl font-bold text-gray-600 bg-gray-200 hover:bg-gray-300 rounded-lg transition">
+                      關閉
+                  </button>
+              </div>
+          </div>
+      </div>
+  );
 };
 // --- [v19.0.0] Hooks & Helper Components ---
 const CustomAlert = ({ message, onClose }) => ( <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"> <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> <h3 className="text-4xl font-semibold text-gray-800 mb-4">通知</h3> <p className="text-3xl text-gray-600 mb-6">{message}</p> <button onClick={onClose} className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-4xl">確定</button> </div> </div> );
