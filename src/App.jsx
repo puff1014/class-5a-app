@@ -349,7 +349,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
    }, [saveBalance]);
    return { bankData, updateBankBalance, setBankBalanceDirectly };
 };
-// --- [v19.0.2 修正版] 存簿與期末歸零 (內建 SVG 圖示，不需額外 Import) ---
+// --- [v19.0.3 安全修復版] 存簿與期末歸零 ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
   // 處理單一學生的金錢修改
   const handleEditBalance = (studentId, type, currentVal) => {
@@ -368,20 +368,22 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
       const confirm1 = window.confirm("⚠️ 【危險操作】您確定要進行「期末歸零」嗎？\n\n這將會把「全班所有學生」的金幣、銀幣、銅幣全部清空為 0！\n\n此操作通常用於「學期結束」時，且無法復原！");
       if (!confirm1) return;
 
-      const confirm2 = window.confirm("🧨 請再次確認：\n\n您真的要刪除全班的財產嗎？\n\n建議您先執行「匯出」備份資料後再執行此操作。\n\n按「確定」將立即執行歸零。");
+      const confirm2 = window.confirm("🧨 請再次確認：\n\n您真的要刪除全班的財產嗎？\n\n請務必確認您已經執行過「匯出資料」進行備份。\n\n按「確定」將立即執行歸零。");
       if (!confirm2) return;
 
       try {
-          // 遍歷所有學生，將錢設為 0
           for (const student of students) {
-              await setBankBalanceDirectly(student.id, 'gold', 0);
-              await setBankBalanceDirectly(student.id, 'silver', 0);
-              await setBankBalanceDirectly(student.id, 'bronze', 0);
+              // 強制歸零
+              if (setBankBalanceDirectly) {
+                  await setBankBalanceDirectly(student.id, 'gold', 0);
+                  await setBankBalanceDirectly(student.id, 'silver', 0);
+                  await setBankBalanceDirectly(student.id, 'bronze', 0);
+              }
           }
           alert("✅ 全班財產已完成歸零！");
       } catch (e) {
           console.error(e);
-          alert("歸零過程中發生錯誤，請檢查網路連線。");
+          alert("歸零時發生錯誤，請重新整理頁面再試。");
       }
   };
 
@@ -392,8 +394,8 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
   }, 0);
 
   return (
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[10000]">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border-4 border-green-500">
               <div className="p-6 bg-green-600 text-white flex justify-between items-center shrink-0">
                   <div>
                       <h2 className="text-3xl font-bold flex items-center gap-3">
@@ -401,10 +403,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                       </h2>
                       <p className="text-green-100 mt-1 opacity-80">全班總資產估值：{totalAssets} (銅幣當量)</p>
                   </div>
-                  <button onClick={onClose} className="p-2 hover:bg-green-700 rounded-full transition">
-                    {/* 關閉圖示 (X) */}
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
+                  <button onClick={onClose} className="w-10 h-10 rounded-full bg-green-700 hover:bg-green-800 text-white font-bold text-2xl flex items-center justify-center">✕</button>
               </div>
               
               <div className="flex-1 overflow-auto p-6 bg-gray-50">
@@ -457,14 +456,8 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                                       </td>
                                       <td className="p-2 text-center">
                                           <div className="flex justify-center gap-2">
-                                              <button onClick={() => onUpdateBalance(student.id, 10, 0, 0)} className="w-10 h-10 rounded-full bg-green-100 text-green-600 hover:bg-green-200 flex items-center justify-center" title="+10 銅">
-                                                {/* 加號圖示 (Plus) */}
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                                              </button>
-                                              <button onClick={() => onUpdateBalance(student.id, -10, 0, 0)} className="w-10 h-10 rounded-full bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center" title="-10 銅">
-                                                {/* 減號圖示 (Minus) */}
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
-                                              </button>
+                                              <button onClick={() => onUpdateBalance(student.id, 10, 0, 0)} className="w-10 h-10 rounded-full bg-green-100 text-green-600 hover:bg-green-200 flex items-center justify-center font-bold text-xl" title="+10 銅">＋</button>
+                                              <button onClick={() => onUpdateBalance(student.id, -10, 0, 0)} className="w-10 h-10 rounded-full bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center font-bold text-xl" title="-10 銅">－</button>
                                           </div>
                                       </td>
                                   </tr>
@@ -482,8 +475,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                           className="flex items-center gap-2 px-4 py-2 text-xl font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow transition"
                           title="學期結束時使用"
                       >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          期末歸零 (危險)
+                          ⚠️ 期末歸零
                       </button>
                   ) : <div></div>}
                   
