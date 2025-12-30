@@ -349,8 +349,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
    }, [saveBalance]);
    return { bankData, updateBankBalance, setBankBalanceDirectly };
 };
-
-// --- [v19.0.2 新增] 存簿與期末歸零功能 ---
+// --- [v19.0.2 修正版] 存簿與期末歸零 (內建 SVG 圖示，不需額外 Import) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
   // 處理單一學生的金錢修改
   const handleEditBalance = (studentId, type, currentVal) => {
@@ -362,7 +361,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
       }
   };
 
-  // [新增] 處理全班期末歸零
+  // 處理全班期末歸零
   const handleResetAll = async () => {
       if (authMode !== 'ADMIN') return;
       
@@ -372,12 +371,9 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
       const confirm2 = window.confirm("🧨 請再次確認：\n\n您真的要刪除全班的財產嗎？\n\n建議您先執行「匯出」備份資料後再執行此操作。\n\n按「確定」將立即執行歸零。");
       if (!confirm2) return;
 
-      // 執行歸零邏輯
       try {
           // 遍歷所有學生，將錢設為 0
           for (const student of students) {
-              // 這裡我們直接呼叫 setBankBalanceDirectly 三次來歸零 (雖然不是最高效，但在前端用最安全)
-              // 如果是 Firebase 模式，建議在 useStudentBank 裡寫一個 batch update，但這裡為了方便您修改，我們沿用現有函式
               await setBankBalanceDirectly(student.id, 'gold', 0);
               await setBankBalanceDirectly(student.id, 'silver', 0);
               await setBankBalanceDirectly(student.id, 'bronze', 0);
@@ -389,7 +385,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
       }
   };
 
-  // 計算全班總資產 (選擇性顯示)
+  // 計算全班總資產
   const totalAssets = students.reduce((acc, s) => {
       const data = bankData[s.id] || { gold: 0, silver: 0, bronze: 0 };
       return acc + (data.gold * 100) + (data.silver * 10) + data.bronze;
@@ -405,7 +401,10 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                       </h2>
                       <p className="text-green-100 mt-1 opacity-80">全班總資產估值：{totalAssets} (銅幣當量)</p>
                   </div>
-                  <button onClick={onClose} className="p-2 hover:bg-green-700 rounded-full transition"><X className="w-8 h-8" /></button>
+                  <button onClick={onClose} className="p-2 hover:bg-green-700 rounded-full transition">
+                    {/* 關閉圖示 (X) */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
               </div>
               
               <div className="flex-1 overflow-auto p-6 bg-gray-50">
@@ -423,7 +422,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                           {[...students].sort((a, b) => {
-                              // 簡單的財富排序演算法 (金>銀>銅)
                               const balA = bankData[a.id] || { gold: 0, silver: 0, bronze: 0 };
                               const balB = bankData[b.id] || { gold: 0, silver: 0, bronze: 0 };
                               const valA = balA.gold * 10000 + balA.silver * 100 + balA.bronze;
@@ -459,8 +457,14 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                                       </td>
                                       <td className="p-2 text-center">
                                           <div className="flex justify-center gap-2">
-                                              <button onClick={() => onUpdateBalance(student.id, 10, 0, 0)} className="w-10 h-10 rounded-full bg-green-100 text-green-600 hover:bg-green-200 flex items-center justify-center" title="+10 銅"><Plus className="w-6 h-6" /></button>
-                                              <button onClick={() => onUpdateBalance(student.id, -10, 0, 0)} className="w-10 h-10 rounded-full bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center" title="-10 銅"><Minus className="w-6 h-6" /></button>
+                                              <button onClick={() => onUpdateBalance(student.id, 10, 0, 0)} className="w-10 h-10 rounded-full bg-green-100 text-green-600 hover:bg-green-200 flex items-center justify-center" title="+10 銅">
+                                                {/* 加號圖示 (Plus) */}
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                              </button>
+                                              <button onClick={() => onUpdateBalance(student.id, -10, 0, 0)} className="w-10 h-10 rounded-full bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center" title="-10 銅">
+                                                {/* 減號圖示 (Minus) */}
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
+                                              </button>
                                           </div>
                                       </td>
                                   </tr>
