@@ -369,7 +369,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
   };
   const cfg = MODE_CONFIG[mode];
 
-  // 排序學生
+  // 排序學生 (依金幣 > 銀幣 > 銅幣 > 座號)
   const sortedStudents = [...students].sort((a, b) => { 
       const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
       const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 }; 
@@ -392,14 +392,14 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
     }
   };
 
-  // 處理期末歸零
+  // 處理單一學生歸零
   const handleResetAll = async (studentId) => {
       if (authMode !== 'ADMIN') return;
       if (!window.confirm(`確定要將學生 ${studentId} 的【所有資產】歸零嗎？`)) return;
       onUpdateBalance(studentId, 'RESET', 'RESET', 'RESET');
   };
 
-  // 全班歸零
+  // 處理全班歸零
   const handleResetClass = () => {
       if (authMode !== 'ADMIN') return;
       if(!window.confirm("⚠️ 危險操作：確定要將「全班所有人的錢」全部歸零嗎？\n此操作無法復原！")) return;
@@ -482,10 +482,10 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
           </table>
         </div>
         
-        {/* 底部按鈕 */}
+        {/* 3. 底部功能：全班歸零 (只有老師看得到) */}
         {authMode === 'ADMIN' && (
             <div className="p-4 bg-gray-100 border-t flex justify-start">
-                <button onClick={handleResetClass} className="px-4 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700">⚠️ 期末全班歸零</button>
+                <button onClick={handleResetClass} className="px-6 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700 flex items-center gap-2 text-xl shadow-md">⚠️ 期末全班歸零</button>
             </div>
         )}
       </div>
@@ -763,6 +763,7 @@ const App = () => {
  const executeDelete = useCallback(async () => { if (!confirmationModal) return; const { action, data } = confirmationModal; setConfirmationModal(null); let success = false; switch(action) { case 'DAILY': const assignmentIds = assignmentsForSelectedDate.map(a => a.id).filter(id => id); const name_daily = selectedDisplayDate; const count_daily = assignmentIds.length; success = await handleBatchDelete(assignmentIds, `成功刪除 ${name_daily} 的所有作業紀錄 (${count_daily} 筆)。`, "刪除該日作業失敗，請稍後再試。"); if (success) { const currentDates = availableDates.filter(d => d !== selectedDisplayDate); if (currentDates.length > 0) { setSelectedDisplayDate(currentDates[currentDates.length - 1]); } else { setSelectedDisplayDate(getTodayDate()); } } break; case 'MONTHLY': const monthName = months.find(m => m.id === selectedMonth)?.name || '該月'; const monthAssignmentIds = []; Object.keys(allAssignmentsByDate).forEach(date => { const dateMonth = date.substring(5, 7); if (dateMonth === selectedMonth) { (allAssignmentsByDate[date] || []).forEach(assignment => { if (assignment.id) monthAssignmentIds.push(assignment.id); }); } }); const monthCount = monthAssignmentIds.length; success = await handleBatchDelete(monthAssignmentIds, `成功刪除 ${monthName} 期間的 ${monthCount} 筆作業紀錄。`, "刪除月份作業失敗，請稍後再試。"); if (success) setSelectedDisplayDate(getTodayDate()); break; case 'SEMESTER': const semesterData = semesters.find(s => s.id === selectedSemester); const semName = semesterData ? semesterData.name : '全部'; const semAssignmentIds = []; Object.keys(allAssignmentsByDate).forEach(date => { const dateMonth = parseInt(date.substring(5, 7), 10); const dateYear = parseInt(date.substring(0, 4), 10); if (semesterData.id === 'S1') { if ((dateYear === semesterData.startYear && dateMonth >= 8 && dateMonth <= 12) || (dateYear === semesterData.endYear && dateMonth === 1)) { (allAssignmentsByDate[date] || []).forEach(assignment => { if (assignment.id) semAssignmentIds.push(assignment.id); }); } } else if (semesterData.id === 'S2') { if (dateYear === semesterData.endYear && dateMonth >= 2 && dateMonth <= 7) { (allAssignmentsByDate[date] || []).forEach(assignment => { if (assignment.id) semAssignmentIds.push(assignment.id); }); } } }); const semCount = semAssignmentIds.length; success = await handleBatchDelete(semAssignmentIds, `成功刪除 ${semName} 期間的 ${semCount} 筆作業紀錄。`, "刪除學期作業失敗，請稍後再試。"); if (success) setSelectedDisplayDate(getTodayDate()); break; default: break; } }, [confirmationModal, handleBatchDelete, assignmentsForSelectedDate, selectedDisplayDate, availableDates, allAssignmentsByDate, months, selectedMonth, semesters]);
  
  // --- [v20.0.0 修復] 匯出 (含 BankData) ---
+ // --- [v20.0.0 修復] 匯出 (含 BankData) ---
  const handleExportData = useCallback(async () => { 
     if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯出。"); return; } 
     setLoading(true); 
@@ -785,197 +786,383 @@ const App = () => {
         const dataStr = JSON.stringify(exportObj, null, 2); const blob = new Blob([dataStr], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `assignment_data_${getTodayDate()}${isOffline ? '_offline' : ''}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); setAlertMessage(`成功匯出完整備份 (含存簿資料)。`); 
     } catch (e) { console.error("Export failed:", e); setAlertMessage("匯出資料失敗。"); } finally { setLoading(false); } 
  }, [db, userId, setAlertMessage, isOffline, allAssignmentsByDate, bankData, students]);
+// --- [v20.0.0 修復] 匯入 (含 BankData) ---
+  const handleImportData = useCallback(async (e) => {
+    if (authMode !== 'ADMIN' && !isOffline) {
+      setAlertMessage("權限不足：只有老師可以匯入資料。"); return;
+    }
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        
+        // 判斷是否為新版 (Object)
+        if (json.bankData || json.students) {
+           // 新版邏輯
+           if (json.students) setStudents(json.students);
+           if (json.bankData) setBankData(json.bankData); // 💰 還原錢
+           if (isOffline && json.allAssignmentsByDate) setAllAssignmentsByDate(json.allAssignmentsByDate);
+           
+           // 線上模式若需還原作業，可在此擴充寫入 DB 邏輯
+           // 離線模式直接還原 State
+           if(isOffline && json.assignments && Array.isArray(json.assignments)) {
+              const newMap = {};
+              json.assignments.forEach(a => {
+                  if(!newMap[a.assignmentDate]) newMap[a.assignmentDate] = [];
+                  newMap[a.assignmentDate].push(a);
+              });
+              setAllAssignmentsByDate(newMap);
+           }
+           setAlertMessage("✅ 完整資料還原成功 (含存簿)！");
+        } else if (Array.isArray(json)) {
+           // 舊版邏輯 (只還原作業)
+           setAlertMessage("⚠️ 偵測到舊版備份檔。僅還原作業，無法還原存簿。");
+           if (isOffline) {
+              const newMap = { ...allAssignmentsByDate };
+              json.forEach(item => {
+                  const date = item.assignmentDate || getTodayDate();
+                  if (!newMap[date]) newMap[date] = [];
+                  newMap[date].push(item);
+              });
+              setAllAssignmentsByDate(newMap);
+           }
+        }
+      } catch (err) {
+        console.error(err);
+        setAlertMessage("匯入失敗：格式錯誤");
+      } finally {
+        setLoading(false);
+        e.target.value = null;
+      }
+    };
+    reader.readAsText(file);
+  }, [db, userId, setAlertMessage, isOffline, authMode, allAssignmentsByDate]);
 
- // --- [v20.0.0 修復] 匯入 (含 BankData) ---
- const handleImportData = useCallback(async (e) => { 
-    if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以匯入資料。"); return; } 
-    if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯入。"); return; } 
-    const file = e.target.files[0]; if (!file) return; setLoading(true); const reader = new FileReader(); 
-    reader.onload = async (event) => { 
-        try { 
-            const json = JSON.parse(event.target.result); 
-            // 處理舊版 (Array)
-            if (Array.isArray(json)) { 
-                setAlertMessage("⚠️ 偵測到舊版備份檔。僅能還原作業，無法還原存簿。");
-                // (此處保留原有的舊版匯入邏輯，略)
-                // 若要支援舊版，請使用您原本的舊版代碼片段，但建議盡快全面轉移到新格式
-            } else {
-                // 處理新版 (Object)
-                if (json.bankData) setBankData(json.bankData); // 💰 還原錢
-                if (isOffline && json.allAssignmentsByDate) setAllAssignmentsByDate(json.allAssignmentsByDate);
-                
-                // 還原作業 (這裡需要將 json.assignments 寫回 DB 或 State)
-                // 為了安全起見，若您有舊備份，建議先用舊功能匯入作業，再手動調整錢。
-                // 若是完整新備份，則會正常運作。
-                setAlertMessage("✅ 完整資料還原成功 (含存簿)！");
-            }
-        } catch (error) { console.error("Import failed:", error); setAlertMessage("匯入失敗：檔案解析錯誤或數據格式不正確。"); } finally { setLoading(false); e.target.value = null; } 
-    }; reader.readAsText(file); 
- }, [db, userId, setAlertMessage, getInitialSubmissionStatus, allAssignmentsByDate, isOffline, authMode]); 
- 
- const isGlobalLoading = loading || loadingCategories || loadingStudents;
-    if (isGlobalLoading && !isAuthReady && !isOffline) {
-   return ( 
-     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
-       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
-       <p className="text-3xl text-gray-600 mb-6">正在連線至雲端資料庫...</p>
-       {authTimeout && ( <div className="text-center animate-fade-in"> <p className="text-2xl text-amber-600 mb-4">連線似乎有點慢，或是無法連接到伺服器。</p> <button onClick={handleGoOffline} className="bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 rounded-xl text-3xl font-bold shadow-lg transition transform hover:scale-105 flex items-center gap-3 mx-auto"> <WifiOff className="w-8 h-8" /> 強制進入 (離線/演示模式) </button> </div> )}
-     </div> 
-   );
- }
+  const isGlobalLoading = loading || loadingCategories || loadingStudents;
 
- if (!isAuthenticated && !loading && !loadingCategories) {
-     return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
- }
+  if (isGlobalLoading && !isAuthReady && !isOffline) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
+        <p className="text-3xl text-gray-600 mb-6">正在連線至雲端資料庫...</p>
+        {authTimeout && (
+          <div className="text-center animate-fade-in">
+            <p className="text-2xl text-amber-600 mb-4">連線似乎有點慢，或是無法連接到伺服器。</p>
+            <button onClick={handleGoOffline} className="bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 rounded-xl text-3xl font-bold shadow-lg transition transform hover:scale-105 flex items-center gap-3 mx-auto">
+              <WifiOff className="w-8 h-8" /> 強制進入 (離線/演示模式)
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
- if (error) {
-   return ( <div className="p-8 text-center bg-red-100 border-l-8 border-red-500 text-red-700"> <h2 className="text-3xl font-bold mb-2">發生錯誤 (Error Occurred)</h2> <p className="text-xl whitespace-pre-line">{error}</p> <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-lg text-xl hover:bg-red-700 transition flex items-center justify-center mx-auto"> <RefreshCw className="w-6 h-6 mr-2" /> 重新整理 </button> </div> );
- }
+  if (!isAuthenticated && !loading && !loadingCategories) {
+    return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
+  }
 
- return (
-  <DndProvider backend={HTML5Backend}>
-  <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
-    {rewardState && ( <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} /> )}
-    {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalanceDirectly={setBankBalanceDirectly} authMode={authMode} students={students} /> )}
-    {dashboardStudent && ( <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={() => setDashboardStudent(null)} /> )}
-    {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
-    {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={students.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} /> )}
-    {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
+  if (error) {
+    return (
+      <div className="p-8 text-center bg-red-100 border-l-8 border-red-500 text-red-700">
+        <h2 className="text-3xl font-bold mb-2">發生錯誤 (Error Occurred)</h2>
+        <p className="text-xl whitespace-pre-line">{error}</p>
+        <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-lg text-xl hover:bg-red-700 transition flex items-center justify-center mx-auto">
+          <RefreshCw className="w-6 h-6 mr-2" /> 重新整理
+        </button>
+      </div>
+    );
+  }
 
-    <div className="bg-white shadow-xl w-full flex flex-col h-full">
-      <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
-        {isOffline && ( <div className="absolute top-0 left-0 w-full bg-gray-800 text-white text-center py-2 text-xl font-bold tracking-wider z-10"> ⚠️ 目前為離線演示模式 (Guest Mode) </div> )}
-         <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20" title="登出系統"> <LogOut className="w-5 h-5" /> 登出 {authMode === 'ADMIN' ? '(老師)' : '(訪客)'} </button>
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
+        {rewardState && <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} />}
+        {showBankModal && (
+          <StudentBankModal
+            bankData={bankData}
+            onClose={() => setShowBankModal(false)}
+            onUpdateBalance={updateBankBalance}
+            setBankBalanceDirectly={setBankBalanceDirectly}
+            authMode={authMode}
+            students={students}
+          />
+        )}
+        {dashboardStudent && (
+          <StudentHistoryModal
+            student={dashboardStudent}
+            allAssignmentsByDate={allAssignmentsByDate}
+            bankBalance={bankData[dashboardStudent.id]}
+            semesterId={selectedSemester}
+            onClose={() => setDashboardStudent(null)}
+          />
+        )}
+        {confirmationModal && (
+          <ConfirmationModal
+            title={confirmationModal.title}
+            message={confirmationModal.message}
+            onConfirm={executeDelete}
+            onCancel={() => setConfirmationModal(null)}
+            confirmTitle={confirmationModal.confirmTitle}
+            confirmColor={confirmationModal.confirmColor}
+          />
+        )}
+        {missingStudent && missingStudent.missingCount > 0 && (
+          <MissingDetailsModal
+            student={students.find((s) => s.id === missingStudent.id)}
+            missingStats={studentMissingStats}
+            onClose={() => setMissingStudent(null)}
+            handleDeleteStudentGlobalData={handleDeleteStudentGlobalData}
+            db={db}
+            userId={userId}
+            allAssignmentsByDate={allAssignmentsByDate}
+            setAlertMessage={setAlertMessage}
+            isOffline={isOffline}
+            authMode={authMode}
+          />
+        )}
+        {showAllMissingModal && <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} />}
 
-        <div className={`flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2 ${isOffline ? 'mt-8' : ''}`}><span className="text-orange-500 text-6xl mr-3">🐻‍❄️</span><span className="text-5xl">五年甲班訂正作業表</span><span className="text-green-600 text-6xl ml-3">🐼</span></div>
-        <p className="text-3xl text-gray-600 mb-4"> {new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'long' })}</p>
-        <p className={`absolute right-4 text-xl text-gray-500 font-bold z-30 transition-all ${authMode === 'ADMIN' ? 'top-20' : 'top-4'}`}> 版本: {VERSION}</p>
-      </header>
-      {alertMessage && ( <CustomAlert message={alertMessage} onClose={() => setAlertMessage(null)} /> )}
-      
-      <div className="flex-1 overflow-auto bg-gray-50 p-4 relative">
-          <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl">
-              <label className="font-semibold text-gray-700">學期：</label>
-              <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading}>{semesters.map((s) => ( <option key={s.id} value={s.id}>{s.name}</option>))}</select>
-              <label className="font-semibold text-gray-700">月份：</label>
-              <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading} style={{ backgroundColor: months.find(m => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
-              
-              <div className="flex items-center gap-3">
-                  <button onClick={() => setShowBankModal(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md flex items-center justify-center" disabled={isGlobalLoading}> <BookOpen className="h-6 w-6 mr-2" />訂正存簿 </button>
-                  {/* [新增] 結算發布按鈕 */}
-                  {authMode === 'ADMIN' && (
-                      <button 
-                          onClick={handleBatchSettlement} 
-                          className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`} 
-                          disabled={isGlobalLoading || dailySettlements[selectedDisplayDate]?.isSettled}
-                      > 
-                          {dailySettlements[selectedDisplayDate]?.isSettled ? <><Lock className="h-6 w-6 mr-2" />已發布</> : <><Megaphone className="h-6 w-6 mr-2" />結算發布</>}
-                      </button>
-                  )}
+        <div className="bg-white shadow-xl w-full flex flex-col h-full">
+          <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
+            {isOffline && (
+              <div className="absolute top-0 left-0 w-full bg-gray-800 text-white text-center py-2 text-xl font-bold tracking-wider z-10">
+                ⚠️ 目前為離線演示模式 (Guest Mode)
               </div>
-          </div>
-          
-          <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2">
-              {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} onEdit={() => handleEditCurrentDate(date)} authMode={authMode} /> ))}
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-2 mb-6">
-               <input id="newAssignmentDate" type="date" value={newAssignmentDate} onChange={handleNewAssignmentDateChange} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] focus:ring-yellow-500 focus:border-yellow-500 transition flex-shrink-0" required disabled={isGlobalLoading} />
-                <button onClick={handleAddNewDate} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${isGlobalLoading ? 'bg-yellow-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'}`} disabled={isGlobalLoading || !newAssignmentDate}> + 新增日期 </button>
-               <button onClick={handleExportData} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-fuchsia-400 hover:bg-fuchsia-500 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="將所有紀錄匯出為 JSON 檔案"> <Download className="h-6 w-6 mr-1" />匯出 </button>
-                <button onClick={() => setShowAllMissingModal(true)} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="檢視全班未完成作業總表"> <FileText className="h-6 w-6 mr-1" />未完成總表 </button>
+            )}
+            <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20" title="登出系統">
+              <LogOut className="w-5 h-5" /> 登出 {authMode === 'ADMIN' ? '(老師)' : '(訪客)'}
+            </button>
+
+            {/* 這裡就是您要保留的熊貓標題 */}
+            <div className={`flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2 ${isOffline ? 'mt-8' : ''}`}>
+              <span className="text-orange-500 text-6xl mr-3">🐻‍❄️</span>
+              <span className="text-5xl">五年甲班訂正作業表</span>
+              <span className="text-green-600 text-6xl ml-3">🐼</span>
+            </div>
+            
+            <p className="text-3xl text-gray-600 mb-4">
+              {new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'long' })}
+            </p>
+            <p className={`absolute right-4 text-xl text-gray-500 font-bold z-30 transition-all ${authMode === 'ADMIN' ? 'top-20' : 'top-4'}`}> 版本: {VERSION}</p>
+          </header>
+          {alertMessage && <CustomAlert message={alertMessage} onClose={() => setAlertMessage(null)} />}
+
+          <div className="flex-1 overflow-auto bg-gray-50 p-4 relative">
+            <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl">
+              <label className="font-semibold text-gray-700">學期：</label>
+              <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading}>
+                {semesters.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <label className="font-semibold text-gray-700">月份：</label>
+              <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading} style={{ backgroundColor: months.find((m) => m.id === selectedMonth)?.color || 'white' }}>
+                {filteredMonths.map((m) => (
+                  <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex items-center gap-3">
+                <button onClick={() => setShowBankModal(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md flex items-center justify-center" disabled={isGlobalLoading}>
+                  <BookOpen className="h-6 w-6 mr-2" />
+                  訂正存簿
+                </button>
+                {authMode === 'ADMIN' && (
+                  <button onClick={handleBatchSettlement} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`} disabled={isGlobalLoading || dailySettlements[selectedDisplayDate]?.isSettled}>
+                    {dailySettlements[selectedDisplayDate]?.isSettled ? (
+                      <>
+                        <Lock className="h-6 w-6 mr-2" />
+                        已發布
+                      </>
+                    ) : (
+                      <>
+                        <Megaphone className="h-6 w-6 mr-2" />
+                        結算發布
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2">
+              {displayedDates.map((date) => (
+                <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} onEdit={() => handleEditCurrentDate(date)} authMode={authMode} />
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              <input id="newAssignmentDate" type="date" value={newAssignmentDate} onChange={handleNewAssignmentDateChange} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] focus:ring-yellow-500 focus:border-yellow-500 transition flex-shrink-0" required disabled={isGlobalLoading} />
+              <button onClick={handleAddNewDate} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${isGlobalLoading ? 'bg-yellow-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'}`} disabled={isGlobalLoading || !newAssignmentDate}>
+                + 新增日期
+              </button>
+              <button onClick={handleExportData} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-fuchsia-400 hover:bg-fuchsia-500 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="將所有紀錄匯出為 JSON 檔案">
+                <Download className="h-6 w-6 mr-1" />
+                匯出
+              </button>
+              <button onClick={() => setShowAllMissingModal(true)} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="檢視全班未完成作業總表">
+                <FileText className="h-6 w-6 mr-1" />
+                未完成總表
+              </button>
               <div className={`${authMode === 'ADMIN' ? 'flex-1 relative' : 'relative'}`}>
-                  <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isGlobalLoading} title="選擇 JSON 檔案匯入紀錄" />
-                  <button onClick={() => document.getElementById('importFile').click()} className={`${authMode === 'ADMIN' ? 'px-4 py-2 w-full' : 'px-5 py-3 w-full'} text-3xl font-medium rounded-lg text-white bg-cyan-500 hover:bg-cyan-600 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading}> <Upload className="h-6 w-6 mr-1" />匯入 </button>
+                <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isGlobalLoading} title="選擇 JSON 檔案匯入紀錄" />
+                <button onClick={() => document.getElementById('importFile').click()} className={`${authMode === 'ADMIN' ? 'px-4 py-2 w-full' : 'px-5 py-3 w-full'} text-3xl font-medium rounded-lg text-white bg-cyan-500 hover:bg-cyan-600 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading}>
+                  <Upload className="h-6 w-6 mr-1" />
+                  匯入
+                </button>
               </div>
 
               {authMode === 'ADMIN' && (
-                  <>
-                      <ProtectedButton onClick={() => handleDeleteDateAssignments()} disabled={isGlobalLoading || assignmentsForSelectedDate.length === 0} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-gray-900 hover:bg-gray-800`} title="刪除該日所有作業 (需按住 Shift)"><span className="text-4xl mr-1">🧨</span>刪除日期</ProtectedButton>
-                      <ProtectedButton onClick={() => handleDeleteMonthAssignments()} disabled={isGlobalLoading} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-amber-800 hover:bg-amber-900`} title={`刪除所選月份`}><span className="text-4xl mr-1">💣</span>刪除月份</ProtectedButton>
-                      <ProtectedButton onClick={() => handleDeleteSemesterAssignments()} disabled={isGlobalLoading} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-rose-500 hover:bg-rose-600`} title={`刪除學期/全部資料`}><span className="text-4xl mr-1">☢️</span>刪除學期</ProtectedButton>
-                  </>
+                <>
+                  <ProtectedButton onClick={() => handleDeleteDateAssignments()} disabled={isGlobalLoading || assignmentsForSelectedDate.length === 0} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-gray-900 hover:bg-gray-800`} title="刪除該日所有作業 (需按住 Shift)">
+                    <span className="text-4xl mr-1">🧨</span>刪除日期
+                  </ProtectedButton>
+                  <ProtectedButton onClick={() => handleDeleteMonthAssignments()} disabled={isGlobalLoading} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-amber-800 hover:bg-amber-900`} title={`刪除所選月份`}>
+                    <span className="text-4xl mr-1">💣</span>刪除月份
+                  </ProtectedButton>
+                  <ProtectedButton onClick={() => handleDeleteSemesterAssignments()} disabled={isGlobalLoading} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-rose-500 hover:bg-rose-600`} title={`刪除學期/全部資料`}>
+                    <span className="text-4xl mr-1">☢️</span>刪除學期
+                  </ProtectedButton>
+                </>
               )}
-          </div>
-          
-           <div className="flex justify-between items-center mb-6">
+            </div>
+
+            <div className="flex justify-between items-center mb-6">
               <h2 className="text-5xl font-bold text-gray-800 flex items-center">
-                  <span className="text-gray-500 mr-3 text-5xl">📋</span>
-                  {selectedDisplayDate ? (
-                      <div className="flex items-center gap-3">
-                          <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span>
-                          {dailySettlements[selectedDisplayDate]?.isSettled && <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-lg rounded-full font-bold border border-indigo-200 flex items-center"><Lock className="w-4 h-4 mr-1"/>已發布</span>}
-                          {authMode === 'ADMIN' && (
-                               <button onClick={() => handleEditCurrentDate(selectedDisplayDate)} className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full text-gray-600 hover:text-gray-800 transition shadow-sm" title="修改此日期" disabled={isGlobalLoading}> <Edit className="w-6 h-6" /> </button>
-                          )}
-                      </div>
-                  ) : '請選擇日期'}
+                <span className="text-gray-500 mr-3 text-5xl">📋</span>
+                {selectedDisplayDate ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span>
+                    {dailySettlements[selectedDisplayDate]?.isSettled && (
+                      <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-lg rounded-full font-bold border border-indigo-200 flex items-center">
+                        <Lock className="w-4 h-4 mr-1" />
+                        已發布
+                      </span>
+                    )}
+                    {authMode === 'ADMIN' && (
+                      <button onClick={() => handleEditCurrentDate(selectedDisplayDate)} className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full text-gray-600 hover:text-gray-800 transition shadow-sm" title="修改此日期" disabled={isGlobalLoading}>
+                        <Edit className="w-6 h-6" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  '請選擇日期'
+                )}
               </h2>
               <div className="flex items-center gap-4">
-                  {focusedStudentId && ( <button onClick={() => setFocusedStudentId(null)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-gray-600 hover:bg-gray-700 transition duration-150 shadow-md flex items-center"> <Eye className="h-8 w-8 mr-2" /> 顯示全部學生 </button> )}
-                  <button onClick={handleAddNewAssignment} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center ${isGlobalLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-500'}`} disabled={isGlobalLoading || !selectedDisplayDate}><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>新增作業</button>
+                {focusedStudentId && (
+                  <button onClick={() => setFocusedStudentId(null)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-gray-600 hover:bg-gray-700 transition duration-150 shadow-md flex items-center">
+                    <Eye className="h-8 w-8 mr-2" /> 顯示全部學生
+                  </button>
+                )}
+                <button onClick={handleAddNewAssignment} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center ${isGlobalLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-500'}`} disabled={isGlobalLoading || !selectedDisplayDate}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  新增作業
+                </button>
               </div>
-          </div>
+            </div>
 
-          {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
-          
-          <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-y-auto overflow-x-auto h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}> 
+            {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && (
+              <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3>
+                <p className="text-3xl text-gray-600 mt-2">請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p>
+              </div>
+            )}
+
+            <div className={`w-full relative border border-gray-300 rounded-lg shadow-xl overflow-y-auto overflow-x-auto h-[calc(100vh-220px)] min-h-[500px] mb-8 ${focusedStudentId ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}>
               <div className="pb-4 min-w-max">
-                  {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
-                       <table className="divide-y divide-gray-300 w-full">
-                          <thead className="bg-gray-100 sticky top-0 z-[70]">
-                              <tr>
-                                  <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 sticky left-0 top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '100px', width: '100px', maxWidth: '100px', left: '0px' }}>座號</th>
-                                  <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 sticky top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '100px' }}>姓名</th>
-                                  {assignmentsForSelectedDate.map((assignment) => (
-                                      <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} authMode={authMode} />
-                                  ))}
-                              </tr>
-                          </thead>
-                          <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
-                              {(focusedStudentId ? students.filter(s => s.id === focusedStudentId) : students).map((student) => (
-                                  <tr key={student.id} className={`group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
-                                          <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 sticky left-0 bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words align-middle transition-colors" title="點擊查看學習歷程" style={{ minWidth: '100px', width: '100px', maxWidth: '100px', left: '0px' }}>
-                                              {student.id}
-                                          </td>
-                                          <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold sticky bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 align-middle transition-colors" title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"} style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '100px' }}>
-                                              {student.name[0] + 'O' + student.name.slice(2)}
-                                          </td>
-                                          {assignmentsForSelectedDate.map((assignment) => {
-                                              const assignmentName = assignment.assignmentName;
-                                              const assignmentData = assignmentMap[assignmentName];
-                                              const status = assignmentData ? assignmentData.submissionStatus[student.id] ?? true : true;
-                                              return (
-                                                  <td key={`${student.id}-${assignmentName}`} className="px-1 py-4 whitespace-nowrap text-center" style={{ minWidth: '150px' }}>
-                                                      <div className="relative inline-block">
-                                                          <button onClick={() => handleToggleSubmission(assignmentName, student.id, status)} disabled={isGlobalLoading} className={`p-2 rounded-lg transition duration-150 shadow-md disabled:cursor-not-allowed relative ${status === true ? 'bg-green-200 text-green-700 hover:bg-green-300' : (status === 'late' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-white border-4 border-red-300 text-red-500 hover:bg-red-50')}`} aria-label={status === true ? '已完成' : (status === 'late' ? '遲繳' : '待完成')}> {status === false ? ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg> )} </button>
-                                                      </div>
-                                                  </td>
-                                              );
-                                          })}
-                                  </tr>
-                              ))}
-                          </tbody>
-                      </table>
-                  )}
+                {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
+                  <table className="divide-y divide-gray-300 w-full">
+                    <thead className="bg-gray-100 sticky top-0 z-[70]">
+                      <tr>
+                        <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 sticky left-0 top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '100px', width: '100px', maxWidth: '100px', left: '0px' }}>
+                          座號
+                        </th>
+                        <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 sticky top-0 bg-gray-100 z-[70] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '100px' }}>
+                          姓名
+                        </th>
+                        {assignmentsForSelectedDate.map((assignment) => (
+                          <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} authMode={authMode} />
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
+                      {(focusedStudentId ? students.filter((s) => s.id === focusedStudentId) : students).map((student) => (
+                        <tr key={student.id} className={`group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
+                          <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 sticky left-0 bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words align-middle transition-colors" title="點擊查看學習歷程" style={{ minWidth: '100px', width: '100px', maxWidth: '100px', left: '0px' }}>
+                            {student.id}
+                          </td>
+                          <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold sticky bg-white z-[50] text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 align-middle transition-colors" title={focusedStudentId === student.id ? '點擊以顯示全部學生' : '點擊以只顯示此學生'} style={{ minWidth: '128px', width: '128px', maxWidth: '128px', left: '100px' }}>
+                            {student.name[0] + 'O' + student.name.slice(2)}
+                          </td>
+                          {assignmentsForSelectedDate.map((assignment) => {
+                            const assignmentName = assignment.assignmentName;
+                            const assignmentData = assignmentMap[assignmentName];
+                            const status = assignmentData ? assignmentData.submissionStatus[student.id] ?? true : true;
+                            return (
+                              <td key={`${student.id}-${assignmentName}`} className="px-1 py-4 whitespace-nowrap text-center" style={{ minWidth: '150px' }}>
+                                <div className="relative inline-block">
+                                  <button onClick={() => handleToggleSubmission(assignmentName, student.id, status)} disabled={isGlobalLoading} className={`p-2 rounded-lg transition duration-150 shadow-md disabled:cursor-not-allowed relative ${status === true ? 'bg-green-200 text-green-700 hover:bg-green-300' : status === 'late' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-white border-4 border-red-300 text-red-500 hover:bg-red-50'}`} aria-label={status === true ? '已完成' : status === 'late' ? '遲繳' : '待完成'}>
+                                    {status === false ? (
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    ) : (
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
-          </div>
-          
-          <MissingColorExplanation />
-          <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner border border-gray-200">
-              <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">⚠️</span><span className="text-4xl">全班未訂正統計</span></h2>
+            </div>
+
+            <MissingColorExplanation />
+            <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner border border-gray-200">
+              <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">
+                <span className="text-5xl mr-3">⚠️</span>
+                <span className="text-4xl">全班未訂正統計</span>
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                  {studentMissingStats.map((stat) => {
-                      const colorClasses = getMissingColorClasses(stat.missingCount);
-                      const countText = stat.missingCount;
-                      return ( <div key={stat.id} onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} className={`relative p-4 rounded-2xl cursor-pointer transition-all duration-150 ${colorClasses.bg} ${colorClasses.border} ${colorClasses.text} text-center border-2 border-b-[8px] active:border-b-[2px] active:translate-y-[6px] hover:-translate-y-[2px] hover:shadow-md`}> <p className="text-4xl font-semibold mb-1">{stat.name[0] + 'O' + stat.name.slice(2)}</p> <p className={`text-6xl font-black mt-2 ${colorClasses.countText}`}>{countText}</p> </div> );
-                  })}
+                {studentMissingStats.map((stat) => {
+                  const colorClasses = getMissingColorClasses(stat.missingCount);
+                  const countText = stat.missingCount;
+                  return (
+                    <div key={stat.id} onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} className={`relative p-4 rounded-2xl cursor-pointer transition-all duration-150 ${colorClasses.bg} ${colorClasses.border} ${colorClasses.text} text-center border-2 border-b-[8px] active:border-b-[2px] active:translate-y-[6px] hover:-translate-y-[2px] hover:shadow-md`}>
+                      <p className="text-4xl font-semibold mb-1">{stat.name[0] + 'O' + stat.name.slice(2)}</p>
+                      <p className={`text-6xl font-black mt-2 ${colorClasses.countText}`}>{countText}</p>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+            <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
           </div>
-          <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
+        </div>
       </div>
-    </div>
-  </div>
-  </DndProvider>
- );
+    </DndProvider>
+  );
 };
+
+export default App;
