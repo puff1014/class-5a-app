@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v20.0.14 - 版面極限壓縮與字體調整'; 
+const VERSION = 'v20.0.18 - 橫向佈局與表格修復版'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -118,7 +118,7 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
    const maxTotal = Math.max(...data.map(d => d.details.count), 1); const barWidth = Math.min(60, chartWidth / data.length * 0.6); 
    return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> {data.map((d, i) => { const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2; const totalHeight = chartHeight; const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight; const lateHeight = (d.details.late / maxTotal) * totalHeight; const missingHeight = (d.details.missing / maxTotal) * totalHeight; const yGreen = (height - padding) - onTimeHeight; const yYellow = yGreen - lateHeight; const yRed = yYellow - missingHeight; return ( <g key={i} className="group"> {d.details.onTime > 0 && (<rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.late > 0 && (<rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.missing > 0 && (<rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text> <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text> <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title> </g> ); })} </svg> );
 };
-// --- 學生學習歷程 Dashboard Modal (V20.0.14: 極限壓縮版 - 字體大小與空間全面優化) ---
+// --- 學生學習歷程 Dashboard Modal (V20.0.15: 資訊卡橫向並排 + 圖表表格分離修復) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
@@ -277,10 +277,10 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             {/* 加寬視窗至 98vw，幾近全螢幕，邊框縮小 */}
             <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-[98vw] h-[98vh] flex flex-col overflow-hidden border-[8px] ${currentFeedback.isAlert ? 'border-red-500' : 'border-white'}`}>
                 
-                {/* 1. Header 區域 (V20.0.14: 標題加大，評語與獅王並排且加底色區分) */}
+                {/* 1. Header 區域 (保持 V20.0.14 的設計) */}
                 <div className={`px-5 py-4 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
                     <div className="flex items-center gap-4 w-full">
-                        {/* 左側：座號 + 姓名 + 標題 (標題加大一號至 5xl) */}
+                        {/* 左側：座號 + 姓名 + 標題 */}
                         <div className="flex items-center gap-4 shrink-0">
                             <div className={`w-24 h-24 bg-white rounded-full flex items-center justify-center text-5xl font-bold shadow-lg border-8 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>{student.id}</div>
                             <div className="flex flex-col justify-center">
@@ -292,7 +292,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                         {/* 分隔線 */}
                         <div className="h-16 w-[2px] bg-white/30 mx-4"></div>
 
-                        {/* 右側：分數 + 獅王 + 評語 (並排顯示，評語加底色) */}
+                        {/* 右側：分數 + 獅王 + 評語 */}
                         <div className="flex flex-1 items-center bg-white/10 rounded-2xl px-5 py-3 backdrop-blur-sm border border-white/20 h-full">
                             <div className="flex flex-col shrink-0 mr-6">
                                 <div className="text-xl font-bold text-white/80 mb-1">🏆 綜合總分</div>
@@ -300,7 +300,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                             </div>
                             <div className="h-12 w-[2px] bg-white/30 mr-6"></div>
                             <div className="flex items-center flex-1">
-                                {/* 獅王與評語並排，字體大小一致 (4xl)，評語加底色區分 */}
                                 <span className="text-4xl font-bold text-white mr-4 shrink-0">{overallBadge.animal}</span>
                                 <div className="text-4xl font-medium text-white/95 leading-tight overflow-hidden text-ellipsis whitespace-nowrap bg-white/20 px-4 py-2 rounded-xl backdrop-blur-md border border-white/30">{overallBadge.comment}</div>
                             </div>
@@ -309,7 +308,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                     <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md ml-4 shrink-0"><X className="w-8 h-8" /></button>
                 </div>
 
-                {/* 2. 工具列 (按鈕 + 資產顯示) - 保持緊湊 */}
+                {/* 2. 工具列 (按鈕 + 資產顯示) */}
                 <div className="bg-gray-100 p-3 flex justify-between items-center shadow-inner shrink-0">
                     <div className="flex gap-3">
                         <button onClick={() => setViewMode('STATUS')} className={`px-6 py-3 rounded-xl text-2xl font-bold transition-all duration-300 flex items-center gap-2 ${viewMode === 'STATUS' ? 'bg-white text-indigo-600 shadow-md ring-2 ring-indigo-200' : 'text-gray-500 hover:bg-gray-200'}`}><BarChart2 className="w-7 h-7"/> 狀況統計</button>
@@ -325,70 +324,78 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                     </div>
                 </div>
 
-                {/* 3. 主要內容區 (V20.0.14: 極限壓縮 + 字體全面加大) */}
+                {/* 3. 主要內容區 (V20.0.15: 上方橫向卡片 + 下方圖表表格分離) */}
                 <div className={`flex-1 overflow-auto p-4 ${currentFeedback.bg} flex flex-col`}>
                     
-                    {/* 上半部：資訊圖卡 (高度壓縮，字體調整) */}
+                    {/* 上半部：資訊圖卡 (全面橫向排列) */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 shrink-0">
-                        {/* 左欄：本學期統計 (欄位變窄，下方小欄位字體與寬度縮小) */}
-                        <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col justify-center items-center relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-4 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
-                            <p className="text-gray-500 text-2xl font-bold mb-2">本學期{viewMode === 'STATUS' ? '統計天數' : '作業總數'}</p>
-                            <div className="flex items-baseline gap-3 mb-3">
-                                <span className={`text-5xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span>
-                                <span className="text-3xl text-gray-400 font-bold">{statsUnit}</span>
+                        {/* 左卡：本學期統計 (左右並排) */}
+                        <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex items-center justify-between relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
+                            
+                            {/* 左半：天數 */}
+                            <div className="flex flex-col pl-4">
+                                <p className="text-gray-500 text-2xl font-bold mb-1">本學期{viewMode === 'STATUS' ? '統計天數' : '作業總數'}</p>
+                                <div className="flex items-baseline gap-2">
+                                    <span className={`text-6xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span>
+                                    <span className="text-3xl text-gray-400 font-bold">{statsUnit}</span>
+                                </div>
                             </div>
-                            {/* 下方三小欄：字體縮小至 3xl，寬度縮小，內距縮小 */}
-                            <div className="flex gap-3 w-full justify-center">
-                                <div className="flex flex-col items-center bg-green-50 p-2 rounded-xl w-1/4 border border-green-100">
-                                    <span className="text-3xl font-bold text-green-600">{currentStats.completed}</span>
-                                    <span className="text-base text-green-800 font-bold mt-0">準時</span>
+
+                            {/* 右半：小數據 (字體加大到 4xl，緊湊排列) */}
+                            <div className="flex gap-2 pr-4">
+                                <div className="flex flex-col items-center bg-green-50 px-4 py-2 rounded-xl border border-green-100">
+                                    <span className="text-4xl font-bold text-green-600">{currentStats.completed}</span>
+                                    <span className="text-lg text-green-800 font-bold">準時</span>
                                 </div>
-                                <div className="flex flex-col items-center bg-yellow-50 p-2 rounded-xl w-1/4 border border-yellow-100">
-                                    <span className="text-3xl font-bold text-yellow-600">{currentStats.late}</span>
-                                    <span className="text-base text-yellow-800 font-bold mt-0">遲交</span>
+                                <div className="flex flex-col items-center bg-yellow-50 px-4 py-2 rounded-xl border border-yellow-100">
+                                    <span className="text-4xl font-bold text-yellow-600">{currentStats.late}</span>
+                                    <span className="text-lg text-yellow-800 font-bold">遲交</span>
                                 </div>
-                                <div className="flex flex-col items-center bg-red-50 p-2 rounded-xl w-1/4 border border-red-100">
-                                    <span className="text-3xl font-bold text-red-600">{currentStats.missing}</span>
-                                    <span className="text-base text-red-800 font-bold mt-0">缺交</span>
+                                <div className="flex flex-col items-center bg-red-50 px-4 py-2 rounded-xl border border-red-100">
+                                    <span className="text-4xl font-bold text-red-600">{currentStats.missing}</span>
+                                    <span className="text-lg text-red-800 font-bold">缺交</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* 右欄：分數分析 (分數縮小至 5xl，與評語並排) */}
-                        <div className={`p-4 rounded-[2rem] shadow-sm border-l-[10px] flex flex-col justify-center ${currentFeedback.border} ${currentFeedback.bg}`}>
-                            <div className="flex items-center gap-4 mb-3 pb-3 border-b border-gray-200/50">
-                                <span className="text-2xl font-bold text-gray-500">{viewMode === 'STATUS' ? '健康指數' : '績效評級'}</span>
-                                {/* 分數縮小至 5xl */}
-                                <span className={`text-5xl font-black ${currentFeedback.color}`}>{viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}</span>
+                        {/* 右卡：分數分析 (左右並排) */}
+                        <div className={`p-4 rounded-[2rem] shadow-sm border-l-[10px] flex items-center justify-between ${currentFeedback.border} ${currentFeedback.bg}`}>
+                            {/* 左半：分數 */}
+                            <div className="flex items-center gap-3 pl-4">
+                                <span className="text-2xl font-bold text-gray-500 whitespace-nowrap">{viewMode === 'STATUS' ? '健康指數' : '績效評級'}</span>
+                                <span className={`text-6xl font-black ${currentFeedback.color}`}>{viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}</span>
                                 <span className="text-2xl text-gray-400 font-bold self-end mb-1">分</span>
                             </div>
-                            <div className="flex-1 flex items-center">
-                                {/* 評語維持 5xl，與分數平行 */}
-                                <p className={`${currentFeedback.color} font-bold text-5xl leading-tight text-left`}>{currentFeedback.text}</p>
+                            
+                            {/* 右半：評語 */}
+                            <div className="flex-1 pl-6 border-l-2 border-gray-200/50 ml-6">
+                                <p className={`${currentFeedback.color} font-bold text-4xl leading-tight text-left`}>{currentFeedback.text}</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* 下半部：圖表與表格 (字體全面加大一號，高度自適應) */}
-                    <div className="flex-1 flex flex-col gap-4 min-h-0">
-                        {/* 圖表區 (標題加大至 3xl，高度自動填滿剩餘空間) */}
-                        <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-200 flex-1 flex flex-col min-h-[300px]">
-                            <h3 className="text-3xl font-bold text-gray-700 mb-4 flex items-center shrink-0">{viewMode === 'TREND' ? (<><TrendingUp className="w-9 h-9 mr-3 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-9 h-9 mr-3 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
-                            <div className="flex-1 w-full">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} /> ) : ( <SimpleStackedBarChart data={healthData} /> )}</div>
+                    {/* 下半部：圖表區 + 表格區 (垂直排列，不再重疊) */}
+                    <div className="flex flex-col gap-4">
+                        {/* 圖表區 (固定高度 350px) */}
+                        <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-200 h-[350px] shrink-0">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-3xl font-bold text-gray-700 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-8 h-8 mr-3 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-8 h-8 mr-3 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
+                            </div>
+                            <div className="w-full h-[280px]">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} height={280} /> ) : ( <SimpleStackedBarChart data={healthData} height={280} /> )}</div>
                         </div>
 
-                        {/* 表格區 (標題與內容字體全面加大至 3xl，高度自動填滿) */}
-                        <div className="bg-white rounded-[2rem] shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col min-h-[250px]">
-                            <div className="p-4 bg-gray-50 border-b border-gray-200 text-3xl font-bold text-gray-600 shrink-0">詳細數據列表</div>
-                            <div className="flex-1 overflow-auto">
-                                <table className="min-w-full divide-y divide-gray-200 h-full">
-                                    <thead className="bg-white sticky top-0 z-10"><tr><th className="px-4 py-3 text-left text-3xl font-bold text-gray-600">月份</th><th className="px-4 py-3 text-center text-3xl font-bold text-green-600">準時</th><th className="px-4 py-3 text-center text-3xl font-bold text-yellow-600">補交</th><th className="px-4 py-3 text-center text-3xl font-bold text-red-600">缺交</th><th className="px-4 py-3 text-center text-3xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
+                        {/* 表格區 (自然延伸，包含標題) */}
+                        <div className="bg-white rounded-[2rem] shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="p-4 bg-gray-50 border-b border-gray-200 text-3xl font-bold text-gray-600">詳細數據列表</div>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-white"><tr><th className="px-6 py-4 text-left text-3xl font-bold text-gray-600">月份</th><th className="px-6 py-4 text-center text-3xl font-bold text-green-600">準時</th><th className="px-6 py-4 text-center text-3xl font-bold text-yellow-600">補交</th><th className="px-6 py-4 text-center text-3xl font-bold text-red-600">缺交</th><th className="px-6 py-4 text-center text-3xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
                                     <tbody className="divide-y divide-gray-200">
                                         {chartData.map((row, idx) => {
                                             const tVal = row.value || 0;
                                             return (
-                                                <tr key={idx} className="hover:bg-gray-50"><td className="px-4 py-3 text-3xl font-bold text-gray-800">{row.label}</td><td className="px-4 py-3 text-center text-3xl font-medium text-gray-600">{row.details.onTime}</td><td className="px-4 py-3 text-center text-3xl font-medium text-gray-600">{row.details.late}</td><td className="px-4 py-3 text-center text-3xl font-medium text-gray-600">{row.details.missing}</td><td className="px-4 py-3 text-center"><span className={`inline-block px-4 py-2 rounded-full text-3xl font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>{tVal.toFixed(1)}</span></td></tr>
+                                                <tr key={idx} className="hover:bg-gray-50"><td className="px-6 py-4 text-3xl font-bold text-gray-800">{row.label}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.onTime}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.late}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.missing}</td><td className="px-6 py-4 text-center"><span className={`inline-block px-4 py-2 rounded-full text-3xl font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>{tVal.toFixed(1)}</span></td></tr>
                                             );
                                         })}
                                     </tbody>
