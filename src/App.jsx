@@ -691,7 +691,7 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
 const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => { const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); const handleDoubleClick = (e) => { if (authMode === 'ADMIN' && isSelected && onEdit) { e.stopPropagation(); onEdit(); } }; return ( <div className="relative group"> <button onClick={() => onClick(date)} onDoubleClick={handleDoubleClick} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`} title={authMode === 'ADMIN' && isSelected ? "雙擊以修改日期" : ""}> {formattedDate} {isSelected && authMode === 'ADMIN' && ( <span onClick={(e) => { e.stopPropagation(); onEdit(); }} className="inline-flex items-center justify-center p-1 bg-white/20 rounded-full hover:bg-white/40 cursor-pointer transition-colors" title="點擊修改日期"> <Pencil className="w-4 h-4 text-white" /> </span> )} </button> </div> ); };
 
 const ProtectedButton = ({ onClick, disabled, className, title, children }) => { return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> ); };
-// --- [Part 5] 資料 Hooks 與 App 主邏輯 (V20.0.7 最終修復版) ---
+// --- [Part 5] 資料 Hooks 與 App 主邏輯 (V20.0.8 自動帶入作業修復版) ---
 
 const useStudents = (db, isOffline) => {
    const [students, setStudents] = useState(DEFAULT_STUDENTS);
@@ -781,11 +781,11 @@ const App = () => {
   const filteredMonths = useMemo(() => { const currentSemesterData = semesters.find(s => s.id === selectedSemester); if (!currentSemesterData) return months; return months.filter(m => m.semester === selectedSemester); }, [months, selectedSemester, semesters]);
   useEffect(() => { if (filteredMonths.length > 0) { const currentMonthExists = filteredMonths.some(m => m.id === selectedMonth); if (!currentMonthExists) { setSelectedMonth(filteredMonths[0].id); } } }, [selectedSemester, filteredMonths, selectedMonth]);
   
-  // *** [核心修正] 移除強制跳轉邏輯 ***
+  // *** 核心：移除強制跳轉，保留純計算 ***
   const availableDates = useMemo(() => { return Object.keys(allAssignmentsByDate).sort(); }, [allAssignmentsByDate]);
   const displayedDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); const filteredByMonth = dates.filter(date => { const dateMonth = date.substring(5, 7); return dateMonth === selectedMonth; }).sort(); return filteredByMonth; }, [allAssignmentsByDate, selectedMonth]);
   
-  // *** [V20.0.7] 溫柔的自動日期切換邏輯 (解決彈回問題) ***
+  // *** 核心：溫柔的自動日期切換 ***
   useEffect(() => { 
       const currentSelectedMonth = selectedDisplayDate.substring(5, 7);
       if (currentSelectedMonth !== selectedMonth) {
@@ -802,14 +802,14 @@ const App = () => {
   const studentMissingStats = useMemo(() => { const stats = students.map(student => ({ id: student.id, name: student.name, missingCount: 0, missingDetails: [] })); Object.keys(allAssignmentsByDate).forEach(date => { const assignmentsOnDate = allAssignmentsByDate[date] || []; assignmentsOnDate.forEach(assignment => { const submissionStatus = assignment.submissionStatus || {}; students.forEach((student, index) => { if (submissionStatus[student.id] === false) { stats[index].missingCount += 1; stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName }); } }); }); }); stats.sort((a, b) => b.missingCount - a.missingCount); return stats; }, [allAssignmentsByDate, students]);
   const monthlyStudentStats = useMemo(() => { const stats = {}; students.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; students.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months, students]);
 
-  // --- Handlers (V20.0.7 強制同步日期修正) ---
+  // --- Handlers (V20.0.8 恢復自動帶入預設作業) ---
   const handleNewAssignmentDateChange = (e) => { setNewAssignmentDate(e.target.value); };
   
   const handleAddNewDate = useCallback(async () => {
       if (!newAssignmentDate) return;
       if (allAssignmentsByDate[newAssignmentDate]) { alert("該日期已存在，請直接在上方選擇。"); return; }
       
-      // 1. 強制切換月份與學期，防止 useEffect 誤判並彈回
+      // 1. 強制切換月份與學期
       const d = new Date(newAssignmentDate);
       const m = d.getMonth() + 1;
       const targetMonth = String(m).padStart(2, '0');
@@ -819,11 +819,58 @@ const App = () => {
       setSelectedSemester(targetSemester);
       setSelectedMonth(targetMonth);
       
-      // 2. 執行切換
-      if (isOffline) { setAllAssignmentsByDate(prev => ({ ...prev, [newAssignmentDate]: [] })); setSelectedDisplayDate(newAssignmentDate); setAlertMessage(`[離線] 已新增日期 ${newAssignmentDate}`); return; }
-      setSelectedDisplayDate(newAssignmentDate); 
-      setAlertMessage(`已切換至新日期 ${newAssignmentDate}，請開始新增作業。`);
-  }, [newAssignmentDate, allAssignmentsByDate, isOffline]);
+      setLoading(true);
+
+      // 2. 準備要自動加入的預設作業 (這就是您要的功能！)
+      const assignmentsToCreate = categories.map(cat => ({
+          assignmentName: cat.name,
+          order: cat.order,
+          assignmentDate: newAssignmentDate,
+          submissionStatus: getInitialSubmissionStatus,
+          makeupClaimed: {},
+          createdAt: serverTimestamp() // 線上版用 serverTimestamp
+      }));
+
+      // 離線模式處理
+      if (isOffline) { 
+          const newOfflineAssignments = assignmentsToCreate.map((a, idx) => ({
+              ...a,
+              id: `offline-auto-${Date.now()}-${idx}`,
+              createdAt: new Date().toISOString()
+          }));
+          setAllAssignmentsByDate(prev => {
+              const prevData = { ...prev };
+              prevData[newAssignmentDate] = newOfflineAssignments;
+              return prevData;
+          });
+          setSelectedDisplayDate(newAssignmentDate); 
+          setAlertMessage(`[離線] 已新增日期 ${newAssignmentDate} 並自動帶入 ${newOfflineAssignments.length} 項預設作業。`); 
+          setLoading(false);
+          return; 
+      }
+
+      // 線上模式 (Batch Write)
+      try {
+          const batch = writeBatch(db);
+          const path = getAssignmentCollectionPath();
+          
+          assignmentsToCreate.forEach(assignData => {
+              const newDocRef = doc(collection(db, path));
+              batch.set(newDocRef, assignData);
+          });
+
+          await batch.commit();
+          
+          setSelectedDisplayDate(newAssignmentDate); 
+          setAlertMessage(`已新增日期 ${newAssignmentDate} 並自動帶入 ${assignmentsToCreate.length} 項預設作業。`);
+      } catch (e) {
+          console.error("Error auto-populating assignments:", e);
+          setAlertMessage("新增日期成功，但自動帶入作業失敗，請手動新增。");
+          setSelectedDisplayDate(newAssignmentDate);
+      } finally {
+          setLoading(false);
+      }
+  }, [newAssignmentDate, allAssignmentsByDate, isOffline, categories, getInitialSubmissionStatus, db, userId]);
 
   const handleAddNewAssignment = useCallback(async () => {
       if (!selectedDisplayDate) { alert("請先選擇或新增一個日期。"); return; }
