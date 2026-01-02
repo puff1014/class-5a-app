@@ -1,13 +1,40 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, query, Timestamp, getDocs, writeBatch, serverTimestamp, where, deleteField, getDoc } from 'firebase/firestore';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+ getFirestore, 
+ collection, 
+ onSnapshot, 
+ doc,
+ setDoc, 
+ deleteDoc, 
+ query, 
+ Timestamp, 
+ getDocs, 
+ writeBatch, 
+ serverTimestamp, 
+ where,
+ deleteField,
+ getDoc
+} from 'firebase/firestore';
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { BookOpen, Download, Upload, X, Check, RefreshCw, WifiOff, LogOut, FileText, AlertCircle, Eye, Shield, User, Key, Edit, Pencil, Star, Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity, BarChart2, Megaphone, Lock, Unlock } from 'lucide-react';
+import { 
+  BookOpen, Download, Upload, X, Check, 
+  RefreshCw, WifiOff, LogOut, FileText, AlertCircle, 
+  Eye, Shield, User, Key, Edit, Pencil, Star,
+  Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity,
+  BarChart2, Megaphone, Lock, Unlock 
+} from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v20.0.2 - 熊貓完全修復版'; 
+const VERSION = 'v20.0.3 - 熊貓穩定修復版'; 
 
 // --- Config ---
 const appId = 'class-5a-app'; 
@@ -20,7 +47,7 @@ const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categor
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
 
-// --- Components: Icons & Charts ---
+// --- Components: Icons ---
 const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w-3/5 h-3/5" }) => {
    const baseClasses = `rounded-full border-[4px] flex items-center justify-center shadow-lg ${size} bg-white`;
    if (type === 'GOLD') return <div className={`${baseClasses} border-yellow-400 text-yellow-500 bg-yellow-50`} title="金幣"><Moon className={`${innerSize} fill-current`} /></div>;
@@ -28,12 +55,14 @@ const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w
    return <div className={`${baseClasses} border-orange-700 text-orange-800 bg-orange-50`} title="銅幣"><span className={`font-bold ${textSize}`}>$</span></div>;
 };
 
+// --- Components: Charts (避免 NaN 導致白畫面) ---
 const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
    if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
    const padding = 40; const chartWidth = width - padding * 2; const chartHeight = height - padding * 2; const maxY = 100;
-   const points = data.map((d, i) => { const x = (i / (data.length - 1)) * chartWidth + padding; const val = isNaN(d.value) ? 0 : d.value; const y = chartHeight - (val / maxY) * chartHeight + padding; return `${x},${y}`; }).join(' ');
+   const safeData = data.map(d => ({ ...d, value: isNaN(d.value) ? 0 : d.value })); // 安全過濾
+   const points = safeData.map((d, i) => { const x = (i / (safeData.length - 1)) * chartWidth + padding; const val = d.value; const y = chartHeight - (val / maxY) * chartHeight + padding; return `${x},${y}`; }).join(' ');
    const gridLines = [0, 60, 80, 100].map(val => { const y = chartHeight - (val / maxY) * chartHeight + padding; let color = "#e5e7eb"; if(val === 60) color = "#fca5a5"; if(val === 80) color = "#86efac"; return ( <g key={val}><line x1={padding} y1={y} x2={width - padding} y2={y} stroke={color} strokeWidth="2" strokeDasharray={val === 0 ? "" : "5,5"} /><text x={padding - 10} y={y + 5} textAnchor="end" fontSize="12" fill="gray">{val}</text></g> ); });
-   return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> {gridLines} <polyline fill="none" stroke="#3b82f6" strokeWidth="4" points={points} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-md" /> {data.map((d, i) => { const x = (i / (data.length - 1)) * chartWidth + padding; const val = isNaN(d.value) ? 0 : d.value; const y = chartHeight - (val / maxY) * chartHeight + padding; let dotColor = "#ef4444"; if (val >= 60) dotColor = "#eab308"; if (val >= 80) dotColor = "#22c55e"; return ( <g key={i} className="group"><circle cx={x} cy={y} r="6" fill={dotColor} stroke="white" strokeWidth="2" className="transition-all duration-300 group-hover:r-8 cursor-pointer"/><g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"><rect x={x - 20} y={y - 35} width="40" height="25" rx="4" fill="black" fillOpacity="0.8" /><text x={x} y={y - 18} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{val.toFixed(0)}</text></g><text x={x} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text></g> ); })} </svg> );
+   return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> {gridLines} <polyline fill="none" stroke="#3b82f6" strokeWidth="4" points={points} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-md" /> {safeData.map((d, i) => { const x = (i / (safeData.length - 1)) * chartWidth + padding; const val = d.value; const y = chartHeight - (val / maxY) * chartHeight + padding; let dotColor = "#ef4444"; if (val >= 60) dotColor = "#eab308"; if (val >= 80) dotColor = "#22c55e"; return ( <g key={i} className="group"><circle cx={x} cy={y} r="6" fill={dotColor} stroke="white" strokeWidth="2" className="transition-all duration-300 group-hover:r-8 cursor-pointer"/><g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"><rect x={x - 20} y={y - 35} width="40" height="25" rx="4" fill="black" fillOpacity="0.8" /><text x={x} y={y - 18} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{val.toFixed(0)}</text></g><text x={x} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text></g> ); })} </svg> );
 };
 
 const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
@@ -43,43 +72,103 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
    return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> {data.map((d, i) => { const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2; const totalHeight = chartHeight; const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight; const lateHeight = (d.details.late / maxTotal) * totalHeight; const missingHeight = (d.details.missing / maxTotal) * totalHeight; const yGreen = (height - padding) - onTimeHeight; const yYellow = yGreen - lateHeight; const yRed = yYellow - missingHeight; return ( <g key={i} className="group"> {d.details.onTime > 0 && (<rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.late > 0 && (<rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.missing > 0 && (<rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text> <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text> <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title> </g> ); })} </svg> );
 };
 
-// --- 學生學習歷程 Dashboard Modal ---
+// --- 預設資料 ---
+const DEFAULT_STUDENTS = [
+  { id: '1', name: '陳昕佑' }, { id: '2', name: '徐偉綸' }, { id: '3', name: '蕭淵群' }, 
+  { id: '4', name: '吳秉晏' }, { id: '5', name: '呂秉蔚' }, { id: '6', name: '吳家昇' },
+  { id: '7', name: '翁芷儀' }, { id: '8', name: '鄭筱妍' }, { id: '9', name: '周筱涵' },
+  { id: '10', name: '李婕妤' },
+];
+
+const INITIAL_CATEGORIES = [
+    { name: '數課', order: 0 }, { name: '數習', order: 1 }, { name: '數八', order: 2 },
+    { name: '成語()+P.', order: 3 }, { name: '聯P.', order: 4 }, { name: '國', order: 5 },
+];
+// --- 學生學習歷程 Dashboard Modal (已修復日期 Crash 問題) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
-    const getDaysDiff = (dateString, completedAtString) => { const targetDate = new Date(dateString); targetDate.setHours(0,0,0,0); let completedDate = new Date(); if (completedAtString) completedDate = new Date(completedAtString); completedDate.setHours(0,0,0,0); return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24))); };
-    const getDelayFromToday = (dateString) => { const today = new Date(); today.setHours(0, 0, 0, 0); const target = new Date(dateString); target.setHours(0, 0, 0, 0); return Math.floor((today - target) / (1000 * 60 * 60 * 24)); };
+
+    // *** 這裡修復了日期計算，避免 Firebase 時間物件導致當機 ***
+    const getDaysDiff = (dateString, completedAt) => {
+        const targetDate = new Date(dateString); 
+        targetDate.setHours(0,0,0,0);
+        
+        let completedDate = new Date();
+        if (completedAt) {
+            // 如果是 Firebase Timestamp 物件，轉換成 Date
+            if (typeof completedAt.toDate === 'function') {
+                completedDate = completedAt.toDate();
+            } else {
+                completedDate = new Date(completedAt);
+            }
+        }
+        completedDate.setHours(0,0,0,0);
+        return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24)));
+    };
+
+    const getDelayFromToday = (dateString) => {
+        const today = new Date(); 
+        today.setHours(0, 0, 0, 0);
+        const target = new Date(dateString); 
+        target.setHours(0, 0, 0, 0);
+        return Math.floor((today - target) / (1000 * 60 * 60 * 24));
+    };
+
     const { healthData, trendData, summaryStats, trendStats, emergencyData, overallData } = useMemo(() => {
         const healthByMonth = {}; const trendByMonth = {};
-        let totalItems = 0; let totalDays = 0; let totalHealthPoints = 0; let totalTrendPoints = 0;
-        let itemsCompleted = 0; let itemsLate = 0; let itemsMissing = 0; let daysCompleted = 0; let daysLate = 0; let daysMissing = 0;
+        let totalItems = 0; let totalDays = 0;
+        let totalHealthPoints = 0; let totalTrendPoints = 0;
+        let itemsCompleted = 0; let itemsLate = 0; let itemsMissing = 0;
+        let daysCompleted = 0; let daysLate = 0; let daysMissing = 0;
         let currentMissingCount = 0; let maxDelayDays = 0;
+
         const sortedDates = Object.keys(allAssignmentsByDate).sort();
         sortedDates.forEach(date => {
-            const dateObj = new Date(date); const monthKey = `${dateObj.getMonth() + 1}月`;
+            const dateObj = new Date(date);
+            const monthKey = `${dateObj.getMonth() + 1}月`;
             if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
             if (!trendByMonth[monthKey]) trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
-            const assignments = allAssignmentsByDate[date] || []; if (assignments.length === 0) return;
-            totalDays++; let dayHasMissing = false; let dayHasLate = false;
+
+            const assignments = allAssignmentsByDate[date] || [];
+            if (assignments.length === 0) return;
+
+            totalDays++;
+            let dayHasMissing = false; let dayHasLate = false;
+            
             assignments.forEach(assign => {
-                const status = assign.submissionStatus?.[student.id]; const completedAt = assign.completedAt?.[student.id]; let tScore = 0;
-                if (status === false) { itemsMissing++; trendByMonth[monthKey].missing++; currentMissingCount++; dayHasMissing = true; const delay = getDelayFromToday(date); if (delay > maxDelayDays) maxDelayDays = delay; tScore = 0; } 
-                else if (status === 'late') { itemsLate++; trendByMonth[monthKey].late++; dayHasLate = true; if (completedAt) { const daysLate = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLate * 5)); } else { tScore = 60; } } 
-                else { itemsCompleted++; trendByMonth[monthKey].onTime++; tScore = 100; }
+                const status = assign.submissionStatus?.[student.id];
+                const completedAt = assign.completedAt?.[student.id];
+                let tScore = 0;
+                if (status === false) { 
+                    itemsMissing++; trendByMonth[monthKey].missing++; currentMissingCount++; dayHasMissing = true;
+                    const delay = getDelayFromToday(date); if (delay > maxDelayDays) maxDelayDays = delay; tScore = 0;
+                } else if (status === 'late') { 
+                    itemsLate++; trendByMonth[monthKey].late++; dayHasLate = true;
+                    if (completedAt) { const daysLate = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLate * 5)); } else { tScore = 60; }
+                } else { 
+                    itemsCompleted++; trendByMonth[monthKey].onTime++; tScore = 100;
+                }
                 trendByMonth[monthKey].totalPoints += tScore; trendByMonth[monthKey].count++; totalTrendPoints += tScore; totalItems++;
             });
+
             let dayScore = 0;
-            if (dayHasMissing) { dayScore = 0; healthByMonth[monthKey].missing++; daysMissing++; } else if (dayHasLate) { dayScore = 60; healthByMonth[monthKey].late++; daysLate++; } else { dayScore = 100; healthByMonth[monthKey].onTime++; daysCompleted++; }
+            if (dayHasMissing) { dayScore = 0; healthByMonth[monthKey].missing++; daysMissing++; } 
+            else if (dayHasLate) { dayScore = 60; healthByMonth[monthKey].late++; daysLate++; } 
+            else { dayScore = 100; healthByMonth[monthKey].onTime++; daysCompleted++; }
             healthByMonth[monthKey].totalPoints += dayScore; healthByMonth[monthKey].count++; totalHealthPoints += dayScore;
         });
+
         const healthChart = Object.keys(healthByMonth).map(key => ({ label: key, value: healthByMonth[key].count === 0 ? 0 : (healthByMonth[key].totalPoints / healthByMonth[key].count), details: healthByMonth[key] }));
         const trendChart = Object.keys(trendByMonth).map(key => ({ label: key, value: trendByMonth[key].count === 0 ? 0 : (trendByMonth[key].totalPoints / trendByMonth[key].count), details: trendByMonth[key] }));
         const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
         const avgHealthScore = totalDays === 0 ? 0 : (totalHealthPoints / totalDays).toFixed(1);
         const avgTrendScore = totalItems === 0 ? 0 : (totalTrendPoints / totalItems).toFixed(1);
         const overallScore = ((parseFloat(avgHealthScore) + parseFloat(avgTrendScore)) / 2).toFixed(1);
+
         return { healthData: healthChart, trendData: trendChart, summaryStats: { days: { total: totalDays, completed: daysCompleted, late: daysLate, missing: daysMissing }, items: { total: totalItems, completed: itemsCompleted, late: itemsLate, missing: itemsMissing }, avgScore: avgHealthScore }, trendStats: { avgScore: avgTrendScore }, emergencyData: { isEmergency, maxDelayDays, currentMissingCount }, overallData: { score: overallScore } };
     }, [allAssignmentsByDate, student.id]);
+
     const getStatusFeedback = (score, emergency) => {
         if (emergency.isEmergency) return { text: "❌ 紅燈警報！缺交太多了，請務必每天確實完成功課，並檢查聯絡簿。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true };
         const s = parseFloat(score);
@@ -93,20 +182,26 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     };
     const getTrendFeedback = (score) => {
         const s = parseFloat(score);
-        if (s >= 98) return { text: "🎖️ 頂尖卓越", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" };
-        if (s >= 90) return { text: "👍 非常棒", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" };
-        if (s >= 80) return { text: "😊 相當不錯", color: "text-lime-600", bg: "bg-lime-50", border: "border-lime-500" };
-        if (s >= 60) return { text: "⚠️ 低空飛過", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-600" };
-        return { text: "🛑 不及格", color: "text-red-500", bg: "bg-red-50", border: "border-red-400" };
+        if (s === 100) return { text: "👑 傳奇等級！完美的 100 分，無懈可擊！", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-500" };
+        if (s >= 98) return { text: "🎖️ 頂尖卓越 (98+)，幾乎完美的表現！", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" };
+        if (s >= 96) return { text: "🌟 出類拔萃 (96+)，令人驚嘆的自律！", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" };
+        if (s >= 94) return { text: "✨ 極度優秀 (94+)，保持得非常好！", color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-500" };
+        if (s >= 90) return { text: "👍 非常棒 (90+)，是大家學習的榜樣。", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" };
+        if (s >= 85) return { text: "🌿 表現優異 (85+)，維持在高水準。", color: "text-green-600", bg: "bg-green-50", border: "border-green-500" };
+        if (s >= 81) return { text: "😊 相當不錯 (81+)，繼續保持這個節奏。", color: "text-lime-600", bg: "bg-lime-50", border: "border-lime-500" };
+        if (s >= 75) return { text: "🆗 表現尚可 (75+)，還有進步空間。", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-500" };
+        if (s >= 70) return { text: "😐 普普通通 (70+)，遲交次數稍微多了點。", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" };
+        if (s >= 65) return { text: "😟 需要注意 (65+)，分數開始下滑囉。", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-500" };
+        if (s >= 60) return { text: "⚠️ 低空飛過 (60+)，請再多用點心。", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-600" };
+        if (s >= 50) return { text: "🛑 不及格邊緣 (50+)，必須立刻修正態度！", color: "text-red-500", bg: "bg-red-50", border: "border-red-400" };
+        if (s >= 40) return { text: "🌧️ 狀況不佳 (40+)，缺交或遲交太頻繁了。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500" };
+        if (s >= 30) return { text: "⛈️ 雷雨警報 (30+)，信用分數嚴重透支，請自我反省並修正態度。", color: "text-red-700", bg: "bg-red-100", border: "border-red-600" };
+        if (s >= 20) return { text: "💔 令人擔憂 (20+)，作業幾乎都沒完成。", color: "text-red-800", bg: "bg-red-100", border: "border-red-700" };
+        if (s >= 10) return { text: "🆘 緊急狀態 (10+)，你的作業幾乎一片空白，請面對現實。", color: "text-red-900", bg: "bg-red-200", border: "border-red-800" };
+        if (s >= 5) return { text: "🌫️ 幾近空白 (5+)，請不要放棄學習！", color: "text-gray-600", bg: "bg-gray-200", border: "border-gray-500" };
+        return { text: "🌑 完全空白 (0-4.9)，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" };
     };
-    const getOverallBadge = (score) => {
-        const s = parseFloat(score);
-        if (s >= 100) return { animal: "🐲 神龍", comment: "作業全勤無缺" };
-        if (s >= 90) return { animal: "🦁 獅王", comment: "態度極度自律" };
-        if (s >= 80) return { animal: "🦊 靈狐", comment: "作業繳交穩定" };
-        if (s >= 60) return { animal: "🦈 鯊魚", comment: "努力跟上進度" };
-        return { animal: "🌱 種子", comment: "請翻開作業本" };
-    };
+
     const currentFeedback = viewMode === 'STATUS' ? getStatusFeedback(summaryStats.avgScore, emergencyData) : getTrendFeedback(trendStats.avgScore);
     const overallBadge = getOverallBadge(overallData.score);
     const currentStats = viewMode === 'STATUS' ? summaryStats.days : summaryStats.items;
@@ -119,159 +214,259 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                 <div className={`px-6 py-4 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
                     <div className="flex items-center gap-6 w-full">
                         <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 shrink-0 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>{student.id}</div>
-                        <div className="flex flex-col justify-center flex-1"><h2 className="text-4xl font-bold tracking-wide leading-none mb-1">{student.name} 的學習歷程</h2><p className="text-white/80 text-lg font-medium flex items-center gap-2"><Activity className="w-4 h-4" /> {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表</p></div>
-                        <div className="flex flex-col items-end justify-center bg-white/20 rounded-xl px-4 py-2 backdrop-blur-sm border border-white/30 min-w-[280px]"><div className="flex items-baseline gap-2"><span className="text-sm font-bold text-white/90">🏆 綜合總分</span><span className="text-3xl font-black text-yellow-300 drop-shadow-md">{overallData.score}</span><span className="text-2xl font-bold text-white">| {overallBadge.animal}</span></div><div className="text-left text-sm font-medium text-white/90 mt-1 max-w-[300px] leading-tight">{overallBadge.comment}</div></div>
+                        <div className="flex flex-col justify-center flex-1">
+                            <h2 className="text-4xl font-bold tracking-wide leading-none mb-1">{student.name} 的學習歷程</h2>
+                            <p className="text-white/80 text-lg font-medium flex items-center gap-2"><Activity className="w-4 h-4" /> {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表</p>
+                        </div>
+                        <div className="flex flex-col items-end justify-center bg-white/20 rounded-xl px-4 py-2 backdrop-blur-sm border border-white/30 min-w-[280px]">
+                            <div className="flex items-baseline gap-2"><span className="text-sm font-bold text-white/90">🏆 綜合總分</span><span className="text-3xl font-black text-yellow-300 drop-shadow-md">{overallData.score}</span><span className="text-2xl font-bold text-white">| {overallBadge.animal}</span></div>
+                            <div className="text-left text-sm font-medium text-white/90 mt-1 max-w-[300px] leading-tight">{overallBadge.comment}</div>
+                        </div>
                     </div>
                     <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md ml-4 shrink-0"><X className="w-8 h-8" /></button>
                 </div>
                 <div className={`flex-1 overflow-auto p-8 ${currentFeedback.bg}`}>
-                    <div className="flex justify-center mb-8"><div className="bg-gray-200 p-1 rounded-xl flex gap-1 shadow-inner"><button onClick={() => setViewMode('STATUS')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'STATUS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📊 狀況統計 (Status)</button><button onClick={() => setViewMode('TREND')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'TREND' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📈 績效分數 (Trend)</button></div></div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4"><div className="p-4 bg-yellow-100 text-yellow-600 rounded-2xl"><Coins className="w-10 h-10" /></div><div><p className="text-gray-500 text-lg font-bold">目前資產</p><div className="flex items-baseline gap-2"><span className="text-4xl font-black text-gray-800">{bankBalance?.gold || 0}</span><span className="text-sm text-yellow-500 font-bold">金</span><span className="text-2xl font-bold text-gray-400">/</span><span className="text-4xl font-black text-gray-800">{bankBalance?.silver || 0}</span><span className="text-sm text-gray-400 font-bold">銀</span></div></div></div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4"><div className={`p-4 rounded-2xl ${viewMode === 'TREND' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600'}`}>{viewMode === 'TREND' ? <TrendingUp className="w-10 h-10" /> : <BarChart2 className="w-10 h-10" />}</div><div className="flex-1"><p className="text-gray-500 text-lg font-bold mb-1">本學期{viewMode === 'STATUS' ? '統計天數' : '作業總數'}</p><div className="flex items-baseline gap-2"><span className={`text-5xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span><span className="text-xl text-gray-400 font-medium">{statsUnit}</span></div></div></div>
-                        <div className={`p-0 rounded-2xl shadow-sm border-l-8 flex overflow-hidden transition-all ${currentFeedback.border} ${currentFeedback.bg}`}><div className="w-1/3 flex flex-col items-center justify-center border-r border-gray-100 bg-white/50 p-2"><span className={`text-4xl font-black ${currentFeedback.color}`}>{viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}</span><span className="text-sm text-gray-500 font-bold mt-1">分</span></div><div className="w-2/3 p-4 flex flex-col justify-center"><p className="text-gray-500 text-xs font-bold mb-1">{viewMode === 'STATUS' ? '健康指數分析' : '績效評級分析'}</p><p className={`${currentFeedback.color} font-bold text-lg leading-tight text-left`}>{currentFeedback.text}</p></div></div>
+                    <div className="flex justify-center mb-8">
+                        <div className="bg-gray-200 p-1 rounded-xl flex gap-1 shadow-inner">
+                            <button onClick={() => setViewMode('STATUS')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'STATUS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📊 狀況統計 (Status)</button>
+                            <button onClick={() => setViewMode('TREND')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'TREND' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📈 績效分數 (Trend)</button>
+                        </div>
                     </div>
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 mb-8"><h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-6 h-6 mr-2 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-6 h-6 mr-2 text-indigo-500" /> 每月作業狀況分佈</>)}</h3><div className="h-[350px] w-full">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} /> ) : ( <SimpleStackedBarChart data={healthData} /> )}</div></div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div className="p-4 bg-yellow-100 text-yellow-600 rounded-2xl"><Coins className="w-10 h-10" /></div>
+                            <div><p className="text-gray-500 text-lg font-bold">目前資產</p><div className="flex items-baseline gap-2"><span className="text-4xl font-black text-gray-800">{bankBalance?.gold || 0}</span><span className="text-sm text-yellow-500 font-bold">金</span><span className="text-2xl font-bold text-gray-400">/</span><span className="text-4xl font-black text-gray-800">{bankBalance?.silver || 0}</span><span className="text-sm text-gray-400 font-bold">銀</span></div></div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div className={`p-4 rounded-2xl ${viewMode === 'TREND' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600'}`}>{viewMode === 'TREND' ? <TrendingUp className="w-10 h-10" /> : <BarChart2 className="w-10 h-10" />}</div>
+                            <div className="flex-1">
+                                <p className="text-gray-500 text-lg font-bold mb-1">本學期{viewMode === 'STATUS' ? '統計天數' : '作業總數'}</p>
+                                <div className="flex items-baseline gap-2"><span className={`text-5xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span><span className="text-xl text-gray-400 font-medium">{statsUnit}</span></div>
+                                <div className="flex gap-3 mt-2 text-sm font-bold"><span className="text-green-600 bg-green-100 px-2 py-0.5 rounded">準時 {currentStats.completed}</span><span className="text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded">遲交 {currentStats.late}</span><span className="text-red-600 bg-red-100 px-2 py-0.5 rounded">缺交 {currentStats.missing}</span></div>
+                            </div>
+                        </div>
+                        <div className={`p-0 rounded-2xl shadow-sm border-l-8 flex overflow-hidden transition-all ${currentFeedback.border} ${currentFeedback.bg}`}>
+                            <div className="w-1/3 flex flex-col items-center justify-center border-r border-gray-100 bg-white/50 p-2"><span className={`text-4xl font-black ${currentFeedback.color}`}>{viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}</span><span className="text-sm text-gray-500 font-bold mt-1">分</span></div>
+                            <div className="w-2/3 p-4 flex flex-col justify-center"><p className="text-gray-500 text-xs font-bold mb-1">{viewMode === 'STATUS' ? '健康指數分析' : '績效評級分析'}</p><p className={`${currentFeedback.color} font-bold text-lg leading-tight text-left`}>{currentFeedback.text}</p></div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 mb-8">
+                        <h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-6 h-6 mr-2 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-6 h-6 mr-2 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
+                        <div className="h-[350px] w-full">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} /> ) : ( <SimpleStackedBarChart data={healthData} /> )}</div>
+                        {viewMode === 'TREND' && (<div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-400"></div>90分以上 (優異)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-400"></div>60-89分 (及格)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div>60分以下 (落後)</div></div>)}
+                        {viewMode === 'STATUS' && (<div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-green-400"></div>準時完成(天)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-yellow-400"></div>後來補交(天)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-red-400"></div>缺交未補(天)</div></div>)}
+                    </div>
+                    <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-500">詳細數據列表</div>
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-white"><tr><th className="px-6 py-4 text-left text-xl font-bold text-gray-600">月份</th><th className="px-6 py-4 text-center text-xl font-bold text-green-600">準時({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-yellow-600">補交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-red-600">缺交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {chartData.map((row, idx) => {
+                                    const tVal = row.value || 0;
+                                    return (
+                                        <tr key={idx} className="hover:bg-gray-50"><td className="px-6 py-4 text-xl font-bold text-gray-800">{row.label}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing}</td><td className="px-6 py-4 text-center"><span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>{tVal.toFixed(1)}</span></td></tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
-// --- Hooks & Bank ---
-const RewardOverlay = ({ type, onClose }) => {
-   const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
-   const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
-   useEffect(() => { const timer = setTimeout(() => { onClose(); }, duration); return () => clearTimeout(timer); }, [duration, onClose]);
-   if (type === 'GOLD_CLEAR') { return ( <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 animate-fade-in overflow-hidden"><audio src={soundUrl} autoPlay /><div className="absolute inset-0 opacity-70 pointer-events-none"><img src={ASSETS.CONFETTI_BG} alt="Confetti" className="w-full h-full object-cover" /></div><div className="relative z-10 flex flex-col items-center justify-center animate-bounce-in text-center p-8"><div className="mb-12 drop-shadow-[0_0_60px_rgba(255,223,0,0.8)] animate-pulse transform scale-[2.5]"><CoinIcon type="GOLD" size="w-32 h-32" innerSize="w-20 h-20" /></div><h2 className="text-6xl md:text-8xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] tracking-widest leading-snug">恭喜你🎉<br/>完成所有作業😁<br/>你真棒👍</h2></div></div> ); }
-   return ( <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-30 animate-fade-in pointer-events-none"><audio src={soundUrl} autoPlay /><div className="flex flex-col gap-6 items-center justify-center animate-bounce-in transform scale-110 bg-white/95 p-12 rounded-[3rem] shadow-2xl border-8 border-orange-400 min-w-[320px]"><CoinIcon type="BRONZE" size="w-40 h-40" textSize="text-8xl" /><h2 className="text-7xl font-black text-orange-700 drop-shadow-sm tracking-wider whitespace-nowrap">+ 10 銅幣</h2></div></div> );
-};
+// --- 學生學習歷程 Dashboard Modal (已修復日期 Crash 問題) ---
+const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
+    const [viewMode, setViewMode] = useState('STATUS'); 
+    if (!student || !allAssignmentsByDate) return null;
 
-const useStudentBank = (db, isAuthReady, isOffline, students) => {
-   const initialData = useMemo(() => { const data = {}; students.forEach(s => data[s.id] = { bronze: 0, silver: 0, gold: 0 }); return data; }, [students]);
-   const [bankData, setBankData] = useState(initialData);
-   useEffect(() => {
-       if (isOffline || !isAuthReady || !db) return;
-       const q = query(collection(db, getBankCollectionPath()));
-       const unsubscribe = onSnapshot(q, (snapshot) => { const remoteData = {}; snapshot.docs.forEach(doc => { remoteData[doc.id] = doc.data(); }); setBankData(prev => { const newData = { ...prev }; Object.keys(remoteData).forEach(key => { newData[key] = { bronze: Number(remoteData[key].bronze) || 0, silver: Number(remoteData[key].silver) || 0, gold: Number(remoteData[key].gold) || 0 }; }); return newData; }); }, (error) => { console.error("Bank sync error:", error); });
-       return () => unsubscribe();
-   }, [isAuthReady, db, isOffline, initialData]);
-   const saveBalance = useCallback(async (studentId, newBronze, newSilver, newGold) => {
-        let b = Math.max(0, newBronze); let s = Math.max(0, newSilver); let g = Math.max(0, newGold);
-        if (b >= 100) { const silverGain = Math.floor(b / 100); b = b % 100; s += silverGain; }
-        if (s >= 10) { const goldGain = Math.floor(s / 10); s = s % 10; g += goldGain; }
-        const newState = { bronze: b, silver: s, gold: g };
-        setBankData(prev => ({ ...prev, [studentId]: newState }));
-        if (isOffline || !db) return;
-        try { const docRef = doc(db, getBankCollectionPath(), studentId); await setDoc(docRef, { ...newState, lastUpdated: serverTimestamp() }, { merge: true }); } catch (e) { console.error("Error saving bank:", e); }
-   }, [db, isOffline]);
-   const updateBankBalance = useCallback((studentId, addBronze, addSilver, addGold) => {
-       setBankData(prev => { const current = prev[studentId] || { bronze: 0, silver: 0, gold: 0 }; let b = (addBronze === 'RESET') ? 0 : (current.bronze || 0) + addBronze; let s = (addSilver === 'RESET') ? 0 : (current.silver || 0) + addSilver; let g = (addGold === 'RESET') ? 0 : (current.gold || 0) + addGold; saveBalance(studentId, b, s, g); return prev; });
-   }, [saveBalance]);
-   const setBankBalanceDirectly = useCallback((studentId, type, value) => {
-       setBankData(prev => { const current = prev[studentId] || { bronze: 0, silver: 0, gold: 0 }; let b = current.bronze; let s = current.silver; let g = current.gold; if (type === 'BRONZE') b = value; if (type === 'SILVER') s = value; if (type === 'GOLD') g = value; saveBalance(studentId, b, s, g); return prev; });
-   }, [saveBalance]);
-   return { bankData, updateBankBalance, setBankBalanceDirectly };
-};
+    // *** 這裡修復了日期計算，避免 Firebase 時間物件導致當機 ***
+    const getDaysDiff = (dateString, completedAt) => {
+        const targetDate = new Date(dateString); 
+        targetDate.setHours(0,0,0,0);
+        
+        let completedDate = new Date();
+        if (completedAt) {
+            // 如果是 Firebase Timestamp 物件，轉換成 Date
+            if (typeof completedAt.toDate === 'function') {
+                completedDate = completedAt.toDate();
+            } else {
+                completedDate = new Date(completedAt);
+            }
+        }
+        completedDate.setHours(0,0,0,0);
+        return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24)));
+    };
 
-const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
-  const [mode, setMode] = useState('bronze'); 
-  const MODE_CONFIG = {
-    bronze: { label: '銅幣模式', icon: '🟤', color: 'orange', step: 10, key: 'bronze', bg: 'bg-orange-50' },
-    silver: { label: '銀幣模式', icon: '⚪', color: 'gray', step: 1, key: 'silver', bg: 'bg-gray-50' },
-    gold:   { label: '金幣模式', icon: '🟡', color: 'yellow', step: 1, key: 'gold', bg: 'bg-yellow-50' },
-  };
-  const cfg = MODE_CONFIG[mode];
-  const sortedStudents = [...students].sort((a, b) => { 
-      const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
-      const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 }; 
-      if (bankA.gold !== bankB.gold) return bankB.gold - bankA.gold; 
-      if (bankA.silver !== bankB.silver) return bankB.silver - bankA.silver; 
-      if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze; 
-      return parseInt(a.id) - parseInt(b.id); 
-  });
-  const handleInputChange = (studentId, type, value) => {
-    if (authMode !== 'ADMIN') return;
-    if (value === '') { setBankBalanceDirectly(studentId, type, 0); return; }
-    const numVal = parseInt(value, 10);
-    if (!isNaN(numVal) && numVal >= 0) { setBankBalanceDirectly(studentId, type, numVal); }
-  };
-  const handleResetAll = async (studentId) => {
-      if (authMode !== 'ADMIN') return;
-      if (!window.confirm(`確定要將學生 ${studentId} 的【所有資產】歸零嗎？`)) return;
-      onUpdateBalance(studentId, 'RESET', 'RESET', 'RESET');
-  };
-  const handleResetClass = () => {
-      if (authMode !== 'ADMIN') return;
-      if(!window.confirm("⚠️ 危險操作：確定要將「全班所有人的錢」全部歸零嗎？\n此操作無法復原！")) return;
-      if(!window.confirm("再次確認：您真的要歸零全班嗎？")) return;
-      students.forEach(s => onUpdateBalance(s.id, 'RESET', 'RESET', 'RESET'));
-  };
+    const getDelayFromToday = (dateString) => {
+        const today = new Date(); 
+        today.setHours(0, 0, 0, 0);
+        const target = new Date(dateString); 
+        target.setHours(0, 0, 0, 0);
+        return Math.floor((today - target) / (1000 * 60 * 60 * 24));
+    };
 
-  return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-[10000] p-4">
-      <div className={`bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 border-${cfg.color}-400 transition-colors duration-300`}>
-        <div className="bg-gray-100 p-4 border-b flex flex-wrap gap-4 justify-between items-center shrink-0">
-          <div className="flex gap-2">
-            <button onClick={() => setMode('gold')} className={`px-4 py-2 rounded-lg font-bold text-xl flex items-center gap-2 transition border-2 ${mode === 'gold' ? 'bg-yellow-100 border-yellow-400 text-yellow-800' : 'bg-white border-transparent hover:bg-yellow-50'}`}>🟡 金幣</button>
-            <button onClick={() => setMode('silver')} className={`px-4 py-2 rounded-lg font-bold text-xl flex items-center gap-2 transition border-2 ${mode === 'silver' ? 'bg-gray-200 border-gray-400 text-gray-800' : 'bg-white border-transparent hover:bg-gray-50'}`}>⚪ 銀幣</button>
-            <button onClick={() => setMode('bronze')} className={`px-4 py-2 rounded-lg font-bold text-xl flex items-center gap-2 transition border-2 ${mode === 'bronze' ? 'bg-orange-100 border-orange-400 text-orange-800' : 'bg-white border-transparent hover:bg-orange-50'}`}>🟤 銅幣</button>
-          </div>
-          <div className="text-2xl font-bold text-gray-700 flex items-center gap-2"><span className="text-3xl">{cfg.icon}</span> 訂正存簿 ({cfg.label})</div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X className="w-8 h-8" /></button>
+    const { healthData, trendData, summaryStats, trendStats, emergencyData, overallData } = useMemo(() => {
+        const healthByMonth = {}; const trendByMonth = {};
+        let totalItems = 0; let totalDays = 0;
+        let totalHealthPoints = 0; let totalTrendPoints = 0;
+        let itemsCompleted = 0; let itemsLate = 0; let itemsMissing = 0;
+        let daysCompleted = 0; let daysLate = 0; let daysMissing = 0;
+        let currentMissingCount = 0; let maxDelayDays = 0;
+
+        const sortedDates = Object.keys(allAssignmentsByDate).sort();
+        sortedDates.forEach(date => {
+            const dateObj = new Date(date);
+            const monthKey = `${dateObj.getMonth() + 1}月`;
+            if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+            if (!trendByMonth[monthKey]) trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+
+            const assignments = allAssignmentsByDate[date] || [];
+            if (assignments.length === 0) return;
+
+            totalDays++;
+            let dayHasMissing = false; let dayHasLate = false;
+            
+            assignments.forEach(assign => {
+                const status = assign.submissionStatus?.[student.id];
+                const completedAt = assign.completedAt?.[student.id];
+                let tScore = 0;
+                if (status === false) { 
+                    itemsMissing++; trendByMonth[monthKey].missing++; currentMissingCount++; dayHasMissing = true;
+                    const delay = getDelayFromToday(date); if (delay > maxDelayDays) maxDelayDays = delay; tScore = 0;
+                } else if (status === 'late') { 
+                    itemsLate++; trendByMonth[monthKey].late++; dayHasLate = true;
+                    if (completedAt) { const daysLate = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLate * 5)); } else { tScore = 60; }
+                } else { 
+                    itemsCompleted++; trendByMonth[monthKey].onTime++; tScore = 100;
+                }
+                trendByMonth[monthKey].totalPoints += tScore; trendByMonth[monthKey].count++; totalTrendPoints += tScore; totalItems++;
+            });
+
+            let dayScore = 0;
+            if (dayHasMissing) { dayScore = 0; healthByMonth[monthKey].missing++; daysMissing++; } 
+            else if (dayHasLate) { dayScore = 60; healthByMonth[monthKey].late++; daysLate++; } 
+            else { dayScore = 100; healthByMonth[monthKey].onTime++; daysCompleted++; }
+            healthByMonth[monthKey].totalPoints += dayScore; healthByMonth[monthKey].count++; totalHealthPoints += dayScore;
+        });
+
+        const healthChart = Object.keys(healthByMonth).map(key => ({ label: key, value: healthByMonth[key].count === 0 ? 0 : (healthByMonth[key].totalPoints / healthByMonth[key].count), details: healthByMonth[key] }));
+        const trendChart = Object.keys(trendByMonth).map(key => ({ label: key, value: trendByMonth[key].count === 0 ? 0 : (trendByMonth[key].totalPoints / trendByMonth[key].count), details: trendByMonth[key] }));
+        const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
+        const avgHealthScore = totalDays === 0 ? 0 : (totalHealthPoints / totalDays).toFixed(1);
+        const avgTrendScore = totalItems === 0 ? 0 : (totalTrendPoints / totalItems).toFixed(1);
+        const overallScore = ((parseFloat(avgHealthScore) + parseFloat(avgTrendScore)) / 2).toFixed(1);
+
+        return { healthData: healthChart, trendData: trendChart, summaryStats: { days: { total: totalDays, completed: daysCompleted, late: daysLate, missing: daysMissing }, items: { total: totalItems, completed: itemsCompleted, late: itemsLate, missing: itemsMissing }, avgScore: avgHealthScore }, trendStats: { avgScore: avgTrendScore }, emergencyData: { isEmergency, maxDelayDays, currentMissingCount }, overallData: { score: overallScore } };
+    }, [allAssignmentsByDate, student.id]);
+
+    const getStatusFeedback = (score, emergency) => {
+        if (emergency.isEmergency) return { text: "❌ 紅燈警報！缺交太多了，請務必每天確實完成功課，並檢查聯絡簿。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true };
+        const s = parseFloat(score);
+        if (s >= 100) return { text: "🏆 完美無瑕！作業全勤且準時，你是全班的作業楷模！", color: "text-blue-600", bg: "bg-white", border: "border-blue-600" };
+        if (s >= 95) return { text: "✨ 超級優秀！表現非常棒，你的自律讓人佩服。", color: "text-blue-500", bg: "bg-white", border: "border-blue-500" };
+        if (s >= 90) return { text: "🌟 表現極佳！絕大多數時間都能準時完成，態度很棒。", color: "text-green-600", bg: "bg-white", border: "border-green-600" };
+        if (s >= 85) return { text: "👍 很不錯喔！作業狀況穩定，偶爾的小失誤修正就好。", color: "text-green-500", bg: "bg-white", border: "border-green-500" };
+        if (s >= 80) return { text: "👌 保持水準！大部分都有完成，但要減少遲交的情況。", color: "text-lime-600", bg: "bg-white", border: "border-lime-600" };
+        if (s >= 70) return { text: "💪 再加油點！遲交或缺交的頻率變高了，要更積極些。", color: "text-yellow-600", bg: "bg-white", border: "border-yellow-600" };
+        return { text: "⚠️ 勉強及格！你的作業狀況令人擔心，必須調整步調。", color: "text-orange-500", bg: "bg-white", border: "border-orange-500" };
+    };
+    const getTrendFeedback = (score) => {
+        const s = parseFloat(score);
+        if (s === 100) return { text: "👑 傳奇等級！完美的 100 分，無懈可擊！", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-500" };
+        if (s >= 98) return { text: "🎖️ 頂尖卓越 (98+)，幾乎完美的表現！", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" };
+        if (s >= 96) return { text: "🌟 出類拔萃 (96+)，令人驚嘆的自律！", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" };
+        if (s >= 94) return { text: "✨ 極度優秀 (94+)，保持得非常好！", color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-500" };
+        if (s >= 90) return { text: "👍 非常棒 (90+)，是大家學習的榜樣。", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" };
+        if (s >= 85) return { text: "🌿 表現優異 (85+)，維持在高水準。", color: "text-green-600", bg: "bg-green-50", border: "border-green-500" };
+        if (s >= 81) return { text: "😊 相當不錯 (81+)，繼續保持這個節奏。", color: "text-lime-600", bg: "bg-lime-50", border: "border-lime-500" };
+        if (s >= 75) return { text: "🆗 表現尚可 (75+)，還有進步空間。", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-500" };
+        if (s >= 70) return { text: "😐 普普通通 (70+)，遲交次數稍微多了點。", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" };
+        if (s >= 65) return { text: "😟 需要注意 (65+)，分數開始下滑囉。", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-500" };
+        if (s >= 60) return { text: "⚠️ 低空飛過 (60+)，請再多用點心。", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-600" };
+        if (s >= 50) return { text: "🛑 不及格邊緣 (50+)，必須立刻修正態度！", color: "text-red-500", bg: "bg-red-50", border: "border-red-400" };
+        if (s >= 40) return { text: "🌧️ 狀況不佳 (40+)，缺交或遲交太頻繁了。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500" };
+        if (s >= 30) return { text: "⛈️ 雷雨警報 (30+)，信用分數嚴重透支，請自我反省並修正態度。", color: "text-red-700", bg: "bg-red-100", border: "border-red-600" };
+        if (s >= 20) return { text: "💔 令人擔憂 (20+)，作業幾乎都沒完成。", color: "text-red-800", bg: "bg-red-100", border: "border-red-700" };
+        if (s >= 10) return { text: "🆘 緊急狀態 (10+)，你的作業幾乎一片空白，請面對現實。", color: "text-red-900", bg: "bg-red-200", border: "border-red-800" };
+        if (s >= 5) return { text: "🌫️ 幾近空白 (5+)，請不要放棄學習！", color: "text-gray-600", bg: "bg-gray-200", border: "border-gray-500" };
+        return { text: "🌑 完全空白 (0-4.9)，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" };
+    };
+
+    const currentFeedback = viewMode === 'STATUS' ? getStatusFeedback(summaryStats.avgScore, emergencyData) : getTrendFeedback(trendStats.avgScore);
+    const overallBadge = getOverallBadge(overallData.score);
+    const currentStats = viewMode === 'STATUS' ? summaryStats.days : summaryStats.items;
+    const statsUnit = viewMode === 'STATUS' ? '天' : '項';
+    const chartData = viewMode === 'STATUS' ? healthData : trendData;
+
+    return (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
+            <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 ${currentFeedback.isAlert ? 'border-red-500' : 'border-white'}`}>
+                <div className={`px-6 py-4 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
+                    <div className="flex items-center gap-6 w-full">
+                        <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 shrink-0 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>{student.id}</div>
+                        <div className="flex flex-col justify-center flex-1">
+                            <h2 className="text-4xl font-bold tracking-wide leading-none mb-1">{student.name} 的學習歷程</h2>
+                            <p className="text-white/80 text-lg font-medium flex items-center gap-2"><Activity className="w-4 h-4" /> {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表</p>
+                        </div>
+                        <div className="flex flex-col items-end justify-center bg-white/20 rounded-xl px-4 py-2 backdrop-blur-sm border border-white/30 min-w-[280px]">
+                            <div className="flex items-baseline gap-2"><span className="text-sm font-bold text-white/90">🏆 綜合總分</span><span className="text-3xl font-black text-yellow-300 drop-shadow-md">{overallData.score}</span><span className="text-2xl font-bold text-white">| {overallBadge.animal}</span></div>
+                            <div className="text-left text-sm font-medium text-white/90 mt-1 max-w-[300px] leading-tight">{overallBadge.comment}</div>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md ml-4 shrink-0"><X className="w-8 h-8" /></button>
+                </div>
+                <div className={`flex-1 overflow-auto p-8 ${currentFeedback.bg}`}>
+                    <div className="flex justify-center mb-8">
+                        <div className="bg-gray-200 p-1 rounded-xl flex gap-1 shadow-inner">
+                            <button onClick={() => setViewMode('STATUS')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'STATUS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📊 狀況統計 (Status)</button>
+                            <button onClick={() => setViewMode('TREND')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'TREND' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📈 績效分數 (Trend)</button>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div className="p-4 bg-yellow-100 text-yellow-600 rounded-2xl"><Coins className="w-10 h-10" /></div>
+                            <div><p className="text-gray-500 text-lg font-bold">目前資產</p><div className="flex items-baseline gap-2"><span className="text-4xl font-black text-gray-800">{bankBalance?.gold || 0}</span><span className="text-sm text-yellow-500 font-bold">金</span><span className="text-2xl font-bold text-gray-400">/</span><span className="text-4xl font-black text-gray-800">{bankBalance?.silver || 0}</span><span className="text-sm text-gray-400 font-bold">銀</span></div></div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                            <div className={`p-4 rounded-2xl ${viewMode === 'TREND' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600'}`}>{viewMode === 'TREND' ? <TrendingUp className="w-10 h-10" /> : <BarChart2 className="w-10 h-10" />}</div>
+                            <div className="flex-1">
+                                <p className="text-gray-500 text-lg font-bold mb-1">本學期{viewMode === 'STATUS' ? '統計天數' : '作業總數'}</p>
+                                <div className="flex items-baseline gap-2"><span className={`text-5xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span><span className="text-xl text-gray-400 font-medium">{statsUnit}</span></div>
+                                <div className="flex gap-3 mt-2 text-sm font-bold"><span className="text-green-600 bg-green-100 px-2 py-0.5 rounded">準時 {currentStats.completed}</span><span className="text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded">遲交 {currentStats.late}</span><span className="text-red-600 bg-red-100 px-2 py-0.5 rounded">缺交 {currentStats.missing}</span></div>
+                            </div>
+                        </div>
+                        <div className={`p-0 rounded-2xl shadow-sm border-l-8 flex overflow-hidden transition-all ${currentFeedback.border} ${currentFeedback.bg}`}>
+                            <div className="w-1/3 flex flex-col items-center justify-center border-r border-gray-100 bg-white/50 p-2"><span className={`text-4xl font-black ${currentFeedback.color}`}>{viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}</span><span className="text-sm text-gray-500 font-bold mt-1">分</span></div>
+                            <div className="w-2/3 p-4 flex flex-col justify-center"><p className="text-gray-500 text-xs font-bold mb-1">{viewMode === 'STATUS' ? '健康指數分析' : '績效評級分析'}</p><p className={`${currentFeedback.color} font-bold text-lg leading-tight text-left`}>{currentFeedback.text}</p></div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 mb-8">
+                        <h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-6 h-6 mr-2 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-6 h-6 mr-2 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
+                        <div className="h-[350px] w-full">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} /> ) : ( <SimpleStackedBarChart data={healthData} /> )}</div>
+                        {viewMode === 'TREND' && (<div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-400"></div>90分以上 (優異)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-400"></div>60-89分 (及格)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div>60分以下 (落後)</div></div>)}
+                        {viewMode === 'STATUS' && (<div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-green-400"></div>準時完成(天)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-yellow-400"></div>後來補交(天)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-red-400"></div>缺交未補(天)</div></div>)}
+                    </div>
+                    <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-500">詳細數據列表</div>
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-white"><tr><th className="px-6 py-4 text-left text-xl font-bold text-gray-600">月份</th><th className="px-6 py-4 text-center text-xl font-bold text-green-600">準時({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-yellow-600">補交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-red-600">缺交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {chartData.map((row, idx) => {
+                                    const tVal = row.value || 0;
+                                    return (
+                                        <tr key={idx} className="hover:bg-gray-50"><td className="px-6 py-4 text-xl font-bold text-gray-800">{row.label}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing}</td><td className="px-6 py-4 text-center"><span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>{tVal.toFixed(1)}</span></td></tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div className={`flex-1 overflow-auto p-4 ${cfg.bg}`}>
-          <table className="w-full bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
-            <thead className="bg-gray-100 sticky top-0 shadow text-gray-700 z-10">
-              <tr>
-                <th className="p-3 text-2xl w-20 text-center">名次</th><th className="p-3 text-2xl w-24 text-center">座號</th><th className="p-3 text-2xl text-left">姓名</th>
-                <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center">金幣</th><th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center">銀幣</th><th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center">銅幣</th>
-                {authMode === 'ADMIN' && <th className="p-3 text-2xl w-48 text-center">快速操作</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {sortedStudents.map((student, idx) => {
-                const bal = bankData[student.id] || { gold: 0, silver: 0, bronze: 0 };
-                let rankIcon = idx < 3 ? ["🥇","🥈","🥉"][idx] : idx + 1;
-                return (
-                  <tr key={student.id} className="hover:bg-blue-50 transition duration-150">
-                    <td className="p-3 text-center text-3xl font-black text-gray-500">{rankIcon}</td>
-                    <td className="p-3 text-center text-2xl font-bold text-gray-600">{student.id}</td>
-                    <td className="p-3 text-2xl font-bold text-gray-800">{student.name[0] + 'O' + student.name.slice(2)}</td>
-                    <td className="p-2 text-center bg-yellow-50/30"><input type="number" value={bal.gold} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" /></td>
-                    <td className="p-2 text-center bg-gray-50/30"><input type="number" value={bal.silver} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none hover:bg-white/50 rounded" /></td>
-                    <td className="p-2 text-center bg-orange-50/30"><input type="number" value={bal.bronze} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" /></td>
-                    {authMode === 'ADMIN' && (
-                        <td className="p-2 flex justify-center items-center gap-3">
-                        <button onClick={() => onUpdateBalance(student.id, cfg.key==='bronze'?10:0, cfg.key==='silver'?1:0, cfg.key==='gold'?1:0)} className={`w-12 h-12 rounded-full shadow flex items-center justify-center text-3xl font-bold transition transform active:scale-90 ${mode==='gold'?'bg-yellow-100 text-yellow-700 hover:bg-yellow-200': mode==='silver'?'bg-gray-100 text-gray-700 hover:bg-gray-200': 'bg-orange-100 text-orange-700 hover:bg-orange-200'}`} title="增加">＋</button>
-                        <button onClick={() => onUpdateBalance(student.id, cfg.key==='bronze'?-10:0, cfg.key==='silver'?-1:0, cfg.key==='gold'?-1:0)} className={`w-12 h-12 rounded-full shadow flex items-center justify-center text-3xl font-bold transition transform active:scale-90 opacity-80 hover:opacity-100 ${mode==='gold'?'bg-yellow-50 text-yellow-600': mode==='silver'?'bg-gray-50 text-gray-600': 'bg-orange-50 text-orange-600'}`} title="減少">－</button>
-                        <button onClick={() => handleResetAll(student.id)} className="p-2 ml-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="單人歸零"><Eraser className="w-6 h-6"/></button>
-                        </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {authMode === 'ADMIN' && (<div className="p-4 bg-gray-100 border-t flex justify-start"><button onClick={handleResetClass} className="px-6 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700 flex items-center gap-2 text-xl shadow-md">⚠️ 期末全班歸零</button></div>)}
-      </div>
-    </div>
-  );
+    );
 };
-
-// --- Daily Settlement Hook ---
-const useDailySettlements = (db, isAuthReady, isOffline) => {
-    const [settlements, setSettlements] = useState({}); 
-    useEffect(() => {
-        if (isOffline) return;
-        if (!isAuthReady || !db) return;
-        const q = query(collection(db, getDailySettlementPath()));
-        const unsubscribe = onSnapshot(q, (snapshot) => { const data = {}; snapshot.docs.forEach(doc => { data[doc.id] = doc.data(); }); setSettlements(data); }, (e) => console.error("Daily Settlements sync error:", e));
-        return () => unsubscribe();
-    }, [isAuthReady, db, isOffline]);
-    return settlements;
-};
-// --- [Part 3] 學生存簿 Hook & Modal (新版介面) ---
+// --- [Part 3] 學生存簿系統 (含新版介面) ---
 
 const RewardOverlay = ({ type, onClose }) => {
    const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
@@ -442,79 +637,130 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
     </div>
   );
 };
-// --- [v20.0.1 最終版] 主程式 App (熊貓介面 + 新存簿 + 修復備份) ---
+// --- [Part 4] 資料 Hooks ---
+
+const useStudents = (db, isOffline) => {
+   const [students, setStudents] = useState(DEFAULT_STUDENTS);
+   const [loadingStudents, setLoadingStudents] = useState(true);
+   const getStudentCollectionPath = () => `/artifacts/${appId}/public/data/students`;
+   useEffect(() => {
+       if (isOffline) { setStudents(DEFAULT_STUDENTS); setLoadingStudents(false); return; }
+       if (!db) return;
+       setLoadingStudents(true);
+       const q = query(collection(db, getStudentCollectionPath()));
+       const unsubscribe = onSnapshot(q, (snapshot) => {
+           const loadedStudents = [];
+           snapshot.forEach((doc) => { loadedStudents.push({ ...doc.data(), id: doc.id }); });
+           if (loadedStudents.length > 0) {
+               loadedStudents.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+               setStudents(loadedStudents);
+           } else { setStudents(DEFAULT_STUDENTS); }
+           setLoadingStudents(false);
+       }, (error) => { console.error("讀取學生名單失敗:", error); setStudents(DEFAULT_STUDENTS); setLoadingStudents(false); });
+       return () => unsubscribe();
+   }, [db, isOffline]);
+   return { students, loadingStudents };
+};
+
+const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, students) => { 
+   const [categories, setCategories] = useState([]); 
+   const [loadingCategories, setLoadingCategories] = useState(true); 
+   const getInitialSubmissionStatus = useMemo(() => students.reduce((status, student) => { status[student.id] = true; return status; }, {}), [students]); 
+   const initializeCategories = useCallback(async (db, userId) => { if (!db || !userId) return; setLoadingCategories(true); const path = getCategoryCollectionPath(); const categoriesCollection = collection(db, path); try { const snapshot = await getDocs(categoriesCollection); if (snapshot.empty) { const batchPromises = INITIAL_CATEGORIES.map(cat => { const newDocRef = doc(categoriesCollection); return setDoc(newDocRef, { ...cat, createdAt: Timestamp.now() }); }); await Promise.all(batchPromises); } } catch (e) { console.error("Error initializing categories:", e); } setLoadingCategories(false); }, []); 
+   useEffect(() => { if (isOffline) { setCategories(INITIAL_CATEGORIES.map((cat, i) => ({ ...cat, id: `offline-cat-${i}` }))); setLoadingCategories(false); return; } if (isAuthReady && db && userId) { initializeCategories(db, userId); const path = getCategoryCollectionPath(); const unsubscribe = onSnapshot(collection(db, path), (snapshot) => { const loadedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); loadedCategories.sort((a, b) => (a.order || 0) - (b.order || 0)); setCategories(loadedCategories); setLoadingCategories(false); }, (e) => { console.error("Error fetching categories:", e); if (e.code !== 'permission-denied') { setAlertMessage("讀取作業項目清單時發生錯誤。"); } setLoadingCategories(false); }); return () => unsubscribe(); } }, [isAuthReady, db, userId, setAlertMessage, initializeCategories, isOffline]);
+   const addCategory = useCallback(async (name) => { const trimmedName = name.trim(); if (!trimmedName) return false; if (categories.some(c => c.name === trimmedName)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return false; } if (isOffline) { const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; setCategories(prev => [...prev, { id: `offline-cat-${Date.now()}`, name: trimmedName, order: newOrder }]); return true; } if (!db || !userId) return false; const newDocRef = doc(collection(db, getCategoryCollectionPath())); const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; try { await setDoc(newDocRef, { name: trimmedName, order: newOrder, createdAt: Timestamp.now() }); return true; } catch (e) { console.error("Error adding category:", e); setAlertMessage("新增科目模板失敗。"); return false; } }, [db, userId, categories, setAlertMessage, isOffline]); const deleteCategory = useCallback(async (categoryId, categoryName) => { if (!window.confirm(`確定要刪除科目模板「${categoryName}」嗎？此操作只會將該科目從「自動新增」清單中移除。`)) return; if (isOffline) { setCategories(prev => prev.filter(c => c.id !== categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除 (離線)。`); return; } if (!db || !userId) return; try { await deleteDoc(doc(db, getCategoryCollectionPath(), categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除。`); } catch (e) { console.error("Error deleting category:", e); setAlertMessage("刪除科目模板失敗。"); } }, [db, userId, setAlertMessage, isOffline]); const editCategory = useCallback(async (categoryId, currentName, newName) => { const trimmedName = newName.trim(); if (!trimmedName || trimmedName === currentName) return; if (categories.some(c => c.name === trimmedName && c.id !== categoryId)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return; } if (isOffline) { setCategories(prev => prev.map(c => c.id === categoryId ? { ...c, name: trimmedName } : c)); return; } if (!db || !userId) return; try { await setDoc(doc(db, getCategoryCollectionPath(), categoryId), { name: trimmedName }, { merge: true }); setAlertMessage(`科目模板名稱已從「${currentName}」更新為「${trimmedName}」。`); } catch (e) { console.error("Error editing category:", e); setAlertMessage("編輯科目模板失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); const moveCategory = useCallback(async (dragId, hoverId) => { const dragIndex = categories.findIndex(c => c.id === dragId); const hoverIndex = categories.findIndex(c => c.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; const dragCategory = categories[dragIndex]; const hoverCategory = categories[hoverIndex]; if (isOffline) { const newCategories = [...categories]; newCategories[dragIndex] = { ...dragCategory, order: hoverCategory.order }; newCategories[hoverIndex] = { ...hoverCategory, order: dragCategory.order }; newCategories.sort((a, b) => a.order - b.order); setCategories(newCategories); return; } if (!db || !userId) return; const batch = writeBatch(db); const path = getCategoryCollectionPath(); batch.set(doc(db, path, dragCategory.id), { order: hoverCategory.order }, { merge: true }); batch.set(doc(db, path, hoverCategory.id), { order: dragCategory.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving category:", e); setAlertMessage("調整項目順序失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); return { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus }; };
+
+// --- 每日結算 Hook ---
+const useDailySettlements = (db, isAuthReady, isOffline) => {
+    const [settlements, setSettlements] = useState({}); 
+    useEffect(() => {
+        if (isOffline) return;
+        if (!isAuthReady || !db) return;
+        const q = query(collection(db, getDailySettlementPath()));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = {};
+            snapshot.docs.forEach(doc => { data[doc.id] = doc.data(); });
+            setSettlements(data);
+        }, (e) => console.error("Daily Settlements sync error:", e));
+        return () => unsubscribe();
+    }, [isAuthReady, db, isOffline]);
+    return settlements;
+};
+// --- [Part 5] 主程式 App (邏輯部分) ---
 const App = () => {
- const [db, setDb] = useState(null);
- const [auth, setAuth] = useState(null);
- const [userId, setUserId] = useState(null);
- const [isAuthReady, setIsAuthReady] = useState(false);
- const [isOffline, setIsOffline] = useState(false); 
- const [allAssignmentsByDate, setAllAssignmentsByDate] = useState({});
- const [selectedDisplayDate, setSelectedDisplayDate] = useState(getTodayDate()); 
- const [loading, setLoading] = useState(true);
- const [error, setError] = useState(null);
- const [alertMessage, setAlertMessage] = useState(null);
- const [confirmationModal, setConfirmationModal] = useState(null); 
- const [editingAssignmentId, setEditingAssignmentId] = useState(null); 
- const [editingAssignmentName, setEditingAssignmentName] = useState('');
- const [missingStudent, setMissingStudent] = useState(null);
- const [newAssignmentDate, setNewAssignmentDate] = useState(getTodayDate()); 
- const [authTimeout, setAuthTimeout] = useState(false); 
- const [isAuthenticated, setIsAuthenticated] = useState(false);
- const [authMode, setAuthMode] = useState('GUEST'); 
- const [loginError, setLoginError] = useState('');
- const [loadingLogin, setLoadingLogin] = useState(false);
- const [showAllMissingModal, setShowAllMissingModal] = useState(false);
- const [focusedStudentId, setFocusedStudentId] = useState(null);
- const [showBankModal, setShowBankModal] = useState(false);
- const [rewardState, setRewardState] = useState(null); 
- const [dashboardStudent, setDashboardStudent] = useState(null);
- 
- // Hooks
- const { students, loadingStudents } = useStudents(db, isOffline);
- const { bankData, updateBankBalance, setBankBalanceDirectly } = useStudentBank(db, isAuthReady, isOffline, students);
- const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
- 
- const { defaultSemester, defaultMonth } = useMemo(() => { const today = new Date(); const m = today.getMonth() + 1; const monthStr = String(m).padStart(2, '0'); let sem = 'S1'; if (m >= 2 && m <= 7) { sem = 'S2'; } return { defaultSemester: sem, defaultMonth: monthStr }; }, []);
- const [selectedSemester, setSelectedSemester] = useState(defaultSemester); const [selectedMonth, setSelectedMonth] = useState(defaultMonth); const [unlockClicks, setUnlockClicks] = useState({}); 
- const academicYear = "114"; const startYear = 2025; const endYear = 2026;
- const semesters = [ { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear }, { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }, ];
- const months = useMemo(() => [ { id: '08', name: `8月`, color: 'bg-green-500', semester: 'S1' }, { id: '09', name: `9月`, color: 'bg-teal-500', semester: 'S1' }, { id: '10', name: `10月`, color: 'bg-cyan-500', semester: 'S1' }, { id: '11', name: `11月`, color: 'bg-blue-500', semester: 'S1' }, { id: '12', name: `12月`, color: 'bg-indigo-500', semester: 'S1' }, { id: '01', name: `1月`, color: 'bg-purple-500', semester: 'S1' }, { id: '02', name: `2月`, color: 'bg-pink-500', semester: 'S2' }, { id: '03', name: `3月`, color: 'bg-rose-500', semester: 'S2' }, { id: '04', name: `4月`, color: 'bg-red-500', semester: 'S2' }, { id: '05', name: `5月`, color: 'bg-orange-500', semester: 'S2' }, { id: '06', name: `6月`, color: 'bg-amber-500', semester: 'S2' }, { id: '07', name: `7月`, color: 'bg-yellow-500', semester: 'S2' }, ], []);
+  const [db, setDb] = useState(null);
+  const [auth, setAuth] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const [allAssignmentsByDate, setAllAssignmentsByDate] = useState({});
+  const [selectedDisplayDate, setSelectedDisplayDate] = useState(getTodayDate());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [alertMessage, setAlertMessage] = useState(null);
+  const [confirmationModal, setConfirmationModal] = useState(null);
+  const [editingAssignmentId, setEditingAssignmentId] = useState(null);
+  const [editingAssignmentName, setEditingAssignmentName] = useState('');
+  const [missingStudent, setMissingStudent] = useState(null);
+  const [newAssignmentDate, setNewAssignmentDate] = useState(getTodayDate());
+  const [authTimeout, setAuthTimeout] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authMode, setAuthMode] = useState('GUEST');
+  const [loginError, setLoginError] = useState('');
+  const [loadingLogin, setLoadingLogin] = useState(false);
+  const [showAllMissingModal, setShowAllMissingModal] = useState(false);
+  const [focusedStudentId, setFocusedStudentId] = useState(null);
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [rewardState, setRewardState] = useState(null);
+  const [dashboardStudent, setDashboardStudent] = useState(null);
+  
+  // Hooks
+  const { students, loadingStudents } = useStudents(db, isOffline);
+  const { bankData, updateBankBalance, setBankBalanceDirectly } = useStudentBank(db, isAuthReady, isOffline, students);
+  const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
+  const { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline, students);
 
- // Firebase 初始化
- useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); if (!firebaseConfig) { console.error("Firebase configuration is missing."); setError("無法載入 Firebase 設定。請檢查環境配置。"); setLoading(false); return; } try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { if (user) { setUserId(user.uid); setIsAuthReady(true); setIsAuthenticated(true); if (user.isAnonymous) { setAuthMode('GUEST'); } else { setAuthMode('ADMIN'); } } else { setIsAuthenticated(false); setAuthMode('GUEST'); } setLoadingLogin(false); }); return () => { unsubscribe(); clearTimeout(timer); }; } catch (e) { console.error("Firebase initialization failed:", e); setError("初始化失敗：" + e.message); setLoading(false); } }, []);
+  // 學期與月份
+  const { defaultSemester, defaultMonth } = useMemo(() => { const today = new Date(); const m = today.getMonth() + 1; const monthStr = String(m).padStart(2, '0'); let sem = 'S1'; if (m >= 2 && m <= 7) { sem = 'S2'; } return { defaultSemester: sem, defaultMonth: monthStr }; }, []);
+  const [selectedSemester, setSelectedSemester] = useState(defaultSemester); const [selectedMonth, setSelectedMonth] = useState(defaultMonth); const [unlockClicks, setUnlockClicks] = useState({});
+  const academicYear = "114"; const startYear = 2025; const endYear = 2026;
+  const semesters = [ { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear }, { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }, ];
+  const months = useMemo(() => [ { id: '08', name: `8月`, color: 'bg-green-500', semester: 'S1' }, { id: '09', name: `9月`, color: 'bg-teal-500', semester: 'S1' }, { id: '10', name: `10月`, color: 'bg-cyan-500', semester: 'S1' }, { id: '11', name: `11月`, color: 'bg-blue-500', semester: 'S1' }, { id: '12', name: `12月`, color: 'bg-indigo-500', semester: 'S1' }, { id: '01', name: `1月`, color: 'bg-purple-500', semester: 'S1' }, { id: '02', name: `2月`, color: 'bg-pink-500', semester: 'S2' }, { id: '03', name: `3月`, color: 'bg-rose-500', semester: 'S2' }, { id: '04', name: `4月`, color: 'bg-red-500', semester: 'S2' }, { id: '05', name: `5月`, color: 'bg-orange-500', semester: 'S2' }, { id: '06', name: `6月`, color: 'bg-amber-500', semester: 'S2' }, { id: '07', name: `7月`, color: 'bg-yellow-500', semester: 'S2' }, ], []);
 
- // 登入登出邏輯
- const handleGoOffline = () => { setIsOffline(true); setUserId('guest_user'); setIsAuthReady(true); setLoading(false); setIsAuthenticated(true); setAuthMode('GUEST'); };
- const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { console.error("Login failed", error); if (error.code === 'auth/invalid-email') { setLoginError('Email 格式不正確'); } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') { setLoginError('帳號或密碼錯誤'); } else if (error.code === 'auth/too-many-requests') { setLoginError('嘗試次數過多，請稍後再試'); } else { setLoginError('登入失敗：' + error.message); } setLoadingLogin(false); } };
- const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
- const handleLogout = async () => { try { await signOut(auth); setIsAuthenticated(false); setAuthMode('GUEST'); } catch (e) { console.error("Logout failed", e); } };
+  // Firebase Init
+  useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); if (!firebaseConfig) { console.error("Firebase configuration is missing."); setError("無法載入 Firebase 設定。請檢查環境配置。"); setLoading(false); return; } try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { if (user) { setUserId(user.uid); setIsAuthReady(true); setIsAuthenticated(true); if (user.isAnonymous) { setAuthMode('GUEST'); } else { setAuthMode('ADMIN'); } } else { setIsAuthenticated(false); setAuthMode('GUEST'); } setLoadingLogin(false); }); return () => { unsubscribe(); clearTimeout(timer); }; } catch (e) { console.error("Firebase initialization failed:", e); setError("初始化失敗：" + e.message); setLoading(false); } }, []);
 
- // 資料讀取與計算
- useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const currentSemData = semesters.find(s => s.id === selectedSemester); let q; if (currentSemData) { const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`; const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`; q = query( assignmentsCollection, where("assignmentDate", ">=", startDate), where("assignmentDate", "<=", endDate) ); } else { q = query(assignmentsCollection); } const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, completedAt: data.completedAt || {}, makeupClaimed: data.makeupClaimed || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]);
- const assignmentsForSelectedDate = useMemo(() => { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; return assignments.sort((a, b) => a.order - b.order); }, [allAssignmentsByDate, selectedDisplayDate]);
- const assignmentMap = useMemo(() => { return assignmentsForSelectedDate.reduce((acc, assignment) => { acc[assignment.assignmentName] = { id: assignment.id, submissionStatus: assignment.submissionStatus, makeupClaimed: assignment.makeupClaimed }; return acc; }, {}); }, [assignmentsForSelectedDate]);
- const filteredMonths = useMemo(() => { const currentSemesterData = semesters.find(s => s.id === selectedSemester); if (!currentSemesterData) return months; return months.filter(m => m.semester === selectedSemester); }, [months, selectedSemester, semesters]);
- useEffect(() => { if (filteredMonths.length > 0) { const currentMonthExists = filteredMonths.some(m => m.id === selectedMonth); if (!currentMonthExists) { setSelectedMonth(filteredMonths[0].id); } } }, [selectedSemester, filteredMonths, selectedMonth]);
- const availableDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); if (dates.length > 0) { if (!dates.includes(selectedDisplayDate)) { setSelectedDisplayDate(dates[dates.length - 1]); } } else if (dates.length === 0 && selectedDisplayDate !== getTodayDate()) { setSelectedDisplayDate(getTodayDate()); } return dates; }, [allAssignmentsByDate, selectedDisplayDate]);
- const displayedDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); const filteredByMonth = dates.filter(date => { const dateMonth = date.substring(5, 7); return dateMonth === selectedMonth; }).sort(); return filteredByMonth; }, [allAssignmentsByDate, selectedMonth]);
- useEffect(() => { if (displayedDates.length > 0 && !displayedDates.includes(selectedDisplayDate)) { setSelectedDisplayDate(displayedDates[0]); } else if (displayedDates.length === 0) { setSelectedDisplayDate(getTodayDate()); } }, [displayedDates, selectedDisplayDate]);
- const studentMissingStats = useMemo(() => { const stats = students.map(student => ({ id: student.id, name: student.name, missingCount: 0, missingDetails: [] })); Object.keys(allAssignmentsByDate).forEach(date => { const assignmentsOnDate = allAssignmentsByDate[date] || []; assignmentsOnDate.forEach(assignment => { const submissionStatus = assignment.submissionStatus || {}; students.forEach((student, index) => { if (submissionStatus[student.id] === false) { stats[index].missingCount += 1; stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName }); } }); }); }); stats.sort((a, b) => b.missingCount - a.missingCount); return stats; }, [allAssignmentsByDate, students]);
- const monthlyStudentStats = useMemo(() => { const stats = {}; students.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; students.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months, students]);
+  // Handlers
+  const handleGoOffline = () => { setIsOffline(true); setUserId('guest_user'); setIsAuthReady(true); setLoading(false); setIsAuthenticated(true); setAuthMode('GUEST'); };
+  const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { console.error("Login failed", error); if (error.code === 'auth/invalid-email') { setLoginError('Email 格式不正確'); } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') { setLoginError('帳號或密碼錯誤'); } else if (error.code === 'auth/too-many-requests') { setLoginError('嘗試次數過多，請稍後再試'); } else { setLoginError('登入失敗：' + error.message); } setLoadingLogin(false); } };
+  const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
+  const handleLogout = async () => { try { await signOut(auth); setIsAuthenticated(false); setAuthMode('GUEST'); } catch (e) { console.error("Logout failed", e); } };
 
- // 操作函式 (編輯、刪除、新增...)
- const handleEditAssignmentName = useCallback(async (assignmentId, newAssignmentName) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以修改資料。"); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => a.id === assignmentId ? { ...a, assignmentName: newAssignmentName } : a); }); return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentId); await setDoc(docRef, { assignmentName: newAssignmentName }, { merge: true }); } catch (e) { console.error("Error editing assignment name: ", e); setAlertMessage("編輯作業名稱失敗（權限不足或網路錯誤）。"); } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
- const handleDeleteAssignment = useCallback(async (assignmentId, assignmentName, isForced = false) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以刪除資料。"); return; } const assignmentList = allAssignmentsByDate[selectedDisplayDate] || []; const targetAssignment = assignmentList.find(a => a.id === assignmentId); if (targetAssignment) { const submissionStatus = targetAssignment.submissionStatus || {}; const hasIncompleteWork = students.some(student => submissionStatus[student.id] === false); if (hasIncompleteWork && !isForced) { alert(`無法刪除作業「${assignmentName}」：\n\n尚有學生未完成此項作業的訂正！\n\n如需【強制刪除】，請在點擊刪除按鈕時按住 Control (Ctrl/Cmd) 鍵。`); return; } } if (!isForced && !window.confirm(`確定要刪除 ${assignmentName} 嗎？此操作不可逆轉。`)) { return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; if (newMap[selectedDisplayDate]) { newMap[selectedDisplayDate] = newMap[selectedDisplayDate].filter(a => a.id !== assignmentId); } return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentId); await deleteDoc(docRef); } catch (e) { console.error("Error deleting assignment: ", e); setAlertMessage("刪除作業項目失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, setAlertMessage, allAssignmentsByDate, isOffline, authMode, students]);
- const handleBatchAddDefaultAssignments = useCallback(async (targetDate, defaultCategories) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增日期。"); return; } if (isOffline) { const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); const newAssignments = []; defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { newAssignments.push({ id: `offline-assign-${Date.now()}-${Math.random()}`, assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }); } }); setAllAssignmentsByDate(prev => ({ ...prev, [targetDate]: [...(prev[targetDate] || []), ...newAssignments] })); return; } if (!db || !userId || !targetDate || defaultCategories.length === 0) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const batch = writeBatch(db); const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); let assignmentsAdded = 0; defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { const newDocRef = doc(assignmentCollection); batch.set(newDocRef, { assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); assignmentsAdded++; } }); if (assignmentsAdded > 0) { await batch.commit(); } } catch (e) { console.error("Error batch adding assignments: ", e); setAlertMessage("自動新增作業失敗，請稍後再試。"); } finally { setLoading(false); } }, [db, userId, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
- const handleNewAssignmentDateChange = useCallback((e) => { const newDate = e.target.value; setNewAssignmentDate(newDate); }, []);
- const handleAddNewDate = useCallback(async () => { const targetDate = newAssignmentDate; if (!targetDate || categories.length === 0) { setAlertMessage("請選擇一個日期並確保科目模板清單不為空。"); return; } if (allAssignmentsByDate[targetDate]) { setAlertMessage(`日期 ${targetDate} 已經有作業紀錄了。請直接選擇查看。`); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); return; } await handleBatchAddDefaultAssignments(targetDate, categories); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); }, [newAssignmentDate, categories, allAssignmentsByDate, handleBatchAddDefaultAssignments]);
- const handleAddNewAssignment = useCallback(async () => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增作業。"); return; } if (!selectedDisplayDate) { setAlertMessage("請先選擇一個日期。"); return; } if (isOffline) { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newAssignment = { id: `offline-single-${Date.now()}`, assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }; setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: [...(prev[selectedDisplayDate] || []), newAssignment] })); return; } if (!db || !userId) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newDocRef = doc(assignmentCollection); await setDoc(newDocRef, { assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); } catch (e) { console.error("Error adding new assignment:", e); setAlertMessage("新增單項作業失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
- const handleMoveAssignment = useCallback(async (dragId, hoverId) => { if (authMode !== 'ADMIN' && !isOffline) return; const assignments = assignmentsForSelectedDate; const dragIndex = assignments.findIndex(a => a.id === dragId); const hoverIndex = assignments.findIndex(a => a.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; const currentList = [...(newMap[selectedDisplayDate] || [])]; const dragItem = currentList[dragIndex]; const hoverItem = currentList[hoverIndex]; currentList[dragIndex] = { ...dragItem, order: hoverItem.order }; currentList[hoverIndex] = { ...hoverItem, order: dragItem.order }; newMap[selectedDisplayDate] = currentList.sort((a,b) => a.order - b.order); return newMap; }); return; } if (!db || !userId) return; const dragAssignment = assignments[dragIndex]; const hoverAssignment = assignments[hoverIndex]; const batch = writeBatch(db); const path = getAssignmentCollectionPath(); const docRef1 = doc(db, path, dragAssignment.id); const docRef2 = doc(db, path, hoverAssignment.id); batch.set(docRef1, { order: hoverAssignment.order }, { merge: true }); batch.set(docRef2, { order: dragAssignment.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving assignment:", e); setAlertMessage("調整欄位順序失敗。"); } }, [db, userId, assignmentsForSelectedDate, setAlertMessage, isOffline, selectedDisplayDate, authMode]);
+  // Data Fetching & Calculation
+  useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const currentSemData = semesters.find(s => s.id === selectedSemester); let q; if (currentSemData) { const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`; const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`; q = query( assignmentsCollection, where("assignmentDate", ">=", startDate), where("assignmentDate", "<=", endDate) ); } else { q = query(assignmentsCollection); } const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, completedAt: data.completedAt || {}, makeupClaimed: data.makeupClaimed || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]);
+  const assignmentsForSelectedDate = useMemo(() => { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; return assignments.sort((a, b) => a.order - b.order); }, [allAssignmentsByDate, selectedDisplayDate]);
+  const assignmentMap = useMemo(() => { return assignmentsForSelectedDate.reduce((acc, assignment) => { acc[assignment.assignmentName] = { id: assignment.id, submissionStatus: assignment.submissionStatus, makeupClaimed: assignment.makeupClaimed }; return acc; }, {}); }, [assignmentsForSelectedDate]);
+  const filteredMonths = useMemo(() => { const currentSemesterData = semesters.find(s => s.id === selectedSemester); if (!currentSemesterData) return months; return months.filter(m => m.semester === selectedSemester); }, [months, selectedSemester, semesters]);
+  useEffect(() => { if (filteredMonths.length > 0) { const currentMonthExists = filteredMonths.some(m => m.id === selectedMonth); if (!currentMonthExists) { setSelectedMonth(filteredMonths[0].id); } } }, [selectedSemester, filteredMonths, selectedMonth]);
+  const availableDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); if (dates.length > 0) { if (!dates.includes(selectedDisplayDate)) { setSelectedDisplayDate(dates[dates.length - 1]); } } else if (dates.length === 0 && selectedDisplayDate !== getTodayDate()) { setSelectedDisplayDate(getTodayDate()); } return dates; }, [allAssignmentsByDate, selectedDisplayDate]);
+  const displayedDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); const filteredByMonth = dates.filter(date => { const dateMonth = date.substring(5, 7); return dateMonth === selectedMonth; }).sort(); return filteredByMonth; }, [allAssignmentsByDate, selectedMonth]);
+  useEffect(() => { if (displayedDates.length > 0 && !displayedDates.includes(selectedDisplayDate)) { setSelectedDisplayDate(displayedDates[0]); } else if (displayedDates.length === 0) { setSelectedDisplayDate(getTodayDate()); } }, [displayedDates, selectedDisplayDate]);
+  const studentMissingStats = useMemo(() => { const stats = students.map(student => ({ id: student.id, name: student.name, missingCount: 0, missingDetails: [] })); Object.keys(allAssignmentsByDate).forEach(date => { const assignmentsOnDate = allAssignmentsByDate[date] || []; assignmentsOnDate.forEach(assignment => { const submissionStatus = assignment.submissionStatus || {}; students.forEach((student, index) => { if (submissionStatus[student.id] === false) { stats[index].missingCount += 1; stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName }); } }); }); }); stats.sort((a, b) => b.missingCount - a.missingCount); return stats; }, [allAssignmentsByDate, students]);
+  const monthlyStudentStats = useMemo(() => { const stats = {}; students.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; students.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months, students]);
 
- // 結算與狀態切換
- const isDaySettled = useMemo(() => dailySettlements[selectedDisplayDate]?.isSettled || false, [dailySettlements, selectedDisplayDate]);
- 
- const handleBatchSettlement = useCallback(async () => {
+  // Actions
+  const handleEditAssignmentName = useCallback(async (assignmentId, newAssignmentName) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以修改資料。"); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => a.id === assignmentId ? { ...a, assignmentName: newAssignmentName } : a); }); return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentId); await setDoc(docRef, { assignmentName: newAssignmentName }, { merge: true }); } catch (e) { console.error("Error editing assignment name: ", e); setAlertMessage("編輯作業名稱失敗（權限不足或網路錯誤）。"); } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
+  const handleDeleteAssignment = useCallback(async (assignmentId, assignmentName, isForced = false) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以刪除資料。"); return; } const assignmentList = allAssignmentsByDate[selectedDisplayDate] || []; const targetAssignment = assignmentList.find(a => a.id === assignmentId); if (targetAssignment) { const submissionStatus = targetAssignment.submissionStatus || {}; const hasIncompleteWork = students.some(student => submissionStatus[student.id] === false); if (hasIncompleteWork && !isForced) { alert(`無法刪除作業「${assignmentName}」：\n\n尚有學生未完成此項作業的訂正！\n\n如需【強制刪除】，請在點擊刪除按鈕時按住 Control (Ctrl/Cmd) 鍵。`); return; } } if (!isForced && !window.confirm(`確定要刪除 ${assignmentName} 嗎？此操作不可逆轉。`)) { return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; if (newMap[selectedDisplayDate]) { newMap[selectedDisplayDate] = newMap[selectedDisplayDate].filter(a => a.id !== assignmentId); } return newMap; }); return; } if (!db || !userId) return; setLoading(true); try { const docRef = doc(db, getAssignmentCollectionPath(), assignmentId); await deleteDoc(docRef); } catch (e) { console.error("Error deleting assignment: ", e); setAlertMessage("刪除作業項目失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, setAlertMessage, allAssignmentsByDate, isOffline, authMode, students]);
+  const handleBatchAddDefaultAssignments = useCallback(async (targetDate, defaultCategories) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增日期。"); return; } if (isOffline) { const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); const newAssignments = []; defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { newAssignments.push({ id: `offline-assign-${Date.now()}-${Math.random()}`, assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }); } }); setAllAssignmentsByDate(prev => ({ ...prev, [targetDate]: [...(prev[targetDate] || []), ...newAssignments] })); return; } if (!db || !userId || !targetDate || defaultCategories.length === 0) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const batch = writeBatch(db); const existingNamesOnDate = (allAssignmentsByDate[targetDate] || []).map(a => a.assignmentName); let assignmentsAdded = 0; defaultCategories.forEach(cat => { if (!existingNamesOnDate.includes(cat.name)) { const newDocRef = doc(assignmentCollection); batch.set(newDocRef, { assignmentName: cat.name, assignmentDate: targetDate, order: cat.order, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); assignmentsAdded++; } }); if (assignmentsAdded > 0) { await batch.commit(); } } catch (e) { console.error("Error batch adding assignments: ", e); setAlertMessage("自動新增作業失敗，請稍後再試。"); } finally { setLoading(false); } }, [db, userId, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
+  const handleNewAssignmentDateChange = useCallback((e) => { const newDate = e.target.value; setNewAssignmentDate(newDate); }, []);
+  const handleAddNewDate = useCallback(async () => { const targetDate = newAssignmentDate; if (!targetDate || categories.length === 0) { setAlertMessage("請選擇一個日期並確保科目模板清單不為空。"); return; } if (allAssignmentsByDate[targetDate]) { setAlertMessage(`日期 ${targetDate} 已經有作業紀錄了。請直接選擇查看。`); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); return; } await handleBatchAddDefaultAssignments(targetDate, categories); setSelectedDisplayDate(targetDate); const date = new Date(targetDate); date.setDate(date.getDate() + 1); setNewAssignmentDate(date.toISOString().substring(0, 10)); }, [newAssignmentDate, categories, allAssignmentsByDate, handleBatchAddDefaultAssignments]);
+  const handleAddNewAssignment = useCallback(async () => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以新增作業。"); return; } if (!selectedDisplayDate) { setAlertMessage("請先選擇一個日期。"); return; } if (isOffline) { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newAssignment = { id: `offline-single-${Date.now()}`, assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: new Date().toISOString() }; setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: [...(prev[selectedDisplayDate] || []), newAssignment] })); return; } if (!db || !userId) return; setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const assignments = allAssignmentsByDate[selectedDisplayDate] || []; const newOrder = assignments.length > 0 ? assignments[assignments.length - 1].order + 1 : 0; const newName = `新增作業 ${assignments.length + 1}`; const newDocRef = doc(assignmentCollection); await setDoc(newDocRef, { assignmentName: newName, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, createdAt: Timestamp.now(), }); } catch (e) { console.error("Error adding new assignment:", e); setAlertMessage("新增單項作業失敗。"); } finally { setLoading(false); } }, [db, userId, selectedDisplayDate, allAssignmentsByDate, getInitialSubmissionStatus, isOffline, authMode]);
+  const handleMoveAssignment = useCallback(async (dragId, hoverId) => { if (authMode !== 'ADMIN' && !isOffline) return; const assignments = assignmentsForSelectedDate; const dragIndex = assignments.findIndex(a => a.id === dragId); const hoverIndex = assignments.findIndex(a => a.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; const currentList = [...(newMap[selectedDisplayDate] || [])]; const dragItem = currentList[dragIndex]; const hoverItem = currentList[hoverIndex]; currentList[dragIndex] = { ...dragItem, order: hoverItem.order }; currentList[hoverIndex] = { ...hoverItem, order: dragItem.order }; newMap[selectedDisplayDate] = currentList.sort((a,b) => a.order - b.order); return newMap; }); return; } if (!db || !userId) return; const dragAssignment = assignments[dragIndex]; const hoverAssignment = assignments[hoverIndex]; const batch = writeBatch(db); const path = getAssignmentCollectionPath(); const docRef1 = doc(db, path, dragAssignment.id); const docRef2 = doc(db, path, hoverAssignment.id); batch.set(docRef1, { order: hoverAssignment.order }, { merge: true }); batch.set(docRef2, { order: dragAssignment.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving assignment:", e); setAlertMessage("調整欄位順序失敗。"); } }, [db, userId, assignmentsForSelectedDate, setAlertMessage, isOffline, selectedDisplayDate, authMode]);
+
+  // 結算相關
+  const isDaySettled = useMemo(() => dailySettlements[selectedDisplayDate]?.isSettled || false, [dailySettlements, selectedDisplayDate]);
+  
+  const handleBatchSettlement = useCallback(async () => {
     if (!selectedDisplayDate) return;
     if (isDaySettled) { alert("此日期已經結算發布過了！"); return; }
     const assignments = assignmentsForSelectedDate;
@@ -732,8 +978,7 @@ const App = () => {
   if (error) {
     return ( <div className="p-8 text-center bg-red-100 border-l-8 border-red-500 text-red-700"> <h2 className="text-3xl font-bold mb-2">發生錯誤 (Error Occurred)</h2> <p className="text-xl whitespace-pre-line">{error}</p> <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-lg text-xl hover:bg-red-700 transition flex items-center justify-center mx-auto"> <RefreshCw className="w-6 h-6 mr-2" /> 重新整理 </button> </div> );
   }
- 
-  return (
+   return (
    <DndProvider backend={HTML5Backend}>
    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
      {rewardState && ( <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} /> )}
