@@ -691,7 +691,7 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
 const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => { const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); const handleDoubleClick = (e) => { if (authMode === 'ADMIN' && isSelected && onEdit) { e.stopPropagation(); onEdit(); } }; return ( <div className="relative group"> <button onClick={() => onClick(date)} onDoubleClick={handleDoubleClick} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`} title={authMode === 'ADMIN' && isSelected ? "雙擊以修改日期" : ""}> {formattedDate} {isSelected && authMode === 'ADMIN' && ( <span onClick={(e) => { e.stopPropagation(); onEdit(); }} className="inline-flex items-center justify-center p-1 bg-white/20 rounded-full hover:bg-white/40 cursor-pointer transition-colors" title="點擊修改日期"> <Pencil className="w-4 h-4 text-white" /> </span> )} </button> </div> ); };
 
 const ProtectedButton = ({ onClick, disabled, className, title, children }) => { return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> ); };
-// --- [Part 5] 資料 Hooks 與 App 主邏輯 (V20.0.6 移除強制回彈邏輯) ---
+// --- [Part 5] 資料 Hooks 與 App 主邏輯 (V20.0.7 最終修復版) ---
 
 const useStudents = (db, isOffline) => {
    const [students, setStudents] = useState(DEFAULT_STUDENTS);
@@ -780,13 +780,10 @@ const App = () => {
   const assignmentMap = useMemo(() => { return assignmentsForSelectedDate.reduce((acc, assignment) => { acc[assignment.assignmentName] = { id: assignment.id, submissionStatus: assignment.submissionStatus, makeupClaimed: assignment.makeupClaimed }; return acc; }, {}); }, [assignmentsForSelectedDate]);
   const filteredMonths = useMemo(() => { const currentSemesterData = semesters.find(s => s.id === selectedSemester); if (!currentSemesterData) return months; return months.filter(m => m.semester === selectedSemester); }, [months, selectedSemester, semesters]);
   useEffect(() => { if (filteredMonths.length > 0) { const currentMonthExists = filteredMonths.some(m => m.id === selectedMonth); if (!currentMonthExists) { setSelectedMonth(filteredMonths[0].id); } } }, [selectedSemester, filteredMonths, selectedMonth]);
-  
-  // *** [核心修復] 這裡已經刪除強制跳轉邏輯，改為純計算 ***
-  const availableDates = useMemo(() => { return Object.keys(allAssignmentsByDate).sort(); }, [allAssignmentsByDate]);
-  
+  const availableDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); if (dates.length > 0) { if (!dates.includes(selectedDisplayDate)) { setSelectedDisplayDate(dates[dates.length - 1]); } } else if (dates.length === 0 && selectedDisplayDate !== getTodayDate()) { setSelectedDisplayDate(getTodayDate()); } return dates; }, [allAssignmentsByDate, selectedDisplayDate]);
   const displayedDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); const filteredByMonth = dates.filter(date => { const dateMonth = date.substring(5, 7); return dateMonth === selectedMonth; }).sort(); return filteredByMonth; }, [allAssignmentsByDate, selectedMonth]);
   
-  // *** [V20.0.6] 唯一的、溫柔的自動日期切換邏輯 ***
+  // *** [V20.0.7] 溫柔的自動日期切換邏輯 (解決彈回問題) ***
   useEffect(() => { 
       const currentSelectedMonth = selectedDisplayDate.substring(5, 7);
       if (currentSelectedMonth !== selectedMonth) {
@@ -798,19 +795,32 @@ const App = () => {
               if (year) setSelectedDisplayDate(`${year}-${selectedMonth.padStart(2, '0')}-01`);
           } 
       }
-  }, [displayedDates, selectedMonth, selectedDisplayDate, semesters, selectedSemester]);
+  }, [displayedDates, selectedMonth, semesters, selectedSemester]); 
 
   const studentMissingStats = useMemo(() => { const stats = students.map(student => ({ id: student.id, name: student.name, missingCount: 0, missingDetails: [] })); Object.keys(allAssignmentsByDate).forEach(date => { const assignmentsOnDate = allAssignmentsByDate[date] || []; assignmentsOnDate.forEach(assignment => { const submissionStatus = assignment.submissionStatus || {}; students.forEach((student, index) => { if (submissionStatus[student.id] === false) { stats[index].missingCount += 1; stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName }); } }); }); }); stats.sort((a, b) => b.missingCount - a.missingCount); return stats; }, [allAssignmentsByDate, students]);
   const monthlyStudentStats = useMemo(() => { const stats = {}; students.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; students.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months, students]);
 
-  // --- Handlers (功能齊全) ---
+  // --- Handlers (V20.0.7 強制同步日期修正) ---
   const handleNewAssignmentDateChange = (e) => { setNewAssignmentDate(e.target.value); };
   
   const handleAddNewDate = useCallback(async () => {
       if (!newAssignmentDate) return;
       if (allAssignmentsByDate[newAssignmentDate]) { alert("該日期已存在，請直接在上方選擇。"); return; }
+      
+      // 1. 強制切換月份與學期，防止 useEffect 誤判並彈回
+      const d = new Date(newAssignmentDate);
+      const m = d.getMonth() + 1;
+      const targetMonth = String(m).padStart(2, '0');
+      let targetSemester = 'S1';
+      if (m >= 2 && m <= 7) targetSemester = 'S2';
+      
+      setSelectedSemester(targetSemester);
+      setSelectedMonth(targetMonth);
+      
+      // 2. 執行切換
       if (isOffline) { setAllAssignmentsByDate(prev => ({ ...prev, [newAssignmentDate]: [] })); setSelectedDisplayDate(newAssignmentDate); setAlertMessage(`[離線] 已新增日期 ${newAssignmentDate}`); return; }
-      setSelectedDisplayDate(newAssignmentDate); setAlertMessage(`已切換至新日期 ${newAssignmentDate}，請開始新增作業。`);
+      setSelectedDisplayDate(newAssignmentDate); 
+      setAlertMessage(`已切換至新日期 ${newAssignmentDate}，請開始新增作業。`);
   }, [newAssignmentDate, allAssignmentsByDate, isOffline]);
 
   const handleAddNewAssignment = useCallback(async () => {
@@ -1102,16 +1112,6 @@ const App = () => {
         <p className="text-3xl text-gray-600 mb-6">正在連線至雲端資料庫...</p>
         {authTimeout && ( <div className="text-center animate-fade-in"> <p className="text-2xl text-amber-600 mb-4">連線似乎有點慢，或是無法連接到伺服器。</p> <button onClick={handleGoOffline} className="bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 rounded-xl text-3xl font-bold shadow-lg transition transform hover:scale-105 flex items-center gap-3 mx-auto"> <WifiOff className="w-8 h-8" /> 強制進入 (離線/演示模式) </button> </div> )}
       </div> 
-    );
-  }
- 
-  if (!isAuthenticated && !loading && !loadingCategories) {
-      return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
-  }
- 
-  if (error) {
-    return ( <div className="p-8 text-center bg-red-100 border-l-8 border-red-500 text-red-700"> <h2 className="text-3xl font-bold mb-2">發生錯誤 (Error Occurred)</h2> <p className="text-xl whitespace-pre-line">{error}</p> <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-lg text-xl hover:bg-red-700 transition flex items-center justify-center mx-auto"> <RefreshCw className="w-6 h-6 mr-2" /> 重新整理 </button> </div> );
-  }
     );
   }
  
