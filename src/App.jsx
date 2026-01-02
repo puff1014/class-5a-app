@@ -692,6 +692,7 @@ const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => { const for
 
 const ProtectedButton = ({ onClick, disabled, className, title, children }) => { return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> ); };
 // --- [Part 5] 資料 Hooks 與 App 主邏輯 (已修復白畫面問題) ---
+// --- [Part 5] 資料 Hooks 與 App 主邏輯 (修正新增日期被彈回的問題) ---
 
 const useStudents = (db, isOffline) => {
    const [students, setStudents] = useState(DEFAULT_STUDENTS);
@@ -782,11 +783,29 @@ const App = () => {
   useEffect(() => { if (filteredMonths.length > 0) { const currentMonthExists = filteredMonths.some(m => m.id === selectedMonth); if (!currentMonthExists) { setSelectedMonth(filteredMonths[0].id); } } }, [selectedSemester, filteredMonths, selectedMonth]);
   const availableDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); if (dates.length > 0) { if (!dates.includes(selectedDisplayDate)) { setSelectedDisplayDate(dates[dates.length - 1]); } } else if (dates.length === 0 && selectedDisplayDate !== getTodayDate()) { setSelectedDisplayDate(getTodayDate()); } return dates; }, [allAssignmentsByDate, selectedDisplayDate]);
   const displayedDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); const filteredByMonth = dates.filter(date => { const dateMonth = date.substring(5, 7); return dateMonth === selectedMonth; }).sort(); return filteredByMonth; }, [allAssignmentsByDate, selectedMonth]);
-  useEffect(() => { if (displayedDates.length > 0 && !displayedDates.includes(selectedDisplayDate)) { setSelectedDisplayDate(displayedDates[0]); } else if (displayedDates.length === 0) { setSelectedDisplayDate(getTodayDate()); } }, [displayedDates, selectedDisplayDate]);
+  
+  // *** [關鍵修復] 這裡修改了自動跳轉的邏輯 ***
+  // 原本：如果日期沒資料就跳走。
+  // 現在：只有當「日期的月份」跟「目前選擇的月份」不一致時，才跳走。
+  // 這樣就能允許停留在「1/2」這種雖然是本月、但還沒資料的日期上。
+  useEffect(() => { 
+      const currentSelectedMonth = selectedDisplayDate.substring(5, 7);
+      if (currentSelectedMonth !== selectedMonth) {
+          if (displayedDates.length > 0) { 
+              setSelectedDisplayDate(displayedDates[0]); 
+          } else { 
+              // 如果該月份完全沒資料，幫使用者預設一個日期 (例如該月1號)
+              const currentSem = semesters.find(s => s.id === selectedSemester);
+              const year = (selectedMonth >= '08') ? currentSem?.startYear : currentSem?.endYear;
+              if (year) setSelectedDisplayDate(`${year}-${selectedMonth}-01`);
+          } 
+      }
+  }, [displayedDates, selectedMonth, selectedDisplayDate, semesters, selectedSemester]);
+
   const studentMissingStats = useMemo(() => { const stats = students.map(student => ({ id: student.id, name: student.name, missingCount: 0, missingDetails: [] })); Object.keys(allAssignmentsByDate).forEach(date => { const assignmentsOnDate = allAssignmentsByDate[date] || []; assignmentsOnDate.forEach(assignment => { const submissionStatus = assignment.submissionStatus || {}; students.forEach((student, index) => { if (submissionStatus[student.id] === false) { stats[index].missingCount += 1; stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName }); } }); }); }); stats.sort((a, b) => b.missingCount - a.missingCount); return stats; }, [allAssignmentsByDate, students]);
   const monthlyStudentStats = useMemo(() => { const stats = {}; students.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; students.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months, students]);
 
-  // --- 補回：作業管理與其他 Handlers ---
+  // --- Handlers (包含遺失的功能補回) ---
   const handleNewAssignmentDateChange = (e) => { setNewAssignmentDate(e.target.value); };
   
   const handleAddNewDate = useCallback(async () => {
@@ -822,7 +841,7 @@ const App = () => {
       const batch = writeBatch(db); const path = getAssignmentCollectionPath(); batch.update(doc(db, path, dragId), { order: hoverItem.order }); batch.update(doc(db, path, hoverId), { order: dragItem.order }); await batch.commit();
   }, [assignmentsForSelectedDate, isOffline, db, selectedDisplayDate]);
 
-  // --- [關鍵修復 V20.0.4] 安全結算發布邏輯 (針對舊日期) ---
+  // --- 安全結算發布邏輯 ---
   const isDaySettled = useMemo(() => dailySettlements[selectedDisplayDate]?.isSettled || false, [dailySettlements, selectedDisplayDate]);
   
   const handleBatchSettlement = useCallback(async () => {
@@ -831,19 +850,16 @@ const App = () => {
     const assignments = assignmentsForSelectedDate;
     if (assignments.length === 0) return;
 
-    // 1. 判斷是否為過去的日期
     const todayStr = getTodayDate();
     const isPastDate = selectedDisplayDate < todayStr;
-    let shouldIssueReward = true; // 預設發錢
+    let shouldIssueReward = true; 
 
-    // 2. 如果是過去日期，跳出【選擇】視窗
     if (isPastDate) {
         if (!window.confirm(`⚠️ 偵測到這是過去的日期 (${selectedDisplayDate})！\n\n請問您要【補發銀幣】給全對的學生嗎？\n\n● 按【確定】= 補發銀幣 + 鎖定日期\n● 按【取消】= 不發銀幣 + 僅鎖定日期 (用於封存舊資料)`)) {
             shouldIssueReward = false;
         }
     }
 
-    // 3. 找出目前所有全對的學生
     const greenStudentIds = [];
     students.forEach(s => {
         const isAllGreen = assignments.every(a => {
@@ -853,7 +869,6 @@ const App = () => {
         if (isAllGreen) greenStudentIds.push(s.id);
     });
 
-    // 4. 過濾掉「已經領過」的人
     const claimedMap = settledData?.silverRewardClaimed || {};
     const newWinners = greenStudentIds.filter(id => !claimedMap[id]);
 
@@ -871,7 +886,6 @@ const App = () => {
         return s ? `${s.id}.${s.name[0]}O${s.name.slice(2)}` : id; 
     });
     
-    // 如果要發錢，做最後確認
     if (shouldIssueReward) {
         if (!window.confirm(`【確認發放】\n\n將發放銀幣給以下 ${newWinners.length} 位學生：\n${newWinnerNames.join('、')}`)) return;
     } else {
@@ -909,7 +923,7 @@ const App = () => {
     }
   }, [selectedDisplayDate, dailySettlements, assignmentsForSelectedDate, students, isOffline, db, updateBankBalance, isDaySettled]);
 
-  // --- [關鍵修復] 燈號切換邏輯 (含自動扣款/補發動畫) ---
+  // --- 燈號切換邏輯 ---
   const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => { 
       const assignmentData = assignmentMap[assignmentName]; 
       if (!assignmentData) return; 
@@ -921,7 +935,6 @@ const App = () => {
       
       const isStrictMode = isSettled || isPastDate;
 
-      // --- 模式 A: 未結算的當日作業 (不扣錢) ---
       if (!isStrictMode) {
           const cellKey = `${studentId}-${assignmentData.id}`; 
           let newStatus; 
@@ -955,7 +968,6 @@ const App = () => {
           return;
       }
 
-      // --- 模式 B: 嚴格模式 (連動錢包) ---
       let newStatus;
       let bronzeChange = 0;
       let silverChange = 0;
