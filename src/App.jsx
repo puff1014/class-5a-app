@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v20.0.7 - 熊貓全能修復版 (日期強制同步)'; 
+const VERSION = 'v20.0.10 - 學習歷程大字化'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -118,7 +118,7 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
    const maxTotal = Math.max(...data.map(d => d.details.count), 1); const barWidth = Math.min(60, chartWidth / data.length * 0.6); 
    return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> {data.map((d, i) => { const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2; const totalHeight = chartHeight; const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight; const lateHeight = (d.details.late / maxTotal) * totalHeight; const missingHeight = (d.details.missing / maxTotal) * totalHeight; const yGreen = (height - padding) - onTimeHeight; const yYellow = yGreen - lateHeight; const yRed = yYellow - missingHeight; return ( <g key={i} className="group"> {d.details.onTime > 0 && (<rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.late > 0 && (<rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.missing > 0 && (<rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text> <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text> <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title> </g> ); })} </svg> );
 };
-// --- 學生學習歷程 Dashboard Modal (V20.0.9: 姓名隱碼 + 字體全面巨大化) ---
+// --- 學生學習歷程 Dashboard Modal (V20.0.10: 資產上移 + 雙欄佈局 + 字體極大化) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
@@ -126,7 +126,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     // 處理姓名隱碼 (陳O佑)
     const maskedName = student.name[0] + 'O' + student.name.slice(2);
 
-    // *** 日期計算邏輯 ***
+    // *** 日期計算邏輯 (保持不變) ***
     const getDaysDiff = (dateString, completedAt) => {
         try {
             const targetDate = new Date(dateString); 
@@ -211,59 +211,59 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     }, [allAssignmentsByDate, student.id]);
 
     const getStatusFeedback = (score, emergency) => {
-        if (emergency.isEmergency) return { text: "❌ 紅燈警報！缺交太多了，請務必每天確實完成功課，並檢查聯絡簿。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true };
+        if (emergency.isEmergency) return { text: "❌ 紅燈警報！缺交太多了，請檢查聯絡簿。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true };
         const s = parseFloat(score);
         if (isNaN(s)) return { text: "⚪ 資料不足", color: "text-gray-400", bg: "bg-white", border: "border-gray-300" };
-        if (s >= 100) return { text: "🏆 完美無瑕！作業全勤且準時，你是全班的作業楷模！", color: "text-blue-600", bg: "bg-white", border: "border-blue-600" };
-        if (s >= 95) return { text: "✨ 超級優秀！表現非常棒，你的自律讓人佩服。", color: "text-blue-500", bg: "bg-white", border: "border-blue-500" };
-        if (s >= 90) return { text: "🌟 表現極佳！絕大多數時間都能準時完成，態度很棒。", color: "text-green-600", bg: "bg-white", border: "border-green-600" };
-        if (s >= 85) return { text: "👍 很不錯喔！作業狀況穩定，偶爾的小失誤修正就好。", color: "text-green-500", bg: "bg-white", border: "border-green-500" };
-        if (s >= 80) return { text: "👌 保持水準！大部分都有完成，但要減少遲交的情況。", color: "text-lime-600", bg: "bg-white", border: "border-lime-600" };
-        if (s >= 70) return { text: "💪 再加油點！遲交或缺交的頻率變高了，要更積極些。", color: "text-yellow-600", bg: "bg-white", border: "border-yellow-600" };
-        return { text: "⚠️ 勉強及格！你的作業狀況令人擔心，必須調整步調。", color: "text-orange-500", bg: "bg-white", border: "border-orange-500" };
+        if (s >= 100) return { text: "🏆 完美無瑕！作業全勤且準時！", color: "text-blue-600", bg: "bg-white", border: "border-blue-600" };
+        if (s >= 95) return { text: "✨ 超級優秀！你的自律讓人佩服。", color: "text-blue-500", bg: "bg-white", border: "border-blue-500" };
+        if (s >= 90) return { text: "🌟 表現極佳！絕大多數都準時完成。", color: "text-green-600", bg: "bg-white", border: "border-green-600" };
+        if (s >= 85) return { text: "👍 很不錯喔！作業狀況相當穩定。", color: "text-green-500", bg: "bg-white", border: "border-green-500" };
+        if (s >= 80) return { text: "👌 保持水準！要減少遲交的情況。", color: "text-lime-600", bg: "bg-white", border: "border-lime-600" };
+        if (s >= 70) return { text: "💪 再加油點！遲交缺交頻率變高了。", color: "text-yellow-600", bg: "bg-white", border: "border-yellow-600" };
+        return { text: "⚠️ 勉強及格！作業狀況令人擔心。", color: "text-orange-500", bg: "bg-white", border: "border-orange-500" };
     };
     const getTrendFeedback = (score) => {
         const s = parseFloat(score);
         if (isNaN(s)) return { text: "資料不足", color: "text-gray-400", bg: "bg-gray-100", border: "border-gray-300" };
-        if (s === 100) return { text: "👑 傳奇等級！完美的 100 分，無懈可擊！", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-500" };
-        if (s >= 98) return { text: "🎖️ 頂尖卓越 (98+)，幾乎完美的表現！", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" };
-        if (s >= 96) return { text: "🌟 出類拔萃 (96+)，令人驚嘆的自律！", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" };
-        if (s >= 94) return { text: "✨ 極度優秀 (94+)，保持得非常好！", color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-500" };
-        if (s >= 90) return { text: "👍 非常棒 (90+)，是大家學習的榜樣。", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" };
-        if (s >= 85) return { text: "🌿 表現優異 (85+)，維持在高水準。", color: "text-green-600", bg: "bg-green-50", border: "border-green-500" };
-        if (s >= 81) return { text: "😊 相當不錯 (81+)，繼續保持這個節奏。", color: "text-lime-600", bg: "bg-lime-50", border: "border-lime-500" };
-        if (s >= 75) return { text: "🆗 表現尚可 (75+)，還有進步空間。", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-500" };
-        if (s >= 70) return { text: "😐 普普通通 (70+)，遲交次數稍微多了點。", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" };
-        if (s >= 65) return { text: "😟 需要注意 (65+)，分數開始下滑囉。", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-500" };
-        if (s >= 60) return { text: "⚠️ 低空飛過 (60+)，請再多用點心。", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-600" };
-        if (s >= 50) return { text: "🛑 不及格邊緣 (50+)，必須立刻修正態度！", color: "text-red-500", bg: "bg-red-50", border: "border-red-400" };
-        if (s >= 40) return { text: "🌧️ 狀況不佳 (40+)，缺交或遲交太頻繁了。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500" };
-        if (s >= 30) return { text: "⛈️ 雷雨警報 (30+)，信用分數嚴重透支，請自我反省並修正態度。", color: "text-red-700", bg: "bg-red-100", border: "border-red-600" };
-        if (s >= 20) return { text: "💔 令人擔憂 (20+)，作業幾乎都沒完成。", color: "text-red-800", bg: "bg-red-100", border: "border-red-700" };
-        if (s >= 10) return { text: "🆘 緊急狀態 (10+)，你的作業幾乎一片空白，請面對現實。", color: "text-red-900", bg: "bg-red-200", border: "border-red-800" };
-        if (s >= 5) return { text: "🌫️ 幾近空白 (5+)，請不要放棄學習！", color: "text-gray-600", bg: "bg-gray-200", border: "border-gray-500" };
-        return { text: "🌑 完全空白 (0-4.9)，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" };
+        if (s === 100) return { text: "👑 傳奇等級！完美的 100 分！", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-500" };
+        if (s >= 98) return { text: "🎖️ 頂尖卓越！幾乎完美的表現！", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" };
+        if (s >= 96) return { text: "🌟 出類拔萃！令人驚嘆的自律！", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" };
+        if (s >= 94) return { text: "✨ 極度優秀！保持得非常好！", color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-500" };
+        if (s >= 90) return { text: "👍 非常棒！是大家學習的榜樣。", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" };
+        if (s >= 85) return { text: "🌿 表現優異，維持在高水準。", color: "text-green-600", bg: "bg-green-50", border: "border-green-500" };
+        if (s >= 81) return { text: "😊 相當不錯，繼續保持節奏。", color: "text-lime-600", bg: "bg-lime-50", border: "border-lime-500" };
+        if (s >= 75) return { text: "🆗 表現尚可，還有進步空間。", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-500" };
+        if (s >= 70) return { text: "😐 普普通通，遲交稍微多了點。", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" };
+        if (s >= 65) return { text: "😟 需要注意，分數開始下滑囉。", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-500" };
+        if (s >= 60) return { text: "⚠️ 低空飛過，請再多用點心。", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-600" };
+        if (s >= 50) return { text: "🛑 不及格邊緣！必須修正態度！", color: "text-red-500", bg: "bg-red-50", border: "border-red-400" };
+        if (s >= 40) return { text: "🌧️ 狀況不佳，缺交遲交太頻繁。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500" };
+        if (s >= 30) return { text: "⛈️ 雷雨警報，信用分數嚴重透支。", color: "text-red-700", bg: "bg-red-100", border: "border-red-600" };
+        if (s >= 20) return { text: "💔 令人擔憂，作業幾乎都沒完成。", color: "text-red-800", bg: "bg-red-100", border: "border-red-700" };
+        if (s >= 10) return { text: "🆘 緊急狀態，幾乎一片空白。", color: "text-red-900", bg: "bg-red-200", border: "border-red-800" };
+        if (s >= 5) return { text: "🌫️ 幾近空白，請不要放棄學習！", color: "text-gray-600", bg: "bg-gray-200", border: "border-gray-500" };
+        return { text: "🌑 完全空白，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" };
     };
     const getOverallBadge = (score) => {
         const s = parseFloat(score);
         if (isNaN(s)) return { animal: "🥚 蛋", comment: "尚未孵化" };
-        if (s >= 100) return { animal: "🐲 神龍", comment: "作業全勤無缺，品質完美無瑕，無可挑剔。" };
-        if (s >= 97) return { animal: "🦁 獅王", comment: "態度極度自律，對自我要求高，細節處理極佳。" };
-        if (s >= 94) return { animal: "🦅 雄鷹", comment: "繳交迅速確實，準確率非常高，學習態度積極。" };
-        if (s >= 91) return { animal: "🐆 獵豹", comment: "訂正效率驚人，很少拖泥帶水，行動力極強。" };
-        if (s >= 88) return { animal: "🐴 駿馬", comment: "保持穩定節奏，作業習慣良好，充滿學習幹勁。" };
-        if (s >= 85) return { animal: "🐺 戰狼", comment: "能夠自我鞭策，按時完成任務，錯誤越來越少。" };
-        if (s >= 82) return { animal: "🦊 靈狐", comment: "作業繳交穩定，若能多點細心，表現會更出色。" };
-        if (s >= 77) return { animal: "🦉 貓頭鷹", comment: "逐漸掌握要領，學習狀況回穩，請持續保持。" };
-        if (s >= 72) return { animal: "🐻 大熊", comment: "累積實力中，雖然細心度不足，但大多能完成。" };
-        if (s >= 67) return { animal: "🐘 大象", comment: "腳踏實地完成，雖然速度較慢，但願意補救。" };
-        if (s >= 60) return { animal: "🦈 鯊魚", comment: "努力跟上進度，正視缺交問題，積極修正中。" };
-        if (s >= 50) return { animal: "🦘 袋鼠", comment: "再跳一步就及格，請補齊缺交，別讓分數停滯。" };
-        if (s >= 40) return { animal: "🐿️ 松鼠", comment: "積少成多，每一項作業都很重要，請勿隨意放棄。" };
-        if (s >= 30) return { animal: "🐇 白兔", comment: "別因貪玩而偷懶，趕快追上進度，你可以做得到。" };
-        if (s >= 20) return { animal: "🦔 刺蝟", comment: "卸下防備與藉口，面對作業不逃避，勇敢承擔責任。" };
-        if (s >= 10) return { animal: "🐢 烏龜", comment: "只要肯開始動筆，總會完成一項，哪怕慢也沒關係。" };
-        return { animal: "🌱 種子", comment: "埋入土裡太久了，請翻開作業本，讓學習重新發芽。" };
+        if (s >= 100) return { animal: "🐲 神龍", comment: "作業全勤無缺，品質完美無瑕。" };
+        if (s >= 97) return { animal: "🦁 獅王", comment: "態度極度自律，對自我要求高。" };
+        if (s >= 94) return { animal: "🦅 雄鷹", comment: "繳交迅速確實，準確率非常高。" };
+        if (s >= 91) return { animal: "🐆 獵豹", comment: "訂正效率驚人，很少拖泥帶水。" };
+        if (s >= 88) return { animal: "🐴 駿馬", comment: "保持穩定節奏，作業習慣良好。" };
+        if (s >= 85) return { animal: "🐺 戰狼", comment: "能夠自我鞭策，按時完成任務。" };
+        if (s >= 82) return { animal: "🦊 靈狐", comment: "繳交穩定，若能多點細心會更棒。" };
+        if (s >= 77) return { animal: "🦉 貓頭鷹", comment: "逐漸掌握要領，學習狀況回穩。" };
+        if (s >= 72) return { animal: "🐻 大熊", comment: "累積實力中，細心度略顯不足。" };
+        if (s >= 67) return { animal: "🐘 大象", comment: "腳踏實地，速度慢但願意補救。" };
+        if (s >= 60) return { animal: "🦈 鯊魚", comment: "努力跟上進度，正視缺交問題。" };
+        if (s >= 50) return { animal: "🦘 袋鼠", comment: "再跳一步就及格，請補齊缺交。" };
+        if (s >= 40) return { animal: "🐿️ 松鼠", comment: "積少成多，請勿隨意放棄作業。" };
+        if (s >= 30) return { animal: "🐇 白兔", comment: "別因貪玩而偷懶，趕快追上進度。" };
+        if (s >= 20) return { animal: "🦔 刺蝟", comment: "面對作業不逃避，勇敢承擔責任。" };
+        if (s >= 10) return { animal: "🐢 烏龜", comment: "只要肯開始，總會完成，慢也沒關係。" };
+        return { animal: "🌱 種子", comment: "埋入土裡太久了，請讓學習發芽。" };
     };
 
     const currentFeedback = viewMode === 'STATUS' ? getStatusFeedback(summaryStats.avgScore, emergencyData) : getTrendFeedback(trendStats.avgScore);
@@ -274,60 +274,103 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
-            {/* 加寬視窗最大寬度 (max-w-[95vw]) 以容納大字體 */}
-            <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-[95vw] h-[95vh] flex flex-col overflow-hidden border-8 ${currentFeedback.isAlert ? 'border-red-500' : 'border-white'}`}>
+            {/* 加寬視窗至 98vw，幾近全螢幕 */}
+            <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-[98vw] h-[95vh] flex flex-col overflow-hidden border-[12px] ${currentFeedback.isAlert ? 'border-red-500' : 'border-white'}`}>
+                
+                {/* 1. Header 區域 (調整比例：左窄右寬) */}
                 <div className={`px-8 py-6 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
-                    <div className="flex items-center gap-8 w-full">
-                        {/* 座號圈圈放大 */}
-                        <div className={`w-32 h-32 bg-white rounded-full flex items-center justify-center text-7xl font-bold shadow-lg border-8 shrink-0 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>{student.id}</div>
-                        <div className="flex flex-col justify-center flex-1">
-                            {/* 標題放大至 6xl, 使用隱碼名字 */}
-                            <h2 className="text-7xl font-black tracking-wide leading-none mb-3">{maskedName} 的學習歷程</h2>
-                            <p className="text-white/90 text-3xl font-medium flex items-center gap-2"><Activity className="w-8 h-8" /> {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表</p>
-                        </div>
-                        <div className="flex flex-col items-end justify-center bg-white/20 rounded-2xl px-6 py-4 backdrop-blur-sm border border-white/30 min-w-[350px]">
-                            {/* 分數放大 */}
-                            <div className="flex items-baseline gap-3"><span className="text-2xl font-bold text-white/90">🏆 綜合總分</span><span className="text-6xl font-black text-yellow-300 drop-shadow-md">{overallData.score}</span><span className="text-4xl font-bold text-white">| {overallBadge.animal}</span></div>
-                            {/* 評語放大 */}
-                            <div className="text-left text-2xl font-medium text-white/90 mt-2 max-w-[400px] leading-tight">{overallBadge.comment}</div>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-4 rounded-full transition backdrop-blur-md ml-6 shrink-0"><X className="w-12 h-12" /></button>
-                </div>
-                <div className={`flex-1 overflow-auto p-8 ${currentFeedback.bg}`}>
-                    <div className="flex justify-center mb-10">
-                        <div className="bg-gray-200 p-2 rounded-2xl flex gap-2 shadow-inner">
-                            {/* 按鈕文字放大 */}
-                            <button onClick={() => setViewMode('STATUS')} className={`px-8 py-4 rounded-xl text-3xl font-bold transition-all duration-300 ${viewMode === 'STATUS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📊 狀況統計 (Status)</button>
-                            <button onClick={() => setViewMode('TREND')} className={`px-8 py-4 rounded-xl text-3xl font-bold transition-all duration-300 ${viewMode === 'TREND' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📈 績效分數 (Trend)</button>
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
-                        {/* 卡片內容全面放大 */}
-                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-6">
-                            <div className="p-6 bg-yellow-100 text-yellow-600 rounded-3xl"><Coins className="w-16 h-16" /></div>
-                            <div><p className="text-gray-500 text-2xl font-bold">目前資產</p><div className="flex items-baseline gap-2"><span className="text-6xl font-black text-gray-800">{bankBalance?.gold || 0}</span><span className="text-2xl text-yellow-500 font-bold">金</span><span className="text-4xl font-bold text-gray-400">/</span><span className="text-6xl font-black text-gray-800">{bankBalance?.silver || 0}</span><span className="text-2xl text-gray-400 font-bold">銀</span></div></div>
-                        </div>
-                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-6">
-                            <div className={`p-6 rounded-3xl ${viewMode === 'TREND' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600'}`}>{viewMode === 'TREND' ? <TrendingUp className="w-16 h-16" /> : <BarChart2 className="w-16 h-16" />}</div>
-                            <div className="flex-1">
-                                <p className="text-gray-500 text-2xl font-bold mb-1">本學期{viewMode === 'STATUS' ? '統計天數' : '作業總數'}</p>
-                                <div className="flex items-baseline gap-2"><span className={`text-7xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span><span className="text-3xl text-gray-400 font-medium">{statsUnit}</span></div>
-                                <div className="flex gap-4 mt-3 text-xl font-bold"><span className="text-green-600 bg-green-100 px-3 py-1 rounded-lg">準時 {currentStats.completed}</span><span className="text-yellow-600 bg-yellow-100 px-3 py-1 rounded-lg">遲交 {currentStats.late}</span><span className="text-red-600 bg-red-100 px-3 py-1 rounded-lg">缺交 {currentStats.missing}</span></div>
+                    <div className="flex items-center gap-6 w-full">
+                        {/* 左側：座號 + 姓名 + 標題 (使用 w-auto 讓它只佔必要空間) */}
+                        <div className="flex items-center gap-6 shrink-0">
+                            <div className={`w-28 h-28 bg-white rounded-full flex items-center justify-center text-6xl font-bold shadow-lg border-8 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>{student.id}</div>
+                            <div className="flex flex-col justify-center">
+                                <h2 className="text-6xl font-black tracking-wide leading-none mb-2">{maskedName} 的學習歷程</h2>
+                                <p className="text-white/90 text-2xl font-medium flex items-center gap-2"><Activity className="w-6 h-6" /> {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表</p>
                             </div>
                         </div>
-                        <div className={`p-0 rounded-3xl shadow-sm border-l-[12px] flex overflow-hidden transition-all ${currentFeedback.border} ${currentFeedback.bg}`}>
-                            <div className="w-1/3 flex flex-col items-center justify-center border-r border-gray-100 bg-white/50 p-4"><span className={`text-6xl font-black ${currentFeedback.color}`}>{viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}</span><span className="text-xl text-gray-500 font-bold mt-2">分</span></div>
-                            <div className="w-2/3 p-6 flex flex-col justify-center"><p className="text-gray-500 text-lg font-bold mb-2">{viewMode === 'STATUS' ? '健康指數分析' : '績效評級分析'}</p><p className={`${currentFeedback.color} font-bold text-3xl leading-snug text-left`}>{currentFeedback.text}</p></div>
+
+                        {/* 分隔線 */}
+                        <div className="h-20 w-[2px] bg-white/30 mx-2"></div>
+
+                        {/* 右側：分數 + 評語 (flex-1 讓它自動延伸填滿，確保單行顯示) */}
+                        <div className="flex flex-1 flex-col items-start justify-center bg-white/10 rounded-2xl px-6 py-3 backdrop-blur-sm border border-white/20 h-full">
+                            <div className="flex items-baseline w-full">
+                                <span className="text-3xl font-bold text-white/90 mr-4">🏆 綜合總分</span>
+                                <span className="text-7xl font-black text-yellow-300 drop-shadow-md mr-4">{overallData.score}</span>
+                                <span className="text-5xl font-bold text-white mr-6">| {overallBadge.animal}</span>
+                                {/* 評語：字體加大，不換行 (whitespace-nowrap) */}
+                                <span className="text-4xl font-medium text-white/95 tracking-wide overflow-hidden text-ellipsis whitespace-nowrap pt-2">{overallBadge.comment}</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="bg-white p-10 rounded-[2rem] shadow-sm border border-gray-200 mb-10">
-                        <h3 className="text-4xl font-bold text-gray-700 mb-8 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-10 h-10 mr-4 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-10 h-10 mr-4 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
-                        <div className="h-[400px] w-full">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} /> ) : ( <SimpleStackedBarChart data={healthData} /> )}</div>
-                        {viewMode === 'TREND' && (<div className="flex justify-center gap-8 mt-6 text-xl font-bold text-gray-500"><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full bg-green-400"></div>90分以上</div><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full bg-yellow-400"></div>60-89分</div><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full bg-red-400"></div>60分以下</div></div>)}
-                        {viewMode === 'STATUS' && (<div className="flex justify-center gap-8 mt-6 text-xl font-bold text-gray-500"><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-sm bg-green-400"></div>準時完成</div><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-sm bg-yellow-400"></div>後來補交</div><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-sm bg-red-400"></div>缺交未補</div></div>)}
+                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-4 rounded-full transition backdrop-blur-md ml-6 shrink-0"><X className="w-10 h-10" /></button>
+                </div>
+
+                {/* 2. 工具列 (按鈕 + 資產顯示) */}
+                <div className="bg-gray-100 p-4 flex justify-between items-center shadow-inner shrink-0">
+                    <div className="flex gap-4">
+                        <button onClick={() => setViewMode('STATUS')} className={`px-8 py-3 rounded-xl text-3xl font-bold transition-all duration-300 flex items-center gap-2 ${viewMode === 'STATUS' ? 'bg-white text-indigo-600 shadow-md ring-2 ring-indigo-200' : 'text-gray-500 hover:bg-gray-200'}`}><BarChart2 className="w-8 h-8"/> 狀況統計</button>
+                        <button onClick={() => setViewMode('TREND')} className={`px-8 py-3 rounded-xl text-3xl font-bold transition-all duration-300 flex items-center gap-2 ${viewMode === 'TREND' ? 'bg-white text-blue-600 shadow-md ring-2 ring-blue-200' : 'text-gray-500 hover:bg-gray-200'}`}><TrendingUp className="w-8 h-8"/> 績效分數</button>
                     </div>
-                    <div className="bg-white rounded-[2rem] shadow-sm border border-gray-200 overflow-hidden">
+                    {/* 資產顯示移到這裡 */}
+                    <div className="bg-white px-8 py-2 rounded-xl shadow-sm border border-gray-200 flex items-center gap-6">
+                        <span className="text-gray-500 text-2xl font-bold flex items-center gap-2"><Coins className="w-8 h-8 text-yellow-500"/> 目前資產:</span>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-5xl font-black text-gray-800">{bankBalance?.gold || 0}</span><span className="text-2xl text-yellow-500 font-bold">金</span>
+                            <span className="text-4xl text-gray-300 font-light">/</span>
+                            <span className="text-5xl font-black text-gray-800">{bankBalance?.silver || 0}</span><span className="text-2xl text-gray-400 font-bold">銀</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. 主要內容區 (改為雙欄設計) */}
+                <div className={`flex-1 overflow-auto p-8 ${currentFeedback.bg}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                        {/* 左欄：本學期統計 (2合1) */}
+                        <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col justify-center items-center relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-4 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
+                            <p className="text-gray-500 text-3xl font-bold mb-4">本學期{viewMode === 'STATUS' ? '統計天數' : '作業總數'}</p>
+                            <div className="flex items-baseline gap-4 mb-6">
+                                <span className={`text-9xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span>
+                                <span className="text-4xl text-gray-400 font-bold">{statsUnit}</span>
+                            </div>
+                            <div className="flex gap-6 w-full justify-center">
+                                <div className="flex flex-col items-center bg-green-50 p-4 rounded-2xl w-1/3 border border-green-100">
+                                    <span className="text-5xl font-bold text-green-600">{currentStats.completed}</span>
+                                    <span className="text-xl text-green-800 font-bold mt-1">準時</span>
+                                </div>
+                                <div className="flex flex-col items-center bg-yellow-50 p-4 rounded-2xl w-1/3 border border-yellow-100">
+                                    <span className="text-5xl font-bold text-yellow-600">{currentStats.late}</span>
+                                    <span className="text-xl text-yellow-800 font-bold mt-1">遲交</span>
+                                </div>
+                                <div className="flex flex-col items-center bg-red-50 p-4 rounded-2xl w-1/3 border border-red-100">
+                                    <span className="text-5xl font-bold text-red-600">{currentStats.missing}</span>
+                                    <span className="text-xl text-red-800 font-bold mt-1">缺交</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 右欄：分數分析 (字體巨大化，單行顯示) */}
+                        <div className={`p-8 rounded-[2rem] shadow-sm border-l-[16px] flex flex-col justify-center ${currentFeedback.border} ${currentFeedback.bg}`}>
+                            <div className="flex items-center gap-6 mb-6 pb-6 border-b border-gray-200/50">
+                                <span className="text-3xl font-bold text-gray-500">{viewMode === 'STATUS' ? '健康指數' : '績效評級'}</span>
+                                <span className={`text-8xl font-black ${currentFeedback.color}`}>{viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}</span>
+                                <span className="text-3xl text-gray-400 font-bold self-end mb-2">分</span>
+                            </div>
+                            <div>
+                                <p className={`${currentFeedback.color} font-bold text-5xl leading-tight text-left`}>{currentFeedback.text}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 圖表區 (高度增加) */}
+                    <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-200 mb-10">
+                        <h3 className="text-4xl font-bold text-gray-700 mb-8 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-12 h-12 mr-4 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-12 h-12 mr-4 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
+                        <div className="h-[450px] w-full">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} /> ) : ( <SimpleStackedBarChart data={healthData} /> )}</div>
+                    </div>
+
+                    {/* 表格區 */}
+                    <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-200 overflow-hidden">
                         <div className="p-6 bg-gray-50 border-b border-gray-200 text-3xl font-bold text-gray-600">詳細數據列表</div>
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-white"><tr><th className="px-8 py-6 text-left text-3xl font-bold text-gray-600">月份</th><th className="px-8 py-6 text-center text-3xl font-bold text-green-600">準時</th><th className="px-8 py-6 text-center text-3xl font-bold text-yellow-600">補交</th><th className="px-8 py-6 text-center text-3xl font-bold text-red-600">缺交</th><th className="px-8 py-6 text-center text-3xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
