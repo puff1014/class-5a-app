@@ -118,45 +118,35 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
    const maxTotal = Math.max(...data.map(d => d.details.count), 1); const barWidth = Math.min(60, chartWidth / data.length * 0.6); 
    return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> {data.map((d, i) => { const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2; const totalHeight = chartHeight; const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight; const lateHeight = (d.details.late / maxTotal) * totalHeight; const missingHeight = (d.details.missing / maxTotal) * totalHeight; const yGreen = (height - padding) - onTimeHeight; const yYellow = yGreen - lateHeight; const yRed = yYellow - missingHeight; return ( <g key={i} className="group"> {d.details.onTime > 0 && (<rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.late > 0 && (<rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.missing > 0 && (<rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text> <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text> <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title> </g> ); })} </svg> );
 };
-// --- 學生學習歷程 Dashboard Modal (已修復日期 Crash 問題) ---
+// --- 學生學習歷程 Dashboard Modal (V20.0.9: 姓名隱碼 + 字體全面巨大化) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
 
-    // *** 關鍵修復：處理各種日期格式，防止崩潰 ***
+    // 處理姓名隱碼 (陳O佑)
+    const maskedName = student.name[0] + 'O' + student.name.slice(2);
+
+    // *** 日期計算邏輯 ***
     const getDaysDiff = (dateString, completedAt) => {
         try {
             const targetDate = new Date(dateString); 
             if (isNaN(targetDate.getTime())) return 0;
             targetDate.setHours(0,0,0,0);
-            
             let completedDate = new Date();
             if (completedAt) {
-                if (typeof completedAt.toDate === 'function') {
-                    // 1. Firebase Timestamp
-                    completedDate = completedAt.toDate();
-                } else if (completedAt.seconds) {
-                    // 2. JSON 匯入的 Timestamp (秒數)
-                    completedDate = new Date(completedAt.seconds * 1000);
-                } else {
-                    // 3. 一般字串
-                    completedDate = new Date(completedAt);
-                }
+                if (typeof completedAt.toDate === 'function') completedDate = completedAt.toDate();
+                else if (completedAt.seconds) completedDate = new Date(completedAt.seconds * 1000);
+                else completedDate = new Date(completedAt);
             }
-            
             if (isNaN(completedDate.getTime())) return 0;
-
             completedDate.setHours(0,0,0,0);
             return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24)));
-        } catch (e) {
-            return 0; 
-        }
+        } catch (e) { return 0; }
     };
 
     const getDelayFromToday = (dateString) => {
         try {
-            const today = new Date(); 
-            today.setHours(0, 0, 0, 0);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
             const target = new Date(dateString); 
             if (isNaN(target.getTime())) return 0;
             target.setHours(0, 0, 0, 0);
@@ -176,7 +166,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         sortedDates.forEach(date => {
             const dateObj = new Date(date);
             if (isNaN(dateObj.getTime())) return;
-
             const monthKey = `${dateObj.getMonth() + 1}月`;
             if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
             if (!trendByMonth[monthKey]) trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
@@ -210,12 +199,9 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             healthByMonth[monthKey].totalPoints += dayScore; healthByMonth[monthKey].count++; totalHealthPoints += dayScore;
         });
 
-        // 安全除法
         const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
-
         const healthChart = Object.keys(healthByMonth).map(key => ({ label: key, value: safeDiv(healthByMonth[key].totalPoints, healthByMonth[key].count), details: healthByMonth[key] }));
         const trendChart = Object.keys(trendByMonth).map(key => ({ label: key, value: safeDiv(trendByMonth[key].totalPoints, trendByMonth[key].count), details: trendByMonth[key] }));
-        
         const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
         const avgHealthScore = safeDiv(totalHealthPoints, totalDays).toFixed(1);
         const avgTrendScore = safeDiv(totalTrendPoints, totalItems).toFixed(1);
@@ -288,61 +274,68 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
-            <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border-4 ${currentFeedback.isAlert ? 'border-red-500' : 'border-white'}`}>
-                <div className={`px-6 py-4 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
-                    <div className="flex items-center gap-6 w-full">
-                        <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 shrink-0 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>{student.id}</div>
+            {/* 加寬視窗最大寬度 (max-w-[95vw]) 以容納大字體 */}
+            <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-[95vw] h-[95vh] flex flex-col overflow-hidden border-8 ${currentFeedback.isAlert ? 'border-red-500' : 'border-white'}`}>
+                <div className={`px-8 py-6 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
+                    <div className="flex items-center gap-8 w-full">
+                        {/* 座號圈圈放大 */}
+                        <div className={`w-32 h-32 bg-white rounded-full flex items-center justify-center text-7xl font-bold shadow-lg border-8 shrink-0 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>{student.id}</div>
                         <div className="flex flex-col justify-center flex-1">
-                            <h2 className="text-4xl font-bold tracking-wide leading-none mb-1">{student.name} 的學習歷程</h2>
-                            <p className="text-white/80 text-lg font-medium flex items-center gap-2"><Activity className="w-4 h-4" /> {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表</p>
+                            {/* 標題放大至 6xl, 使用隱碼名字 */}
+                            <h2 className="text-7xl font-black tracking-wide leading-none mb-3">{maskedName} 的學習歷程</h2>
+                            <p className="text-white/90 text-3xl font-medium flex items-center gap-2"><Activity className="w-8 h-8" /> {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表</p>
                         </div>
-                        <div className="flex flex-col items-end justify-center bg-white/20 rounded-xl px-4 py-2 backdrop-blur-sm border border-white/30 min-w-[280px]">
-                            <div className="flex items-baseline gap-2"><span className="text-sm font-bold text-white/90">🏆 綜合總分</span><span className="text-3xl font-black text-yellow-300 drop-shadow-md">{overallData.score}</span><span className="text-2xl font-bold text-white">| {overallBadge.animal}</span></div>
-                            <div className="text-left text-sm font-medium text-white/90 mt-1 max-w-[300px] leading-tight">{overallBadge.comment}</div>
+                        <div className="flex flex-col items-end justify-center bg-white/20 rounded-2xl px-6 py-4 backdrop-blur-sm border border-white/30 min-w-[350px]">
+                            {/* 分數放大 */}
+                            <div className="flex items-baseline gap-3"><span className="text-2xl font-bold text-white/90">🏆 綜合總分</span><span className="text-6xl font-black text-yellow-300 drop-shadow-md">{overallData.score}</span><span className="text-4xl font-bold text-white">| {overallBadge.animal}</span></div>
+                            {/* 評語放大 */}
+                            <div className="text-left text-2xl font-medium text-white/90 mt-2 max-w-[400px] leading-tight">{overallBadge.comment}</div>
                         </div>
                     </div>
-                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition backdrop-blur-md ml-4 shrink-0"><X className="w-8 h-8" /></button>
+                    <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-4 rounded-full transition backdrop-blur-md ml-6 shrink-0"><X className="w-12 h-12" /></button>
                 </div>
                 <div className={`flex-1 overflow-auto p-8 ${currentFeedback.bg}`}>
-                    <div className="flex justify-center mb-8">
-                        <div className="bg-gray-200 p-1 rounded-xl flex gap-1 shadow-inner">
-                            <button onClick={() => setViewMode('STATUS')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'STATUS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📊 狀況統計 (Status)</button>
-                            <button onClick={() => setViewMode('TREND')} className={`px-6 py-2 rounded-lg text-xl font-bold transition-all duration-300 ${viewMode === 'TREND' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📈 績效分數 (Trend)</button>
+                    <div className="flex justify-center mb-10">
+                        <div className="bg-gray-200 p-2 rounded-2xl flex gap-2 shadow-inner">
+                            {/* 按鈕文字放大 */}
+                            <button onClick={() => setViewMode('STATUS')} className={`px-8 py-4 rounded-xl text-3xl font-bold transition-all duration-300 ${viewMode === 'STATUS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📊 狀況統計 (Status)</button>
+                            <button onClick={() => setViewMode('TREND')} className={`px-8 py-4 rounded-xl text-3xl font-bold transition-all duration-300 ${viewMode === 'TREND' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>📈 績效分數 (Trend)</button>
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div className="p-4 bg-yellow-100 text-yellow-600 rounded-2xl"><Coins className="w-10 h-10" /></div>
-                            <div><p className="text-gray-500 text-lg font-bold">目前資產</p><div className="flex items-baseline gap-2"><span className="text-4xl font-black text-gray-800">{bankBalance?.gold || 0}</span><span className="text-sm text-yellow-500 font-bold">金</span><span className="text-2xl font-bold text-gray-400">/</span><span className="text-4xl font-black text-gray-800">{bankBalance?.silver || 0}</span><span className="text-sm text-gray-400 font-bold">銀</span></div></div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+                        {/* 卡片內容全面放大 */}
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-6">
+                            <div className="p-6 bg-yellow-100 text-yellow-600 rounded-3xl"><Coins className="w-16 h-16" /></div>
+                            <div><p className="text-gray-500 text-2xl font-bold">目前資產</p><div className="flex items-baseline gap-2"><span className="text-6xl font-black text-gray-800">{bankBalance?.gold || 0}</span><span className="text-2xl text-yellow-500 font-bold">金</span><span className="text-4xl font-bold text-gray-400">/</span><span className="text-6xl font-black text-gray-800">{bankBalance?.silver || 0}</span><span className="text-2xl text-gray-400 font-bold">銀</span></div></div>
                         </div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div className={`p-4 rounded-2xl ${viewMode === 'TREND' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600'}`}>{viewMode === 'TREND' ? <TrendingUp className="w-10 h-10" /> : <BarChart2 className="w-10 h-10" />}</div>
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-6">
+                            <div className={`p-6 rounded-3xl ${viewMode === 'TREND' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600'}`}>{viewMode === 'TREND' ? <TrendingUp className="w-16 h-16" /> : <BarChart2 className="w-16 h-16" />}</div>
                             <div className="flex-1">
-                                <p className="text-gray-500 text-lg font-bold mb-1">本學期{viewMode === 'STATUS' ? '統計天數' : '作業總數'}</p>
-                                <div className="flex items-baseline gap-2"><span className={`text-5xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span><span className="text-xl text-gray-400 font-medium">{statsUnit}</span></div>
-                                <div className="flex gap-3 mt-2 text-sm font-bold"><span className="text-green-600 bg-green-100 px-2 py-0.5 rounded">準時 {currentStats.completed}</span><span className="text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded">遲交 {currentStats.late}</span><span className="text-red-600 bg-red-100 px-2 py-0.5 rounded">缺交 {currentStats.missing}</span></div>
+                                <p className="text-gray-500 text-2xl font-bold mb-1">本學期{viewMode === 'STATUS' ? '統計天數' : '作業總數'}</p>
+                                <div className="flex items-baseline gap-2"><span className={`text-7xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span><span className="text-3xl text-gray-400 font-medium">{statsUnit}</span></div>
+                                <div className="flex gap-4 mt-3 text-xl font-bold"><span className="text-green-600 bg-green-100 px-3 py-1 rounded-lg">準時 {currentStats.completed}</span><span className="text-yellow-600 bg-yellow-100 px-3 py-1 rounded-lg">遲交 {currentStats.late}</span><span className="text-red-600 bg-red-100 px-3 py-1 rounded-lg">缺交 {currentStats.missing}</span></div>
                             </div>
                         </div>
-                        <div className={`p-0 rounded-2xl shadow-sm border-l-8 flex overflow-hidden transition-all ${currentFeedback.border} ${currentFeedback.bg}`}>
-                            <div className="w-1/3 flex flex-col items-center justify-center border-r border-gray-100 bg-white/50 p-2"><span className={`text-4xl font-black ${currentFeedback.color}`}>{viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}</span><span className="text-sm text-gray-500 font-bold mt-1">分</span></div>
-                            <div className="w-2/3 p-4 flex flex-col justify-center"><p className="text-gray-500 text-xs font-bold mb-1">{viewMode === 'STATUS' ? '健康指數分析' : '績效評級分析'}</p><p className={`${currentFeedback.color} font-bold text-lg leading-tight text-left`}>{currentFeedback.text}</p></div>
+                        <div className={`p-0 rounded-3xl shadow-sm border-l-[12px] flex overflow-hidden transition-all ${currentFeedback.border} ${currentFeedback.bg}`}>
+                            <div className="w-1/3 flex flex-col items-center justify-center border-r border-gray-100 bg-white/50 p-4"><span className={`text-6xl font-black ${currentFeedback.color}`}>{viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}</span><span className="text-xl text-gray-500 font-bold mt-2">分</span></div>
+                            <div className="w-2/3 p-6 flex flex-col justify-center"><p className="text-gray-500 text-lg font-bold mb-2">{viewMode === 'STATUS' ? '健康指數分析' : '績效評級分析'}</p><p className={`${currentFeedback.color} font-bold text-3xl leading-snug text-left`}>{currentFeedback.text}</p></div>
                         </div>
                     </div>
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 mb-8">
-                        <h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-6 h-6 mr-2 text-blue-500" /> 作業績效趨勢圖 (Performance Trend)</>) : (<><BarChart2 className="w-6 h-6 mr-2 text-indigo-500" /> 每月作業狀況分佈 (Status Distribution)</>)}</h3>
-                        <div className="h-[350px] w-full">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} /> ) : ( <SimpleStackedBarChart data={healthData} /> )}</div>
-                        {viewMode === 'TREND' && (<div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-400"></div>90分以上 (優異)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-400"></div>60-89分 (及格)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-400"></div>60分以下 (落後)</div></div>)}
-                        {viewMode === 'STATUS' && (<div className="flex justify-center gap-6 mt-4 text-sm font-bold text-gray-500"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-green-400"></div>準時完成(天)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-yellow-400"></div>後來補交(天)</div><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-red-400"></div>缺交未補(天)</div></div>)}
+                    <div className="bg-white p-10 rounded-[2rem] shadow-sm border border-gray-200 mb-10">
+                        <h3 className="text-4xl font-bold text-gray-700 mb-8 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-10 h-10 mr-4 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-10 h-10 mr-4 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
+                        <div className="h-[400px] w-full">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} /> ) : ( <SimpleStackedBarChart data={healthData} /> )}</div>
+                        {viewMode === 'TREND' && (<div className="flex justify-center gap-8 mt-6 text-xl font-bold text-gray-500"><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full bg-green-400"></div>90分以上</div><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full bg-yellow-400"></div>60-89分</div><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full bg-red-400"></div>60分以下</div></div>)}
+                        {viewMode === 'STATUS' && (<div className="flex justify-center gap-8 mt-6 text-xl font-bold text-gray-500"><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-sm bg-green-400"></div>準時完成</div><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-sm bg-yellow-400"></div>後來補交</div><div className="flex items-center gap-3"><div className="w-5 h-5 rounded-sm bg-red-400"></div>缺交未補</div></div>)}
                     </div>
-                    <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-500">詳細數據列表</div>
+                    <div className="bg-white rounded-[2rem] shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-6 bg-gray-50 border-b border-gray-200 text-3xl font-bold text-gray-600">詳細數據列表</div>
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-white"><tr><th className="px-6 py-4 text-left text-xl font-bold text-gray-600">月份</th><th className="px-6 py-4 text-center text-xl font-bold text-green-600">準時({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-yellow-600">補交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-red-600">缺交({statsUnit})</th><th className="px-6 py-4 text-center text-xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
+                            <thead className="bg-white"><tr><th className="px-8 py-6 text-left text-3xl font-bold text-gray-600">月份</th><th className="px-8 py-6 text-center text-3xl font-bold text-green-600">準時</th><th className="px-8 py-6 text-center text-3xl font-bold text-yellow-600">補交</th><th className="px-8 py-6 text-center text-3xl font-bold text-red-600">缺交</th><th className="px-8 py-6 text-center text-3xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
                             <tbody className="divide-y divide-gray-200">
                                 {chartData.map((row, idx) => {
                                     const tVal = row.value || 0;
                                     return (
-                                        <tr key={idx} className="hover:bg-gray-50"><td className="px-6 py-4 text-xl font-bold text-gray-800">{row.label}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.onTime}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.late}</td><td className="px-6 py-4 text-center text-xl font-medium text-gray-600">{row.details.missing}</td><td className="px-6 py-4 text-center"><span className={`inline-block px-3 py-1 rounded-full text-lg font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>{tVal.toFixed(1)}</span></td></tr>
+                                        <tr key={idx} className="hover:bg-gray-50"><td className="px-8 py-6 text-3xl font-bold text-gray-800">{row.label}</td><td className="px-8 py-6 text-center text-3xl font-medium text-gray-600">{row.details.onTime}</td><td className="px-8 py-6 text-center text-3xl font-medium text-gray-600">{row.details.late}</td><td className="px-8 py-6 text-center text-3xl font-medium text-gray-600">{row.details.missing}</td><td className="px-8 py-6 text-center"><span className={`inline-block px-4 py-2 rounded-full text-3xl font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>{tVal.toFixed(1)}</span></td></tr>
                                     );
                                 })}
                             </tbody>
