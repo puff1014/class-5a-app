@@ -120,33 +120,50 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
    return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> {data.map((d, i) => { const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2; const totalHeight = chartHeight; const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight; const lateHeight = (d.details.late / maxTotal) * totalHeight; const missingHeight = (d.details.missing / maxTotal) * totalHeight; const yGreen = (height - padding) - onTimeHeight; const yYellow = yGreen - lateHeight; const yRed = yYellow - missingHeight; return ( <g key={i} className="group"> {d.details.onTime > 0 && (<rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.late > 0 && (<rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.missing > 0 && (<rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text> <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text> <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title> </g> ); })} </svg> );
 };
 // --- 學生學習歷程 Dashboard Modal (修復版) ---
+// --- 學生學習歷程 Dashboard Modal (修復版：防止日期錯誤導致白畫面) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
 
-    // *** 關鍵修復：處理 Firebase Timestamp ***
+    // *** 關鍵修復：處理各種日期格式，防止崩潰 ***
     const getDaysDiff = (dateString, completedAt) => {
-        const targetDate = new Date(dateString); 
-        targetDate.setHours(0,0,0,0);
-        
-        let completedDate = new Date();
-        if (completedAt) {
-            if (typeof completedAt.toDate === 'function') {
-                completedDate = completedAt.toDate();
-            } else {
-                completedDate = new Date(completedAt);
+        try {
+            const targetDate = new Date(dateString); 
+            if (isNaN(targetDate.getTime())) return 0;
+            targetDate.setHours(0,0,0,0);
+            
+            let completedDate = new Date();
+            if (completedAt) {
+                if (typeof completedAt.toDate === 'function') {
+                    // 1. Firebase Timestamp
+                    completedDate = completedAt.toDate();
+                } else if (completedAt.seconds) {
+                    // 2. JSON 匯入的 Timestamp (秒數)
+                    completedDate = new Date(completedAt.seconds * 1000);
+                } else {
+                    // 3. 一般字串
+                    completedDate = new Date(completedAt);
+                }
             }
+            
+            if (isNaN(completedDate.getTime())) return 0;
+
+            completedDate.setHours(0,0,0,0);
+            return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24)));
+        } catch (e) {
+            return 0; 
         }
-        completedDate.setHours(0,0,0,0);
-        return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24)));
     };
 
     const getDelayFromToday = (dateString) => {
-        const today = new Date(); 
-        today.setHours(0, 0, 0, 0);
-        const target = new Date(dateString); 
-        target.setHours(0, 0, 0, 0);
-        return Math.floor((today - target) / (1000 * 60 * 60 * 24));
+        try {
+            const today = new Date(); 
+            today.setHours(0, 0, 0, 0);
+            const target = new Date(dateString); 
+            if (isNaN(target.getTime())) return 0;
+            target.setHours(0, 0, 0, 0);
+            return Math.floor((today - target) / (1000 * 60 * 60 * 24));
+        } catch(e) { return 0; }
     };
 
     const { healthData, trendData, summaryStats, trendStats, emergencyData, overallData } = useMemo(() => {
@@ -160,6 +177,8 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         const sortedDates = Object.keys(allAssignmentsByDate).sort();
         sortedDates.forEach(date => {
             const dateObj = new Date(date);
+            if (isNaN(dateObj.getTime())) return;
+
             const monthKey = `${dateObj.getMonth() + 1}月`;
             if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
             if (!trendByMonth[monthKey]) trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
@@ -193,11 +212,15 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             healthByMonth[monthKey].totalPoints += dayScore; healthByMonth[monthKey].count++; totalHealthPoints += dayScore;
         });
 
-        const healthChart = Object.keys(healthByMonth).map(key => ({ label: key, value: healthByMonth[key].count === 0 ? 0 : (healthByMonth[key].totalPoints / healthByMonth[key].count), details: healthByMonth[key] }));
-        const trendChart = Object.keys(trendByMonth).map(key => ({ label: key, value: trendByMonth[key].count === 0 ? 0 : (trendByMonth[key].totalPoints / trendByMonth[key].count), details: trendByMonth[key] }));
+        // 安全除法
+        const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
+
+        const healthChart = Object.keys(healthByMonth).map(key => ({ label: key, value: safeDiv(healthByMonth[key].totalPoints, healthByMonth[key].count), details: healthByMonth[key] }));
+        const trendChart = Object.keys(trendByMonth).map(key => ({ label: key, value: safeDiv(trendByMonth[key].totalPoints, trendByMonth[key].count), details: trendByMonth[key] }));
+        
         const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
-        const avgHealthScore = totalDays === 0 ? 0 : (totalHealthPoints / totalDays).toFixed(1);
-        const avgTrendScore = totalItems === 0 ? 0 : (totalTrendPoints / totalItems).toFixed(1);
+        const avgHealthScore = safeDiv(totalHealthPoints, totalDays).toFixed(1);
+        const avgTrendScore = safeDiv(totalTrendPoints, totalItems).toFixed(1);
         const overallScore = ((parseFloat(avgHealthScore) + parseFloat(avgTrendScore)) / 2).toFixed(1);
 
         return { healthData: healthChart, trendData: trendChart, summaryStats: { days: { total: totalDays, completed: daysCompleted, late: daysLate, missing: daysMissing }, items: { total: totalItems, completed: itemsCompleted, late: itemsLate, missing: itemsMissing }, avgScore: avgHealthScore }, trendStats: { avgScore: avgTrendScore }, emergencyData: { isEmergency, maxDelayDays, currentMissingCount }, overallData: { score: overallScore } };
@@ -206,6 +229,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     const getStatusFeedback = (score, emergency) => {
         if (emergency.isEmergency) return { text: "❌ 紅燈警報！缺交太多了，請務必每天確實完成功課，並檢查聯絡簿。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true };
         const s = parseFloat(score);
+        if (isNaN(s)) return { text: "⚪ 資料不足", color: "text-gray-400", bg: "bg-white", border: "border-gray-300" };
         if (s >= 100) return { text: "🏆 完美無瑕！作業全勤且準時，你是全班的作業楷模！", color: "text-blue-600", bg: "bg-white", border: "border-blue-600" };
         if (s >= 95) return { text: "✨ 超級優秀！表現非常棒，你的自律讓人佩服。", color: "text-blue-500", bg: "bg-white", border: "border-blue-500" };
         if (s >= 90) return { text: "🌟 表現極佳！絕大多數時間都能準時完成，態度很棒。", color: "text-green-600", bg: "bg-white", border: "border-green-600" };
@@ -216,6 +240,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     };
     const getTrendFeedback = (score) => {
         const s = parseFloat(score);
+        if (isNaN(s)) return { text: "資料不足", color: "text-gray-400", bg: "bg-gray-100", border: "border-gray-300" };
         if (s === 100) return { text: "👑 傳奇等級！完美的 100 分，無懈可擊！", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-500" };
         if (s >= 98) return { text: "🎖️ 頂尖卓越 (98+)，幾乎完美的表現！", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" };
         if (s >= 96) return { text: "🌟 出類拔萃 (96+)，令人驚嘆的自律！", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" };
@@ -234,6 +259,27 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         if (s >= 10) return { text: "🆘 緊急狀態 (10+)，你的作業幾乎一片空白，請面對現實。", color: "text-red-900", bg: "bg-red-200", border: "border-red-800" };
         if (s >= 5) return { text: "🌫️ 幾近空白 (5+)，請不要放棄學習！", color: "text-gray-600", bg: "bg-gray-200", border: "border-gray-500" };
         return { text: "🌑 完全空白 (0-4.9)，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" };
+    };
+    const getOverallBadge = (score) => {
+        const s = parseFloat(score);
+        if (isNaN(s)) return { animal: "🥚 蛋", comment: "尚未孵化" };
+        if (s >= 100) return { animal: "🐲 神龍", comment: "作業全勤無缺，品質完美無瑕，無可挑剔。" };
+        if (s >= 97) return { animal: "🦁 獅王", comment: "態度極度自律，對自我要求高，細節處理極佳。" };
+        if (s >= 94) return { animal: "🦅 雄鷹", comment: "繳交迅速確實，準確率非常高，學習態度積極。" };
+        if (s >= 91) return { animal: "🐆 獵豹", comment: "訂正效率驚人，很少拖泥帶水，行動力極強。" };
+        if (s >= 88) return { animal: "🐴 駿馬", comment: "保持穩定節奏，作業習慣良好，充滿學習幹勁。" };
+        if (s >= 85) return { animal: "🐺 戰狼", comment: "能夠自我鞭策，按時完成任務，錯誤越來越少。" };
+        if (s >= 82) return { animal: "🦊 靈狐", comment: "作業繳交穩定，若能多點細心，表現會更出色。" };
+        if (s >= 77) return { animal: "🦉 貓頭鷹", comment: "逐漸掌握要領，學習狀況回穩，請持續保持。" };
+        if (s >= 72) return { animal: "🐻 大熊", comment: "累積實力中，雖然細心度不足，但大多能完成。" };
+        if (s >= 67) return { animal: "🐘 大象", comment: "腳踏實地完成，雖然速度較慢，但願意補救。" };
+        if (s >= 60) return { animal: "🦈 鯊魚", comment: "努力跟上進度，正視缺交問題，積極修正中。" };
+        if (s >= 50) return { animal: "🦘 袋鼠", comment: "再跳一步就及格，請補齊缺交，別讓分數停滯。" };
+        if (s >= 40) return { animal: "🐿️ 松鼠", comment: "積少成多，每一項作業都很重要，請勿隨意放棄。" };
+        if (s >= 30) return { animal: "🐇 白兔", comment: "別因貪玩而偷懶，趕快追上進度，你可以做得到。" };
+        if (s >= 20) return { animal: "🦔 刺蝟", comment: "卸下防備與藉口，面對作業不逃避，勇敢承擔責任。" };
+        if (s >= 10) return { animal: "🐢 烏龜", comment: "只要肯開始動筆，總會完成一項，哪怕慢也沒關係。" };
+        return { animal: "🌱 種子", comment: "埋入土裡太久了，請翻開作業本，讓學習重新發芽。" };
     };
 
     const currentFeedback = viewMode === 'STATUS' ? getStatusFeedback(summaryStats.avgScore, emergencyData) : getTrendFeedback(trendStats.avgScore);
@@ -281,8 +327,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                         </div>
                         <div className={`p-0 rounded-2xl shadow-sm border-l-8 flex overflow-hidden transition-all ${currentFeedback.border} ${currentFeedback.bg}`}>
                             <div className="w-1/3 flex flex-col items-center justify-center border-r border-gray-100 bg-white/50 p-2"><span className={`text-4xl font-black ${currentFeedback.color}`}>{viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}</span><span className="text-sm text-gray-500 font-bold mt-1">分</span></div>
-                            <div className="w-2/3 p-4 flex flex-col justify-center"><p className="text-gray-500 text-xs font-bold mb-1">{viewMode === 'STATUS' ? '健康指數分析' : '績效評級分析'}</p><p className={`${currentFeedback.color} font-bold text-lg leading-tight text-left`}>{currentFeedback.text}</p></div>
-                        </div>
+                            <div className="w-2/3 p-4 flex flex-col justify-center"><p className="text-gray-500 text-xs font-bold mb-1">{viewMode === 'STATUS' ? '健康指數分析' : '績效評級分析'}</p><p className={`${currentFeedback.color} font-bold text-lg leading-tight text-left`}>{currentFeedback.text}</p></div></div>
                     </div>
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 mb-8">
                         <h3 className="text-2xl font-bold text-gray-700 mb-6 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-6 h-6 mr-2 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-6 h-6 mr-2 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
@@ -309,7 +354,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         </div>
     );
 };
-// --- [Part 3] 學生存簿系統 (含新版介面) ---
 
 const RewardOverlay = ({ type, onClose }) => {
    const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
