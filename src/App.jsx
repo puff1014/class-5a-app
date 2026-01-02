@@ -118,7 +118,7 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
    const maxTotal = Math.max(...data.map(d => d.details.count), 1); const barWidth = Math.min(60, chartWidth / data.length * 0.6); 
    return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> {data.map((d, i) => { const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2; const totalHeight = chartHeight; const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight; const lateHeight = (d.details.late / maxTotal) * totalHeight; const missingHeight = (d.details.missing / maxTotal) * totalHeight; const yGreen = (height - padding) - onTimeHeight; const yYellow = yGreen - lateHeight; const yRed = yYellow - missingHeight; return ( <g key={i} className="group"> {d.details.onTime > 0 && (<rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.late > 0 && (<rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.missing > 0 && (<rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text> <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text> <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title> </g> ); })} </svg> );
 };
-// --- 學生學習歷程 Dashboard Modal (V20.0.10: 資產上移 + 雙欄佈局 + 字體極大化) ---
+// --- 學生學習歷程 Dashboard Modal (V20.0.12: 標題5xl + 分數垂直排列 + 左右平衡) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
@@ -277,30 +277,31 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             {/* 加寬視窗至 98vw，幾近全螢幕 */}
             <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-[98vw] h-[95vh] flex flex-col overflow-hidden border-[12px] ${currentFeedback.isAlert ? 'border-red-500' : 'border-white'}`}>
                 
-                {/* 1. Header 區域 (調整比例：左窄右寬) */}
+                {/* 1. Header 區域 (標題 5xl, 綜合總分 7xl) */}
                 <div className={`px-8 py-6 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
                     <div className="flex items-center gap-6 w-full">
-                        {/* 左側：座號 + 姓名 + 標題 (使用 w-auto 讓它只佔必要空間) */}
+                        {/* 左側：座號 + 姓名 + 標題 */}
                         <div className="flex items-center gap-6 shrink-0">
                             <div className={`w-28 h-28 bg-white rounded-full flex items-center justify-center text-6xl font-bold shadow-lg border-8 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>{student.id}</div>
                             <div className="flex flex-col justify-center">
-                                <h2 className="text-6xl font-black tracking-wide leading-none mb-2">{maskedName} 的學習歷程</h2>
+                                {/* 標題 5xl */}
+                                <h2 className="text-5xl font-black tracking-wide leading-none mb-2">{maskedName} 的學習歷程</h2>
                                 <p className="text-white/90 text-2xl font-medium flex items-center gap-2"><Activity className="w-6 h-6" /> {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表</p>
                             </div>
                         </div>
 
                         {/* 分隔線 */}
-                        <div className="h-20 w-[2px] bg-white/30 mx-2"></div>
+                        <div className="h-24 w-[2px] bg-white/30 mx-4"></div>
 
-                        {/* 右側：分數 + 評語 (flex-1 讓它自動延伸填滿，確保單行顯示) */}
+                        {/* 右側：分數 + 評語 (垂直排列) */}
                         <div className="flex flex-1 flex-col items-start justify-center bg-white/10 rounded-2xl px-6 py-3 backdrop-blur-sm border border-white/20 h-full">
-                            <div className="flex items-baseline w-full">
-                                <span className="text-3xl font-bold text-white/90 mr-4">🏆 綜合總分</span>
-                                <span className="text-7xl font-black text-yellow-300 drop-shadow-md mr-4">{overallData.score}</span>
-                                <span className="text-5xl font-bold text-white mr-6">| {overallBadge.animal}</span>
-                                {/* 評語：字體加大，不換行 (whitespace-nowrap) */}
-                                <span className="text-4xl font-medium text-white/95 tracking-wide overflow-hidden text-ellipsis whitespace-nowrap pt-2">{overallBadge.comment}</span>
+                            <div className="text-2xl font-bold text-white/80 mb-1">🏆 綜合總分</div>
+                            <div className="flex items-baseline mb-2">
+                                <span className="text-7xl font-black text-yellow-300 drop-shadow-md mr-4 leading-none">{overallData.score}</span>
+                                <span className="text-5xl font-bold text-white">| {overallBadge.animal}</span>
                             </div>
+                            {/* 評語保持單行不換行 */}
+                            <div className="text-3xl font-medium text-white/95 tracking-wide overflow-hidden text-ellipsis whitespace-nowrap w-full">{overallBadge.comment}</div>
                         </div>
                     </div>
                     <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-4 rounded-full transition backdrop-blur-md ml-6 shrink-0"><X className="w-10 h-10" /></button>
@@ -312,7 +313,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                         <button onClick={() => setViewMode('STATUS')} className={`px-8 py-3 rounded-xl text-3xl font-bold transition-all duration-300 flex items-center gap-2 ${viewMode === 'STATUS' ? 'bg-white text-indigo-600 shadow-md ring-2 ring-indigo-200' : 'text-gray-500 hover:bg-gray-200'}`}><BarChart2 className="w-8 h-8"/> 狀況統計</button>
                         <button onClick={() => setViewMode('TREND')} className={`px-8 py-3 rounded-xl text-3xl font-bold transition-all duration-300 flex items-center gap-2 ${viewMode === 'TREND' ? 'bg-white text-blue-600 shadow-md ring-2 ring-blue-200' : 'text-gray-500 hover:bg-gray-200'}`}><TrendingUp className="w-8 h-8"/> 績效分數</button>
                     </div>
-                    {/* 資產顯示移到這裡 */}
                     <div className="bg-white px-8 py-2 rounded-xl shadow-sm border border-gray-200 flex items-center gap-6">
                         <span className="text-gray-500 text-2xl font-bold flex items-center gap-2"><Coins className="w-8 h-8 text-yellow-500"/> 目前資產:</span>
                         <div className="flex items-baseline gap-2">
@@ -323,16 +323,17 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                     </div>
                 </div>
 
-                {/* 3. 主要內容區 (改為雙欄設計) */}
+                {/* 3. 主要內容區 (雙欄設計，左右平衡) */}
                 <div className={`flex-1 overflow-auto p-8 ${currentFeedback.bg}`}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-                        {/* 左欄：本學期統計 (2合1) */}
+                        {/* 左欄：本學期統計 (數字 5xl, 單位 3xl - 嚴格平衡版) */}
                         <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col justify-center items-center relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-4 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
                             <p className="text-gray-500 text-3xl font-bold mb-4">本學期{viewMode === 'STATUS' ? '統計天數' : '作業總數'}</p>
                             <div className="flex items-baseline gap-4 mb-6">
-                                <span className={`text-9xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span>
-                                <span className="text-4xl text-gray-400 font-bold">{statsUnit}</span>
+                                {/* 這裡改為 5xl，嚴格遵守「不超過右側評語大小」的規定 */}
+                                <span className={`text-5xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span>
+                                <span className="text-3xl text-gray-400 font-bold">{statsUnit}</span>
                             </div>
                             <div className="flex gap-6 w-full justify-center">
                                 <div className="flex flex-col items-center bg-green-50 p-4 rounded-2xl w-1/3 border border-green-100">
@@ -350,7 +351,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                             </div>
                         </div>
 
-                        {/* 右欄：分數分析 (字體巨大化，單行顯示) */}
+                        {/* 右欄：分數分析 (評語保持 5xl) */}
                         <div className={`p-8 rounded-[2rem] shadow-sm border-l-[16px] flex flex-col justify-center ${currentFeedback.border} ${currentFeedback.bg}`}>
                             <div className="flex items-center gap-6 mb-6 pb-6 border-b border-gray-200/50">
                                 <span className="text-3xl font-bold text-gray-500">{viewMode === 'STATUS' ? '健康指數' : '績效評級'}</span>
