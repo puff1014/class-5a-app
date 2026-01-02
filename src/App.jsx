@@ -691,7 +691,7 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
 const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => { const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); const handleDoubleClick = (e) => { if (authMode === 'ADMIN' && isSelected && onEdit) { e.stopPropagation(); onEdit(); } }; return ( <div className="relative group"> <button onClick={() => onClick(date)} onDoubleClick={handleDoubleClick} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`} title={authMode === 'ADMIN' && isSelected ? "雙擊以修改日期" : ""}> {formattedDate} {isSelected && authMode === 'ADMIN' && ( <span onClick={(e) => { e.stopPropagation(); onEdit(); }} className="inline-flex items-center justify-center p-1 bg-white/20 rounded-full hover:bg-white/40 cursor-pointer transition-colors" title="點擊修改日期"> <Pencil className="w-4 h-4 text-white" /> </span> )} </button> </div> ); };
 
 const ProtectedButton = ({ onClick, disabled, className, title, children }) => { return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> ); };
-// --- [Part 5] 資料 Hooks 與 App 主邏輯 ---
+// --- [Part 5] 資料 Hooks 與 App 主邏輯 (已修復白畫面問題) ---
 
 const useStudents = (db, isOffline) => {
    const [students, setStudents] = useState(DEFAULT_STUDENTS);
@@ -786,6 +786,42 @@ const App = () => {
   const studentMissingStats = useMemo(() => { const stats = students.map(student => ({ id: student.id, name: student.name, missingCount: 0, missingDetails: [] })); Object.keys(allAssignmentsByDate).forEach(date => { const assignmentsOnDate = allAssignmentsByDate[date] || []; assignmentsOnDate.forEach(assignment => { const submissionStatus = assignment.submissionStatus || {}; students.forEach((student, index) => { if (submissionStatus[student.id] === false) { stats[index].missingCount += 1; stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName }); } }); }); }); stats.sort((a, b) => b.missingCount - a.missingCount); return stats; }, [allAssignmentsByDate, students]);
   const monthlyStudentStats = useMemo(() => { const stats = {}; students.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; students.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months, students]);
 
+  // --- 補回：作業管理與其他 Handlers ---
+  const handleNewAssignmentDateChange = (e) => { setNewAssignmentDate(e.target.value); };
+  
+  const handleAddNewDate = useCallback(async () => {
+      if (!newAssignmentDate) return;
+      if (allAssignmentsByDate[newAssignmentDate]) { alert("該日期已存在，請直接在上方選擇。"); return; }
+      if (isOffline) { setAllAssignmentsByDate(prev => ({ ...prev, [newAssignmentDate]: [] })); setSelectedDisplayDate(newAssignmentDate); setAlertMessage(`[離線] 已新增日期 ${newAssignmentDate}`); return; }
+      setSelectedDisplayDate(newAssignmentDate); setAlertMessage(`已切換至新日期 ${newAssignmentDate}，請開始新增作業。`);
+  }, [newAssignmentDate, allAssignmentsByDate, isOffline]);
+
+  const handleAddNewAssignment = useCallback(async () => {
+      if (!selectedDisplayDate) { alert("請先選擇或新增一個日期。"); return; }
+      const name = prompt("請輸入作業名稱 (例如: 數習 P.10-12):"); if (!name || !name.trim()) return;
+      if (isOffline) { const newId = `offline-assign-${Date.now()}`; const newAssign = { id: newId, assignmentName: name.trim(), assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: new Date().toISOString() }; setAllAssignmentsByDate(prev => { const current = prev[selectedDisplayDate] || []; return { ...prev, [selectedDisplayDate]: [...current, newAssign] }; }); return; }
+      if (!db || !userId) return; setLoading(true);
+      try { const collectionRef = collection(db, getAssignmentCollectionPath()); await setDoc(doc(collectionRef), { assignmentName: name.trim(), assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: serverTimestamp() }); } catch (e) { console.error("Error adding assignment:", e); setAlertMessage("新增作業失敗。"); } finally { setLoading(false); }
+  }, [selectedDisplayDate, isOffline, assignmentsForSelectedDate.length, getInitialSubmissionStatus, db, userId]);
+
+  const handleDeleteAssignment = useCallback(async (id, name, force) => {
+      if (authMode !== 'ADMIN' && !isOffline) return; if (!force && !window.confirm(`確定要刪除作業「${name}」嗎？`)) return;
+      if (isOffline) { setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: prev[selectedDisplayDate].filter(a => a.id !== id) })); return; }
+      try { await deleteDoc(doc(db, getAssignmentCollectionPath(), id)); } catch (e) { console.error("Delete failed:", e); }
+  }, [authMode, isOffline, db, selectedDisplayDate]);
+
+  const handleEditAssignmentName = useCallback(async (id, newName) => {
+      if (isOffline) { setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: prev[selectedDisplayDate].map(a => a.id === id ? { ...a, assignmentName: newName } : a) })); return; }
+      const docRef = doc(db, getAssignmentCollectionPath(), id); await setDoc(docRef, { assignmentName: newName }, { merge: true });
+  }, [isOffline, db, selectedDisplayDate]);
+
+  const handleMoveAssignment = useCallback(async (dragId, hoverId) => {
+      const items = [...assignmentsForSelectedDate]; const dragIndex = items.findIndex(i => i.id === dragId); const hoverIndex = items.findIndex(i => i.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return;
+      const dragItem = items[dragIndex]; const hoverItem = items[hoverIndex];
+      if (isOffline) { const newItems = [...items]; newItems.splice(dragIndex, 1); newItems.splice(hoverIndex, 0, dragItem); const updatedItems = newItems.map((item, index) => ({ ...item, order: index })); setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: updatedItems })); return; }
+      const batch = writeBatch(db); const path = getAssignmentCollectionPath(); batch.update(doc(db, path, dragId), { order: hoverItem.order }); batch.update(doc(db, path, hoverId), { order: dragItem.order }); await batch.commit();
+  }, [assignmentsForSelectedDate, isOffline, db, selectedDisplayDate]);
+
   // --- [關鍵修復 V20.0.4] 安全結算發布邏輯 (針對舊日期) ---
   const isDaySettled = useMemo(() => dailySettlements[selectedDisplayDate]?.isSettled || false, [dailySettlements, selectedDisplayDate]);
   
@@ -803,7 +839,6 @@ const App = () => {
     // 2. 如果是過去日期，跳出【選擇】視窗
     if (isPastDate) {
         if (!window.confirm(`⚠️ 偵測到這是過去的日期 (${selectedDisplayDate})！\n\n請問您要【補發銀幣】給全對的學生嗎？\n\n● 按【確定】= 補發銀幣 + 鎖定日期\n● 按【取消】= 不發銀幣 + 僅鎖定日期 (用於封存舊資料)`)) {
-            // 使用者按取消 -> 代表「不發錢」但「要鎖定」
             shouldIssueReward = false;
         }
     }
@@ -824,7 +859,6 @@ const App = () => {
 
     if (newWinners.length === 0) {
         alert("所有符合資格的學生都已經處理過了！(無新增獲獎者)");
-        // 即使沒人要發錢，如果還沒 settled，還是要標記為 settled
         if (!isDaySettled) {
              const settlementRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
              setDoc(settlementRef, { isSettled: true, settledAt: serverTimestamp() }, { merge: true });
@@ -841,7 +875,6 @@ const App = () => {
     if (shouldIssueReward) {
         if (!window.confirm(`【確認發放】\n\n將發放銀幣給以下 ${newWinners.length} 位學生：\n${newWinnerNames.join('、')}`)) return;
     } else {
-        // 如果不發錢，通知一下
         alert(`【封存模式】\n\n將標記此日期為「已結算」，但 **不會** 發放銀幣給這 ${newWinners.length} 位學生。`);
     }
 
@@ -850,8 +883,6 @@ const App = () => {
     try {
         const batch = writeBatch(db);
         const settlementRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
-        
-        // 準備要更新的 map (將新獲獎者設為 true)
         const newClaims = {};
         newWinners.forEach(id => newClaims[id] = true);
 
@@ -863,7 +894,6 @@ const App = () => {
 
         await batch.commit();
         
-        // 發錢 (只有在 shouldIssueReward 為 true 時才執行)
         if (shouldIssueReward) {
             newWinners.forEach(sid => { updateBankBalance(sid, 0, 2, 0); });
             setAlertMessage(`✅ 結算完成！\n已補發銀幣給 ${newWinners.length} 位學生。`);
@@ -889,7 +919,6 @@ const App = () => {
       const todayStr = getTodayDate();
       const isPastDate = selectedDisplayDate < todayStr;
       
-      // 只要是「已結算」或是「過去日期」，就進入嚴格模式 (連動錢包)
       const isStrictMode = isSettled || isPastDate;
 
       // --- 模式 A: 未結算的當日作業 (不扣錢) ---
@@ -934,54 +963,37 @@ const App = () => {
       let settlementUpdate = null; 
       let triggerAnimation = null;
 
-      // 1. 綠燈 (準時) -> 紅燈 (缺交)
       if (currentStatus === true || currentStatus === undefined) {
           newStatus = false;
-          // 如果他之前領過銀幣，扣回來
           if (settledData?.silverRewardClaimed?.[studentId]) {
               silverChange = -2;
               settlementUpdate = { [`silverRewardClaimed.${studentId}`]: deleteField() }; 
           }
-      } 
-      // 2. 紅燈 (缺交) -> 黃燈 (補交)
-      else if (currentStatus === false) {
+      } else if (currentStatus === false) {
           newStatus = 'late';
           bronzeChange = 10; // 發 10 銅幣
           makeupUpdate = { [`makeupClaimed.${studentId}`]: true };
           triggerAnimation = 'BRONZE'; 
-      } 
-      // 3. 黃燈 (補交) -> 紅燈 (退回)
-      else {
+      } else {
           newStatus = false;
-          // 假設之前補交領過錢，現在扣回來
           bronzeChange = -10; 
           makeupUpdate = { [`makeupClaimed.${studentId}`]: deleteField() };
-          
           const cellKey = `${studentId}-${assignmentData.id}`; 
           setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
       }
 
-      // 執行錢包更新
       if (bronzeChange !== 0 || silverChange !== 0) {
           updateBankBalance(studentId, bronzeChange, silverChange, 0);
       }
-      
-      // 動畫
-      if (triggerAnimation) {
-          setRewardState({ type: triggerAnimation });
-      }
+      if (triggerAnimation) { setRewardState({ type: triggerAnimation }); }
 
-      // 檢查是否全對 (神龍)
       if (newStatus !== false) {
           const assignments = assignmentsForSelectedDate;
           const otherAssignments = assignments.filter(a => a.id !== assignmentData.id);
           const hasOtherRed = otherAssignments.some(a => a.submissionStatus[studentId] === false);
-          if (!hasOtherRed) {
-              setRewardState({ type: 'GOLD_CLEAR' });
-          }
+          if (!hasOtherRed) { setRewardState({ type: 'GOLD_CLEAR' }); }
       }
 
-      // 寫入
       if (isOffline) {
           setAllAssignmentsByDate(prev => { 
               const newMap = { ...prev }; 
@@ -993,7 +1005,6 @@ const App = () => {
           const batch = writeBatch(db);
           const assignRef = doc(db, getAssignmentCollectionPath(), assignmentData.id);
           batch.update(assignRef, { [`submissionStatus.${studentId}`]: newStatus, ...makeupUpdate });
-          
           if (settlementUpdate) {
               const settleRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
               batch.update(settleRef, settlementUpdate);
