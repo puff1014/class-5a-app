@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 
 // --- 版本資訊 ---
-const VERSION = 'v20.0.16 - 橫向佈局與表格修復版'; 
+const VERSION = 'v20.0.17 - 橫向佈局與表格修復版'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -118,7 +118,7 @@ const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
    const maxTotal = Math.max(...data.map(d => d.details.count), 1); const barWidth = Math.min(60, chartWidth / data.length * 0.6); 
    return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> {data.map((d, i) => { const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2; const totalHeight = chartHeight; const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight; const lateHeight = (d.details.late / maxTotal) * totalHeight; const missingHeight = (d.details.missing / maxTotal) * totalHeight; const yGreen = (height - padding) - onTimeHeight; const yYellow = yGreen - lateHeight; const yRed = yYellow - missingHeight; return ( <g key={i} className="group"> {d.details.onTime > 0 && (<rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.late > 0 && (<rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.missing > 0 && (<rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text> <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text> <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title> </g> ); })} </svg> );
 };
-// --- 學生學習歷程 Dashboard Modal (V20.0.16: 左卡緊湊置中 + 右卡分數垂直堆疊 + 圖表放大) ---
+// --- 學生學習歷程 Dashboard Modal (V20.0.17: 修正統計欄位空白 + 分數置中 + 白兔評語更新 + 圖表再放大) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
@@ -260,7 +260,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         if (s >= 60) return { animal: "🦈 鯊魚", comment: "努力跟上進度，正視缺交問題。" };
         if (s >= 50) return { animal: "🦘 袋鼠", comment: "再跳一步就及格，請補齊缺交。" };
         if (s >= 40) return { animal: "🐿️ 松鼠", comment: "積少成多，請勿隨意放棄作業。" };
-        if (s >= 30) return { animal: "🐇 白兔", comment: "別在中途停下休息，趕快追上進度。" };
+        if (s >= 30) return { animal: "🐇 白兔", comment: "別在中途停下休息，趕快追上進度！" };
         if (s >= 20) return { animal: "🦔 刺蝟", comment: "面對作業不逃避，勇敢承擔責任。" };
         if (s >= 10) return { animal: "🐢 烏龜", comment: "只要肯開始，總會完成，慢也沒關係。" };
         return { animal: "🌱 種子", comment: "埋入土裡太久了，請讓學習發芽。" };
@@ -324,20 +324,19 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                     </div>
                 </div>
 
-                {/* 3. 主要內容區 (V20.0.16: 左卡緊湊置中 + 右卡分數堆疊) */}
+                {/* 3. 主要內容區 (V20.0.17: 左卡緊湊置中 + 右卡分數置中 + 空白修正) */}
                 <div className={`flex-1 overflow-auto p-4 ${currentFeedback.bg} flex flex-col`}>
                     
                     {/* 上半部：資訊圖卡 */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 shrink-0">
-                        {/* 左卡：本學期統計 (垂直置中，數字與方塊緊密排列) */}
-                        <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col justify-center items-center relative overflow-hidden">
+                    <div className="flex gap-4 mb-4 shrink-0">
+                        {/* 左卡：本學期統計 (flex-shrink 允許縮小，內容緊湊置中) */}
+                        <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col justify-center items-center relative overflow-hidden shrink">
                             <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
                             
-                            {/* 標題 */}
                             <p className="text-gray-500 text-3xl font-bold mb-3">本學期{viewMode === 'STATUS' ? '統計天數' : '作業總數'}</p>
                             
                             {/* 數字與方塊並排容器 */}
-                            <div className="flex items-end gap-3">
+                            <div className="flex items-end gap-3 justify-center">
                                 {/* 巨大數字 */}
                                 <div className="flex items-baseline leading-none">
                                     <span className={`text-6xl font-black ${viewMode === 'STATUS' ? 'text-indigo-600' : 'text-blue-600'}`}>{currentStats.total}</span>
@@ -362,18 +361,18 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                             </div>
                         </div>
 
-                        {/* 右卡：分數分析 (標籤移至分數上方，垂直堆疊) */}
-                        <div className={`p-4 rounded-[2rem] shadow-sm border-l-[10px] flex items-center justify-between ${currentFeedback.border} ${currentFeedback.bg}`}>
-                            {/* 左半：分數 (垂直堆疊) */}
-                            <div className="flex flex-col items-start gap-0 pl-4">
-                                <span className="text-2xl font-bold text-gray-400 mb-0">{viewMode === 'STATUS' ? '健康指數' : '績效評級'}</span>
+                        {/* 右卡：分數分析 (flex-grow 佔滿剩餘空間) */}
+                        <div className={`p-4 rounded-[2rem] shadow-sm border-l-[10px] flex items-center justify-between grow ${currentFeedback.border} ${currentFeedback.bg}`}>
+                            {/* 左半：分數 (垂直置中對齊 items-center) */}
+                            <div className="flex flex-col items-center gap-0 pl-4 shrink-0">
+                                <span className="text-2xl font-bold text-gray-400 mb-0">健康指數</span>
                                 <div className="flex items-baseline">
                                     <span className={`text-6xl font-black leading-none ${currentFeedback.color}`}>{viewMode === 'STATUS' ? summaryStats.avgScore : trendStats.avgScore}</span>
                                     <span className="text-2xl text-gray-400 font-bold ml-2">分</span>
                                 </div>
                             </div>
                             
-                            {/* 右半：評語 */}
+                            {/* 右半：評語 (佔滿剩餘空間) */}
                             <div className="flex-1 pl-6 border-l-2 border-gray-200/50 ml-6">
                                 <p className={`${currentFeedback.color} font-bold text-4xl leading-tight text-left`}>{currentFeedback.text}</p>
                             </div>
@@ -382,13 +381,13 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
 
                     {/* 下半部：圖表區 + 表格區 */}
                     <div className="flex flex-col gap-4">
-                        {/* 圖表區 (高度放大至 450px) */}
-                        <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-200 h-[450px] shrink-0">
+                        {/* 圖表區 (高度放大至 400px) */}
+                        <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-200 h-[400px] shrink-0">
                             <div className="flex items-center justify-between mb-2">
                                 <h3 className="text-3xl font-bold text-gray-700 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-8 h-8 mr-3 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-8 h-8 mr-3 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
                             </div>
-                            {/* 內部圖表高度設為 380px */}
-                            <div className="w-full h-[380px]">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} height={380} /> ) : ( <SimpleStackedBarChart data={healthData} height={380} /> )}</div>
+                            {/* 內部圖表高度設為 320px */}
+                            <div className="w-full h-[320px]">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} height={320} /> ) : ( <SimpleStackedBarChart data={healthData} height={320} /> )}</div>
                         </div>
 
                         {/* 表格區 */}
