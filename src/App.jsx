@@ -39,7 +39,7 @@ import {
 } from 'recharts';
 
 // --- 版本資訊 ---
-const VERSION = 'v20.0.25 - 表頭固定'; 
+const VERSION = 'v20.0.26 - 表頭固定'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -722,7 +722,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
     return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; // setBankData 導出供匯入使用
 };
 
-// --- [v20.0.24 新版] 學生存簿介面 (上方切換模式 + 直接輸入 + 表頭固定修復) ---
+// --- [v20.0.26 新版] 學生存簿介面 (上方切換模式 + 直接輸入 + 表頭固定修復) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
   const [mode, setMode] = useState('bronze'); 
 
@@ -756,7 +756,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
   const handleResetAll = async (studentId) => {
       if (authMode !== 'ADMIN') return;
       if (!window.confirm(`確定要將學生 ${studentId} 的【所有資產】歸零嗎？`)) return;
-      // 呼叫 setBankBalanceDirectly 分別歸零金銀銅
       setBankBalanceDirectly(studentId, 'gold', 0);
       setBankBalanceDirectly(studentId, 'silver', 0);
       setBankBalanceDirectly(studentId, 'bronze', 0);
@@ -791,10 +790,10 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X className="w-8 h-8" /></button>
         </div>
 
-        {/* 2. 表格區 (修復表頭固定) */}
+        {/* 2. 表格區 (修復表頭固定: z-index 加大到 100) */}
         <div className={`flex-1 overflow-auto p-4 ${cfg.bg}`}>
           <table className="w-full bg-white shadow-sm rounded-lg border border-gray-200 relative">
-            <thead className="bg-gray-100 sticky top-0 z-[100] shadow-md isolation-auto">
+            <thead className="bg-gray-100 sticky top-0 z-[100] shadow-md">
                <tr className="border-b-2 border-gray-300">
                  <th className="p-3 text-2xl w-20 text-center bg-gray-100">名次</th>
                  <th className="p-3 text-2xl w-24 text-center bg-gray-100">座號</th>
@@ -816,35 +815,25 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                      <td className="p-3 text-center text-2xl font-bold text-gray-600">{student.id}</td>
                      <td className="p-3 text-2xl font-bold text-gray-800">{student.name[0] + 'O' + student.name.slice(2)}</td>
                      
-                     {/* 輸入框區：金 */}
                      <td className="p-2 text-center bg-yellow-50/30 border-l border-gray-100 group-hover:border-blue-100">
                        <input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} 
                          className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" />
                      </td>
-                     {/* 輸入框區：銀 */}
                      <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100 group-hover:border-blue-100">
                        <input type="number" value={bal.silver || 0} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} 
                          className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none hover:bg-white/50 rounded" />
                      </td>
-                     {/* 輸入框區：銅 */}
                      <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100 group-hover:border-blue-100">
                        <input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} 
                          className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" />
                      </td>
  
-                     {/* 按鈕區 (根據模式變色) */}
                      {authMode === 'ADMIN' && (
                          <td className="p-2 flex justify-center items-center gap-3 border-l border-gray-100 group-hover:border-blue-100">
-                         {/* 這裡做了重要的修正：
-                             updateBankBalance 的參數順序是 (id, gold, silver, bronze)
-                             所以我們要根據當前模式 cfg.key 來決定是哪一個參數要給值
-                         */}
                          <button onClick={() => onUpdateBalance(student.id, cfg.key==='gold'?1:0, cfg.key==='silver'?1:0, cfg.key==='bronze'?10:0)}
                              className={`w-12 h-12 rounded-full shadow flex items-center justify-center text-3xl font-bold transition transform active:scale-90 ${mode==='gold'?'bg-yellow-100 text-yellow-700 hover:bg-yellow-200': mode==='silver'?'bg-gray-100 text-gray-700 hover:bg-gray-200': 'bg-orange-100 text-orange-700 hover:bg-orange-200'}`} title="增加">＋</button>
-                         
                          <button onClick={() => onUpdateBalance(student.id, cfg.key==='gold'?-1:0, cfg.key==='silver'?-1:0, cfg.key==='bronze'?-10:0)}
                              className={`w-12 h-12 rounded-full shadow flex items-center justify-center text-3xl font-bold transition transform active:scale-90 opacity-80 hover:opacity-100 ${mode==='gold'?'bg-yellow-50 text-yellow-600': mode==='silver'?'bg-gray-50 text-gray-600': 'bg-orange-50 text-orange-600'}`} title="減少">－</button>
-                         
                          <button onClick={() => handleResetAll(student.id)} className="p-2 ml-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="單人歸零"><Eraser className="w-6 h-6"/></button>
                          </td>
                      )}
@@ -855,7 +844,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
           </table>
         </div>
         
-        {/* 3. 底部功能：全班歸零 (只有老師看得到) */}
         {authMode === 'ADMIN' && (
             <div className="p-4 bg-gray-100 border-t flex justify-start">
                  <button onClick={handleResetClass} className="px-6 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700 flex items-center gap-2 text-xl shadow-md">⚠️ 期末全班歸零</button>
@@ -976,8 +964,58 @@ const getMissingColorClasses = (count) => { if (count === 0) return { bg: 'bg-wh
 
 const MissingColorExplanation = () => { const legendTiers = MISSING_COLOR_TIERS.map(tier => ({ count: tier.label, classes: tier.colors })); return (<div className="mt-8 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200"><h3 className="text-4xl font-bold text-gray-800 mb-6 flex items-center"><span className="text-pink-500 text-5xl mr-3">🎨</span>顏色分級說明</h3><div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">{legendTiers.map((item, index) => (<div key={index} className={`py-3 px-2 rounded-xl text-center cursor-default ${item.classes.bg} ${item.classes.border} border-2 border-b-[6px] flex items-center justify-center`}><p className={`text-2xl font-black ${item.classes.text} leading-tight`}>{item.count}</p></div>))}</div></div>); };
 
-const MonthlyStudentStats = ({ monthlyStats, months }) => { const studentIds = useMemo(() => Object.keys(monthlyStats).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)), [monthlyStats]); if (studentIds.length === 0) return null; return (<div className="mt-12 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full"><h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span></h2><div className="w-full relative border border-gray-300 rounded-lg shadow-lg"><table className="w-full divide-y divide-gray-300 table-fixed"><thead className="bg-gray-200"><tr><th className="sticky top-0 z-[60] px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-24 border-r border-gray-300 bg-gray-200 shadow-sm">姓名</th>{months.map(month => (<th key={month.id} className={`sticky top-0 z-30 px-1 py-4 text-3xl font-semibold uppercase tracking-wider text-white ${month.color} break-words shadow-sm`}>{month.name}</th>))}</tr></thead><tbody className="bg-white divide-y divide-gray-200">{studentIds.map(studentId => { const studentData = monthlyStats[studentId]; if (!studentData) return null; return (<tr key={studentId} className="hover:bg-gray-50 transition duration-100"><td className="px-2 py-4 text-3xl font-semibold text-gray-900 border-r border-gray-300 text-center whitespace-nowrap">{studentData.studentName[0] + 'O' + studentData.studentName.slice(2)}</td>{months.map(month => { const stats = studentData.monthStats[month.id]; const hasMissing = stats.daysMissing > 0; const hasLate = stats.daysLate > 0; const hasTotal = stats.totalDays > 0; const hasCompletedOnly = !hasMissing && !hasLate && hasTotal; return (<td key={month.id} className={`px-1 py-4 text-center text-2xl sm:text-3xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>{hasTotal ? (<div className="flex flex-col items-center justify-center gap-1"><span className="text-green-700 whitespace-nowrap">完成:<span className="inline-block w-8 text-right">{stats.daysCompleted}</span></span><span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-400'} whitespace-nowrap`}>遲交:<span className="inline-block w-8 text-right">{stats.daysLate}</span></span><span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-400'} whitespace-nowrap`}>缺交:<span className="inline-block w-8 text-right">{stats.daysMissing}</span></span></div>) : <span className="text-gray-300">-</span>}</td>); })}</tr>); })}</tbody></table></div></div>); };
-
+const MonthlyStudentStats = ({ monthlyStats, months }) => { 
+    const studentIds = useMemo(() => Object.keys(monthlyStats).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)), [monthlyStats]); 
+    if (studentIds.length === 0) return null; 
+    return (
+        <div className="mt-12 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
+            <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span></h2>
+            <div className="w-full relative border border-gray-300 rounded-lg shadow-lg">
+                <table className="w-full divide-y divide-gray-300 table-fixed">
+                    <thead className="bg-gray-200">
+                        <tr>
+                            {/* 姓名欄位固定 */}
+                            <th className="sticky top-0 z-[60] px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-24 border-r border-gray-300 bg-gray-200 shadow-sm">姓名</th>
+                            {/* 月份欄位固定 (z-index 改為 60) */}
+                            {months.map(month => (
+                                <th key={month.id} className={`sticky top-0 z-[60] px-1 py-4 text-3xl font-semibold uppercase tracking-wider text-white ${month.color} break-words shadow-sm`}>{month.name}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {studentIds.map(studentId => { 
+                            const studentData = monthlyStats[studentId]; 
+                            if (!studentData) return null; 
+                            return (
+                                <tr key={studentId} className="hover:bg-gray-50 transition duration-100">
+                                    <td className="px-2 py-4 text-3xl font-semibold text-gray-900 border-r border-gray-300 text-center whitespace-nowrap">{studentData.studentName[0] + 'O' + studentData.studentName.slice(2)}</td>
+                                    {months.map(month => { 
+                                        const stats = studentData.monthStats[month.id]; 
+                                        const hasMissing = stats.daysMissing > 0; 
+                                        const hasLate = stats.daysLate > 0; 
+                                        const hasTotal = stats.totalDays > 0; 
+                                        const hasCompletedOnly = !hasMissing && !hasLate && hasTotal; 
+                                        return (
+                                            <td key={month.id} className={`px-1 py-4 text-center text-2xl sm:text-3xl ${hasMissing ? 'bg-red-100' : (hasLate ? 'bg-yellow-100' : (hasCompletedOnly ? 'bg-green-100' : 'bg-white'))}`}>
+                                                {hasTotal ? (
+                                                    <div className="flex flex-col items-center justify-center gap-1">
+                                                        <span className="text-green-700 whitespace-nowrap">完成:<span className="inline-block w-8 text-right">{stats.daysCompleted}</span></span>
+                                                        <span className={`${hasLate ? 'font-bold text-yellow-600' : 'text-gray-400'} whitespace-nowrap`}>遲交:<span className="inline-block w-8 text-right">{stats.daysLate}</span></span>
+                                                        <span className={`${hasMissing ? 'font-bold text-red-600' : 'text-gray-400'} whitespace-nowrap`}>缺交:<span className="inline-block w-8 text-right">{stats.daysMissing}</span></span>
+                                                    </div>
+                                                ) : <span className="text-gray-300">-</span>}
+                                            </td>
+                                        ); 
+                                    })}
+                                </tr>
+                            ); 
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    ); 
+};
 // --- [關鍵修復] MissingDetailsModal (批次補交發錢邏輯) ---
 const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStudentGlobalData, db, userId, allAssignmentsByDate, setAlertMessage, isOffline, authMode, updateBankBalance, setRewardState }) => { 
     const [selectedItemIds, setSelectedItemIds] = useState([]); 
