@@ -39,7 +39,7 @@ import {
 } from 'recharts';
 
 // --- 版本資訊 ---
-const VERSION = 'v20.0.24 - 找回存簿'; 
+const VERSION = 'v20.0.25 - 表頭固定'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
