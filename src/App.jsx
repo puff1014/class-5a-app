@@ -39,7 +39,7 @@ import {
 } from 'recharts';
 
 // --- 版本資訊 ---
-const VERSION = 'v20.0.22 - 圖表文字巨大化版 (修復重複宣告)'; 
+const VERSION = 'v20.0.23 - 圖表文字巨大化版 (修復重複宣告)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -224,6 +224,54 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
+// --- [圖表元件] 簡易折線趨勢圖 (V20.0.23: 修正 100.0 顯示為 100) ---
+
+// 1. 客製化圓點元件 (依分數變色)
+const CustomizedDot = (props) => {
+    const { cx, cy, value } = props;
+    if (!cx || !cy) return null;
+    
+    let fill = "#ef4444"; // 紅色 (<60)
+    let stroke = "#fee2e2"; // 淺紅框
+    
+    if (value >= 80) {
+        fill = "#22c55e"; // 綠色
+        stroke = "#dcfce7";
+    } else if (value >= 60) {
+        fill = "#eab308"; // 黃色
+        stroke = "#fef9c3";
+    }
+
+    return (
+        <svg x={cx - 10} y={cy - 10} width={20} height={20}>
+            <circle cx="10" cy="10" r="8" fill={fill} stroke="white" strokeWidth="3" />
+            <circle cx="10" cy="10" r="10" fill="none" stroke={stroke} strokeWidth="1" />
+        </svg>
+    );
+};
+
+// 2. 客製化 Tooltip (顯示詳細數據)
+const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        const details = data.details || { onTime: 0, late: 0, missing: 0 };
+        return (
+            <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]">
+                <p className="text-2xl font-bold text-gray-700 mb-2 border-b pb-2 border-gray-200">
+                    {/* 這裡也加上 parseFloat 修飾 */}
+                    {label} <span className="text-blue-600 ml-2">({parseFloat(data.value.toFixed(1))}分)</span>
+                </p>
+                <div className="flex flex-col gap-1 text-xl">
+                    <p className="text-green-700 font-bold">🟢 準時：{details.onTime}</p>
+                    <p className="text-yellow-700 font-bold">🟡 補交：{details.late}</p>
+                    <p className="text-red-600 font-bold">🔴 缺交：{details.missing}</p>
+                </div>
+            </div>
+        );
+    }
+    return null;
+};
+
 const SimpleLineChart = ({ data, height = 300 }) => {
     return (
         <ResponsiveContainer width="100%" height={height}>
@@ -253,22 +301,22 @@ const SimpleLineChart = ({ data, height = 300 }) => {
                 <ReferenceLine y={60} stroke="#F87171" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '60 (及格)', fill: '#F87171', fontSize: 20, fontWeight: 'bold' }} />
                 
                 <Line 
-                    type="linear" // 改為直線
+                    type="linear" 
                     dataKey="value" 
                     stroke="#3B82F6" 
                     strokeWidth={6} 
-                    dot={<CustomizedDot />} // 使用彩色圓點
+                    dot={<CustomizedDot />} 
                     activeDot={{ r: 12, strokeWidth: 0 }} 
                     animationDuration={1500}
                 >
-                    {/* 線上的數字標籤 (依分數變色) */}
+                    {/* [修正重點] 使用 parseFloat 去除整數後面的 .0 */}
                     <LabelList 
                         dataKey="value" 
                         position="top" 
                         offset={20} 
                         style={{ fontSize: '28px', fontWeight: '900' }} 
-                        formatter={(val) => val.toFixed(1)}
-                        fill="#3B82F6" // 預設藍色，若要跟隨點的顏色較複雜，這裡先用統一藍色比較整齊
+                        formatter={(val) => parseFloat(val.toFixed(1))}
+                        fill="#3B82F6" 
                     />
                 </Line>
             </LineChart>
