@@ -39,7 +39,7 @@ import {
 } from 'recharts';
 
 // --- 版本資訊 ---
-const VERSION = 'v20.0.23 - 圖表文字巨大化版 (修復重複宣告)'; 
+const VERSION = 'v20.0.24 - 找回存簿'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -722,76 +722,148 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
     return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; // setBankData 導出供匯入使用
 };
 
-// --- [輔助元件] 學生存簿 Modal (樣式優化: 大字體支援) ---
+// --- [v20.0.24 新版] 學生存簿介面 (上方切換模式 + 直接輸入 + 表頭固定修復) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
-    const [selectedStudentId, setSelectedStudentId] = useState(students[0]?.id || '');
-    const [amount, setAmount] = useState('');
-    const [reason, setReason] = useState('');
-    const [mode, setMode] = useState('ADD'); // ADD, DEDUCT, SET
+  const [mode, setMode] = useState('bronze'); 
 
-    const currentBalance = bankData[selectedStudentId] || { gold: 0, silver: 0 };
+  // 定義模式設定 (顏色、圖示、增減數值)
+  const MODE_CONFIG = {
+    bronze: { label: '銅幣模式', icon: '🟤', color: 'orange', step: 10, key: 'bronze', bg: 'bg-orange-50' },
+    silver: { label: '銀幣模式', icon: '⚪', color: 'gray', step: 1, key: 'silver', bg: 'bg-gray-50' },
+    gold:   { label: '金幣模式', icon: '🟡', color: 'yellow', step: 1, key: 'gold', bg: 'bg-yellow-50' },
+  };
+  const cfg = MODE_CONFIG[mode];
 
-    const handleSubmit = () => {
-        if (!amount || isNaN(amount)) return;
-        const val = parseInt(amount, 10);
+  // 排序學生 (依金幣 > 銀幣 > 銅幣 > 座號)
+  const sortedStudents = [...students].sort((a, b) => { 
+      const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
+      const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 }; 
+      if (bankA.gold !== bankB.gold) return bankB.gold - bankA.gold; 
+      if (bankA.silver !== bankB.silver) return bankB.silver - bankA.silver; 
+      if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze; 
+      return parseInt(a.id) - parseInt(b.id); 
+  });
+
+  // 處理直接輸入 (Input onChange)
+  const handleInputChange = (studentId, type, value) => {
+    if (authMode !== 'ADMIN') return;
+    if (value === '') { setBankBalanceDirectly(studentId, type, 0); return; }
+    const numVal = parseInt(value, 10);
+    if (!isNaN(numVal) && numVal >= 0) { setBankBalanceDirectly(studentId, type, numVal); }
+  };
+
+  // 處理單一學生歸零
+  const handleResetAll = async (studentId) => {
+      if (authMode !== 'ADMIN') return;
+      if (!window.confirm(`確定要將學生 ${studentId} 的【所有資產】歸零嗎？`)) return;
+      // 呼叫 setBankBalanceDirectly 分別歸零金銀銅
+      setBankBalanceDirectly(studentId, 'gold', 0);
+      setBankBalanceDirectly(studentId, 'silver', 0);
+      setBankBalanceDirectly(studentId, 'bronze', 0);
+  };
+
+  // 處理全班歸零
+  const handleResetClass = () => {
+      if (authMode !== 'ADMIN') return;
+      if(!window.confirm("⚠️ 危險操作：確定要將「全班所有人的錢」全部歸零嗎？\n此操作無法復原！")) return;
+      if(!window.confirm("再次確認：您真的要歸零全班嗎？")) return;
+      students.forEach(s => {
+          setBankBalanceDirectly(s.id, 'gold', 0);
+          setBankBalanceDirectly(s.id, 'silver', 0);
+          setBankBalanceDirectly(s.id, 'bronze', 0);
+      });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-[10000] p-4">
+      <div className={`bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col border-4 border-${cfg.color}-400 transition-colors duration-300`}>
         
-        // 根據選擇的模式操作
-        // 這裡為了簡化介面，假設操作的都是「金幣」，若要操作銀幣可擴充
-        // 依據您的需求，這裡預設操作金幣
-        if (mode === 'SET') {
-            setBankBalanceDirectly(selectedStudentId, 'gold', val); 
-        } else {
-            // 若是扣除，則傳入負值
-            onUpdateBalance(selectedStudentId, mode === 'ADD' ? val : -val, 0, 0);
-        }
-        setAmount('');
-        setReason('');
-    };
-
-    return (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-[1000] p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-3xl font-bold text-gray-800 flex items-center gap-2"><BookOpen className="w-8 h-8"/> 班級存簿管理</h3>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
-                </div>
-                
-                {/* 簡單的存簿管理介面 */}
-                <div className="space-y-6">
-                    <div>
-                        <label className="block text-xl font-bold text-gray-700 mb-2">選擇學生</label>
-                        <select value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)} className="w-full p-3 text-xl border border-gray-300 rounded-lg">
-                            {students.map(s => <option key={s.id} value={s.id}>{s.id} {s.name}</option>)}
-                        </select>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                        <span className="text-xl font-bold text-gray-600">當前餘額：</span>
-                        <div className="flex gap-4">
-                            <span className="text-2xl font-black text-yellow-600 flex items-center gap-1"><Coins className="w-6 h-6"/> {currentBalance.gold} 金</span>
-                            <span className="text-2xl font-black text-gray-500 flex items-center gap-1"><Coins className="w-6 h-6"/> {currentBalance.silver} 銀</span>
-                        </div>
-                    </div>
-
-                    {authMode === 'ADMIN' ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="col-span-2">
-                                <label className="block text-lg font-bold text-gray-600 mb-1">金幣數量調整</label>
-                                <input type="number" placeholder="輸入數量" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-3 text-xl border border-gray-300 rounded-lg" />
-                            </div>
-                            <div className="flex gap-2 col-span-2">
-                                <button onClick={() => setMode('ADD')} className={`flex-1 py-3 rounded-lg font-bold text-xl transition ${mode === 'ADD' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}>發放 (+)</button>
-                                <button onClick={() => setMode('DEDUCT')} className={`flex-1 py-3 rounded-lg font-bold text-xl transition ${mode === 'DEDUCT' ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}>扣除 (-)</button>
-                            </div>
-                            <button onClick={handleSubmit} className="col-span-2 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-2xl font-bold transition shadow-md mt-2">確認執行</button>
-                        </div>
-                    ) : (
-                        <div className="p-4 bg-yellow-50 text-yellow-800 rounded-lg text-lg text-center font-bold">僅老師可進行加扣分操作</div>
-                    )}
-                </div>
-            </div>
+        {/* 1. 頂部控制列：模式切換 */}
+        <div className="bg-gray-100 p-4 border-b flex flex-wrap gap-4 justify-between items-center shrink-0">
+          <div className="flex gap-2">
+            <button onClick={() => setMode('gold')} className={`px-4 py-2 rounded-lg font-bold text-xl flex items-center gap-2 transition border-2 ${mode === 'gold' ? 'bg-yellow-100 border-yellow-400 text-yellow-800' : 'bg-white border-transparent hover:bg-yellow-50'}`}>🟡 金幣</button>
+            <button onClick={() => setMode('silver')} className={`px-4 py-2 rounded-lg font-bold text-xl flex items-center gap-2 transition border-2 ${mode === 'silver' ? 'bg-gray-200 border-gray-400 text-gray-800' : 'bg-white border-transparent hover:bg-gray-50'}`}>⚪ 銀幣</button>
+            <button onClick={() => setMode('bronze')} className={`px-4 py-2 rounded-lg font-bold text-xl flex items-center gap-2 transition border-2 ${mode === 'bronze' ? 'bg-orange-100 border-orange-400 text-orange-800' : 'bg-white border-transparent hover:bg-orange-50'}`}>🟤 銅幣</button>
+          </div>
+          <div className="text-2xl font-bold text-gray-700 flex items-center gap-2">
+            <span className="text-3xl">{cfg.icon}</span> 訂正存簿 ({cfg.label})
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X className="w-8 h-8" /></button>
         </div>
-    );
+
+        {/* 2. 表格區 (修復表頭固定) */}
+        <div className={`flex-1 overflow-auto p-4 ${cfg.bg}`}>
+          <table className="w-full bg-white shadow-sm rounded-lg border border-gray-200 relative">
+            <thead className="bg-gray-100 sticky top-0 z-50 shadow-md">
+               <tr className="border-b-2 border-gray-300">
+                 <th className="p-3 text-2xl w-20 text-center bg-gray-100">名次</th>
+                 <th className="p-3 text-2xl w-24 text-center bg-gray-100">座號</th>
+                 <th className="p-3 text-2xl text-left bg-gray-100">姓名</th>
+                 <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center border-l border-gray-200">金幣</th>
+                 <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
+                 <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
+                 {authMode === 'ADMIN' && <th className="p-3 text-2xl w-48 text-center bg-gray-100 border-l border-gray-200">快速操作</th>}
+               </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+               {sortedStudents.map((student, idx) => {
+                 const bal = bankData[student.id] || { gold: 0, silver: 0, bronze: 0 };
+                 let rankIcon = idx < 3 ? ["🥇","🥈","🥉"][idx] : idx + 1;
+                 
+                 return (
+                   <tr key={student.id} className="hover:bg-blue-50 transition duration-150 group">
+                     <td className="p-3 text-center text-3xl font-black text-gray-500">{rankIcon}</td>
+                     <td className="p-3 text-center text-2xl font-bold text-gray-600">{student.id}</td>
+                     <td className="p-3 text-2xl font-bold text-gray-800">{student.name[0] + 'O' + student.name.slice(2)}</td>
+                     
+                     {/* 輸入框區：金 */}
+                     <td className="p-2 text-center bg-yellow-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                       <input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} 
+                         className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" />
+                     </td>
+                     {/* 輸入框區：銀 */}
+                     <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                       <input type="number" value={bal.silver || 0} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} 
+                         className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none hover:bg-white/50 rounded" />
+                     </td>
+                     {/* 輸入框區：銅 */}
+                     <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                       <input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} 
+                         className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" />
+                     </td>
+ 
+                     {/* 按鈕區 (根據模式變色) */}
+                     {authMode === 'ADMIN' && (
+                         <td className="p-2 flex justify-center items-center gap-3 border-l border-gray-100 group-hover:border-blue-100">
+                         {/* 這裡做了重要的修正：
+                             updateBankBalance 的參數順序是 (id, gold, silver, bronze)
+                             所以我們要根據當前模式 cfg.key 來決定是哪一個參數要給值
+                         */}
+                         <button onClick={() => onUpdateBalance(student.id, cfg.key==='gold'?1:0, cfg.key==='silver'?1:0, cfg.key==='bronze'?10:0)}
+                             className={`w-12 h-12 rounded-full shadow flex items-center justify-center text-3xl font-bold transition transform active:scale-90 ${mode==='gold'?'bg-yellow-100 text-yellow-700 hover:bg-yellow-200': mode==='silver'?'bg-gray-100 text-gray-700 hover:bg-gray-200': 'bg-orange-100 text-orange-700 hover:bg-orange-200'}`} title="增加">＋</button>
+                         
+                         <button onClick={() => onUpdateBalance(student.id, cfg.key==='gold'?-1:0, cfg.key==='silver'?-1:0, cfg.key==='bronze'?-10:0)}
+                             className={`w-12 h-12 rounded-full shadow flex items-center justify-center text-3xl font-bold transition transform active:scale-90 opacity-80 hover:opacity-100 ${mode==='gold'?'bg-yellow-50 text-yellow-600': mode==='silver'?'bg-gray-50 text-gray-600': 'bg-orange-50 text-orange-600'}`} title="減少">－</button>
+                         
+                         <button onClick={() => handleResetAll(student.id)} className="p-2 ml-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="單人歸零"><Eraser className="w-6 h-6"/></button>
+                         </td>
+                     )}
+                   </tr>
+                 );
+               })}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* 3. 底部功能：全班歸零 (只有老師看得到) */}
+        {authMode === 'ADMIN' && (
+            <div className="p-4 bg-gray-100 border-t flex justify-start">
+                 <button onClick={handleResetClass} className="px-6 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700 flex items-center gap-2 text-xl shadow-md">⚠️ 期末全班歸零</button>
+            </div>
+        )}
+      </div>
+    </div>
+  );
 };
 // --- [Part 4] 每日結算 Hook 與 輔助介面元件 ---
 
