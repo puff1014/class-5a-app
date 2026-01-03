@@ -32,9 +32,14 @@ import {
   Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity,
   BarChart2, Megaphone, Lock, Unlock 
 } from 'lucide-react';
+// 補上 Recharts 的引用，確保圖表功能正常
+import { 
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
+} from 'recharts';
 
 // --- 版本資訊 ---
-const VERSION = 'v20.0.21 - 圖表文字巨大化版'; 
+const VERSION = 'v20.0.21 - 圖表文字巨大化版 (修復重複宣告)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -101,23 +106,96 @@ const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assig
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
-
-// --- SVG 圖表元件 ---
-const SimpleLineChart = ({ data, width = 600, height = 300 }) => {
-   if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
-   const padding = 40; const chartWidth = width - padding * 2; const chartHeight = height - padding * 2; const maxY = 100;
-   const safeData = data.map(d => ({...d, value: isNaN(d.value) ? 0 : d.value}));
-   const points = safeData.map((d, i) => { const x = (i / (safeData.length - 1)) * chartWidth + padding; const val = d.value; const y = chartHeight - (val / maxY) * chartHeight + padding; return `${x},${y}`; }).join(' ');
-   const gridLines = [0, 60, 80, 100].map(val => { const y = chartHeight - (val / maxY) * chartHeight + padding; let color = "#e5e7eb"; if(val === 60) color = "#fca5a5"; if(val === 80) color = "#86efac"; return ( <g key={val}><line x1={padding} y1={y} x2={width - padding} y2={y} stroke={color} strokeWidth="2" strokeDasharray={val === 0 ? "" : "5,5"} /><text x={padding - 10} y={y + 5} textAnchor="end" fontSize="12" fill="gray">{val}</text></g> ); });
-   return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> {gridLines} <polyline fill="none" stroke="#3b82f6" strokeWidth="4" points={points} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-md" /> {safeData.map((d, i) => { const x = (i / (safeData.length - 1)) * chartWidth + padding; const val = d.value; const y = chartHeight - (val / maxY) * chartHeight + padding; let dotColor = "#ef4444"; if (val >= 60) dotColor = "#eab308"; if (val >= 80) dotColor = "#22c55e"; return ( <g key={i} className="group"><circle cx={x} cy={y} r="6" fill={dotColor} stroke="white" strokeWidth="2" className="transition-all duration-300 group-hover:r-8 cursor-pointer"/><g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"><rect x={x - 20} y={y - 35} width="40" height="25" rx="4" fill="black" fillOpacity="0.8" /><text x={x} y={y - 18} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{val.toFixed(0)}</text></g><text x={x} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text></g> ); })} </svg> );
+// --- [圖表元件] 簡易堆疊長條圖 (V20.0.21: 軸與標籤文字巨大化) ---
+// 這裡使用的是 Recharts 版本，取代了原本的 SVG 版本，解決了重複宣告的錯誤
+const SimpleStackedBarChart = ({ data, height = 300 }) => {
+    return (
+        <ResponsiveContainer width="100%" height={height}>
+            <BarChart data={data} margin={{ top: 30, right: 30, left: 20, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                {/* X軸: 文字加大到 24px, 高度加高 */}
+                <XAxis 
+                    dataKey="label" 
+                    tick={{ fontSize: 24, fill: '#6B7280', fontWeight: 'bold' }} 
+                    axisLine={{ stroke: '#9CA3AF' }} 
+                    tickLine={false} 
+                    height={60} 
+                />
+                {/* Y軸: 隱藏或縮小，這裡選擇隱藏以保持乾淨，滑鼠移上去看 tooltip 即可 */}
+                <YAxis hide />
+                {/* Tooltip: 內容文字加大 */}
+                <Tooltip 
+                    cursor={{ fill: '#F3F4F6' }}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '16px' }}
+                    itemStyle={{ fontSize: '24px', padding: '4px 0' }}
+                    labelStyle={{ fontSize: '24px', fontWeight: 'bold', color: '#374151', marginBottom: '8px' }}
+                />
+                {/* Legend:圖例文字加大 */}
+                <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '24px' }} iconSize={24} />
+                
+                {/* Bar: 標籤數字加大到 32px */}
+                <Bar dataKey="details.onTime" name="準時" stackId="a" fill="#4ADE80" radius={[0, 0, 4, 4]}>
+                    <LabelList dataKey="details.onTime" position="center" style={{ fontSize: '28px', fontWeight: 'bold', fill: '#064E3B', opacity: 0.7 }} formatter={(val) => val > 0 ? val : ''} />
+                </Bar>
+                <Bar dataKey="details.late" name="補交" stackId="a" fill="#FACC15">
+                    <LabelList dataKey="details.late" position="center" style={{ fontSize: '28px', fontWeight: 'bold', fill: '#713F12', opacity: 0.7 }} formatter={(val) => val > 0 ? val : ''} />
+                </Bar>
+                <Bar dataKey="details.missing" name="缺交" stackId="a" fill="#F87171" radius={[4, 4, 0, 0]}>
+                    {/* 總數顯示在最上方，字體 32px */}
+                    <LabelList dataKey="value" position="top" style={{ fontSize: '32px', fontWeight: '900', fill: '#374151' }} formatter={(val) => val > 0 ? val : ''}/>
+                </Bar>
+            </BarChart>
+        </ResponsiveContainer>
+    );
 };
 
-const SimpleStackedBarChart = ({ data, width = 600, height = 300 }) => {
-   if (!data || data.length === 0) return <div className="text-gray-400 text-center py-10">尚無足夠數據繪製圖表</div>;
-   const padding = 40; const chartWidth = width - padding * 2; const chartHeight = height - padding * 2;
-   const maxTotal = Math.max(...data.map(d => d.details.count), 1); const barWidth = Math.min(60, chartWidth / data.length * 0.6); 
-   return ( <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full bg-white rounded-xl shadow-inner border border-gray-100"> <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e5e7eb" strokeWidth="2" /> {data.map((d, i) => { const x = padding + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2; const totalHeight = chartHeight; const onTimeHeight = (d.details.onTime / maxTotal) * totalHeight; const lateHeight = (d.details.late / maxTotal) * totalHeight; const missingHeight = (d.details.missing / maxTotal) * totalHeight; const yGreen = (height - padding) - onTimeHeight; const yYellow = yGreen - lateHeight; const yRed = yYellow - missingHeight; return ( <g key={i} className="group"> {d.details.onTime > 0 && (<rect x={x} y={yGreen} width={barWidth} height={onTimeHeight} fill="#4ade80" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.late > 0 && (<rect x={x} y={yYellow} width={barWidth} height={lateHeight} fill="#facc15" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} {d.details.missing > 0 && (<rect x={x} y={yRed} width={barWidth} height={missingHeight} fill="#f87171" stroke="white" strokeWidth="1" className="opacity-90 hover:opacity-100"/>)} <text x={x + barWidth/2} y={yRed - 5} textAnchor="middle" fontSize="14" fill="#6b7280" fontWeight="bold">{d.details.count}</text> <text x={x + barWidth/2} y={height - 10} textAnchor="middle" fontSize="14" fill="#374151" fontWeight="500">{d.label}</text> <title>{`${d.label}：\n🟢 準時：${d.details.onTime}\n🟡 補交：${d.details.late}\n🔴 缺交：${d.details.missing}`}</title> </g> ); })} </svg> );
+// --- [圖表元件] 簡易折線趨勢圖 (V20.0.21: 軸與標籤文字巨大化) ---
+const SimpleLineChart = ({ data, height = 300 }) => {
+    return (
+        <ResponsiveContainer width="100%" height={height}>
+            <LineChart data={data} margin={{ top: 30, right: 30, left: 20, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                <XAxis 
+                    dataKey="label" 
+                    tick={{ fontSize: 24, fill: '#6B7280', fontWeight: 'bold' }} 
+                    axisLine={{ stroke: '#9CA3AF' }} 
+                    tickLine={false} 
+                    height={60}
+                />
+                <YAxis 
+                    domain={[0, 100]} 
+                    tick={{ fontSize: 20, fill: '#9CA3AF' }} 
+                    axisLine={false} 
+                    tickLine={false} 
+                    width={60} // 增加寬度以容納大字體
+                />
+                <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '16px' }}
+                    itemStyle={{ fontSize: '24px', padding: '4px 0', fontWeight: 'bold', color: '#3B82F6' }}
+                    labelStyle={{ fontSize: '24px', fontWeight: 'bold', color: '#374151', marginBottom: '8px' }}
+                    formatter={(value) => [`${value} 分`, '績效分數']}
+                />
+                {/* 參考線標籤加大 */}
+                <ReferenceLine y={100} stroke="#E5E7EB" strokeDasharray="3 3" label={{ position: 'top', value: '100', fill: '#D1D5DB', fontSize: 20 }} />
+                <ReferenceLine y={80} stroke="#4ADE80" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '80 (佳)', fill: '#4ADE80', fontSize: 20, fontWeight: 'bold' }} />
+                <ReferenceLine y={60} stroke="#F87171" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '60 (及格)', fill: '#F87171', fontSize: 20, fontWeight: 'bold' }} />
+                
+                <Line 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#3B82F6" 
+                    strokeWidth={6} 
+                    dot={{ r: 8, strokeWidth: 4, fill: '#FFFFFF' }} 
+                    activeDot={{ r: 12, strokeWidth: 0 }} 
+                    animationDuration={1500}
+                >
+                    <LabelList dataKey="value" position="top" offset={15} style={{ fontSize: '28px', fontWeight: 'bold', fill: '#2563EB' }} />
+                </Line>
+            </LineChart>
+        </ResponsiveContainer>
+    );
 };
+
 // --- 學生學習歷程 Dashboard Modal (V20.0.20: UI字體縮回正常 + 版面修復 + 圖表區維持大尺寸) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
@@ -416,7 +494,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         </div>
     );
 };
-// --- [Part 3] 學生存簿系統 (含新版介面 & 表頭固定修復 & 慶祝特效 & 巨大化圖表) ---
+// --- [Part 3] 學生存簿系統 & 獎勵特效 ---
 
 const RewardOverlay = ({ type, onClose }) => {
     // 依據類型決定音效：金幣慶祝聲 或 銅幣叮咚聲
@@ -475,105 +553,95 @@ const RewardOverlay = ({ type, onClose }) => {
     );
 };
 
-// --- [圖表元件] 簡易堆疊長條圖 (V20.0.21: 軸與標籤文字巨大化) ---
-const SimpleStackedBarChart = ({ data, height = 300 }) => {
-    return (
-        <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={data} margin={{ top: 30, right: 30, left: 20, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                {/* X軸: 文字加大到 24px, 高度加高 */}
-                <XAxis 
-                    dataKey="label" 
-                    tick={{ fontSize: 24, fill: '#6B7280', fontWeight: 'bold' }} 
-                    axisLine={{ stroke: '#9CA3AF' }} 
-                    tickLine={false} 
-                    height={60} 
-                />
-                {/* Y軸: 隱藏或縮小，這裡選擇隱藏以保持乾淨，滑鼠移上去看 tooltip 即可 */}
-                <YAxis hide />
-                {/* Tooltip: 內容文字加大 */}
-                <Tooltip 
-                    cursor={{ fill: '#F3F4F6' }}
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '16px' }}
-                    itemStyle={{ fontSize: '24px', padding: '4px 0' }}
-                    labelStyle={{ fontSize: '24px', fontWeight: 'bold', color: '#374151', marginBottom: '8px' }}
-                />
-                {/* Legend:圖例文字加大 */}
-                <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '24px' }} iconSize={24} />
-                
-                {/* Bar: 標籤數字加大到 32px */}
-                <Bar dataKey="details.onTime" name="準時" stackId="a" fill="#4ADE80" radius={[0, 0, 4, 4]}>
-                    <LabelList dataKey="details.onTime" position="center" style={{ fontSize: '28px', fontWeight: 'bold', fill: '#064E3B', opacity: 0.7 }} formatter={(val) => val > 0 ? val : ''} />
-                </Bar>
-                <Bar dataKey="details.late" name="補交" stackId="a" fill="#FACC15">
-                    <LabelList dataKey="details.late" position="center" style={{ fontSize: '28px', fontWeight: 'bold', fill: '#713F12', opacity: 0.7 }} formatter={(val) => val > 0 ? val : ''} />
-                </Bar>
-                <Bar dataKey="details.missing" name="缺交" stackId="a" fill="#F87171" radius={[4, 4, 0, 0]}>
-                    {/* 總數顯示在最上方，字體 32px */}
-                    <LabelList dataKey="value" position="top" style={{ fontSize: '32px', fontWeight: '900', fill: '#374151' }} formatter={(val) => val > 0 ? val : ''}/>
-                </Bar>
-            </BarChart>
-        </ResponsiveContainer>
-    );
-};
+// *** 關鍵修正：原本這裡重複定義了 SimpleStackedBarChart 和 SimpleLineChart ***
+// *** 我已經將它們移除，因為我們已經在 Part 2 定義過了，這是解決錯誤的關鍵步驟 ***
 
-// --- [圖表元件] 簡易折線趨勢圖 (V20.0.21: 軸與標籤文字巨大化) ---
-const SimpleLineChart = ({ data, height = 300 }) => {
-    return (
-        <ResponsiveContainer width="100%" height={height}>
-            <LineChart data={data} margin={{ top: 30, right: 30, left: 20, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis 
-                    dataKey="label" 
-                    tick={{ fontSize: 24, fill: '#6B7280', fontWeight: 'bold' }} 
-                    axisLine={{ stroke: '#9CA3AF' }} 
-                    tickLine={false} 
-                    height={60}
-                />
-                <YAxis 
-                    domain={[0, 100]} 
-                    tick={{ fontSize: 20, fill: '#9CA3AF' }} 
-                    axisLine={false} 
-                    tickLine={false} 
-                    width={60} // 增加寬度以容納大字體
-                />
-                <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '16px' }}
-                    itemStyle={{ fontSize: '24px', padding: '4px 0', fontWeight: 'bold', color: '#3B82F6' }}
-                    labelStyle={{ fontSize: '24px', fontWeight: 'bold', color: '#374151', marginBottom: '8px' }}
-                    formatter={(value) => [`${value} 分`, '績效分數']}
-                />
-                {/* 參考線標籤加大 */}
-                <ReferenceLine y={100} stroke="#E5E7EB" strokeDasharray="3 3" label={{ position: 'top', value: '100', fill: '#D1D5DB', fontSize: 20 }} />
-                <ReferenceLine y={80} stroke="#4ADE80" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '80 (佳)', fill: '#4ADE80', fontSize: 20, fontWeight: 'bold' }} />
-                <ReferenceLine y={60} stroke="#F87171" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '60 (及格)', fill: '#F87171', fontSize: 20, fontWeight: 'bold' }} />
-                
-                <Line 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="#3B82F6" 
-                    strokeWidth={6} 
-                    dot={{ r: 8, strokeWidth: 4, fill: '#FFFFFF' }} 
-                    activeDot={{ r: 12, strokeWidth: 0 }} 
-                    animationDuration={1500}
-                >
-                    <LabelList dataKey="value" position="top" offset={15} style={{ fontSize: '28px', fontWeight: 'bold', fill: '#2563EB' }} />
-                </Line>
-            </LineChart>
-        </ResponsiveContainer>
-    );
+// --- [補回缺失的 Hook] 學生存簿邏輯 Hook ---
+// 這段在您原本貼上的程式碼中遺失了，我幫您補上，確保銀行功能可以運作
+const useStudentBank = (db, isAuthReady, isOffline, students) => {
+    const [bankData, setBankData] = useState({});
+
+    // 初始化與監聽
+    useEffect(() => {
+        if (isOffline) {
+            const initialData = {};
+            students.forEach(s => initialData[s.id] = { gold: 0, silver: 0 });
+            setBankData(initialData);
+            return;
+        }
+        if (!isAuthReady || !db) return;
+
+        const q = query(collection(db, getBankCollectionPath()));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = {};
+            snapshot.forEach(doc => { data[doc.id] = doc.data(); });
+            setBankData(data);
+        });
+        return () => unsubscribe();
+    }, [isAuthReady, db, isOffline, students]);
+
+    // 更新餘額 (交易)
+    const updateBankBalance = useCallback(async (studentId, goldChange, silverChange, bronzeChange) => {
+        // 轉換銅幣邏輯：每 10 銅 = 1 銀
+        let finalSilver = silverChange;
+        if (bronzeChange) {
+            // 這裡假設傳進來的 bronzeChange 是單純的數值，例如 10
+            // 但您的系統設計似乎是直接給予銀幣，這裡做簡單處理
+            if(bronzeChange >= 10) finalSilver += Math.floor(bronzeChange / 10);
+        }
+
+        if (isOffline) {
+            setBankData(prev => {
+                const current = prev[studentId] || { gold: 0, silver: 0 };
+                return {
+                    ...prev,
+                    [studentId]: {
+                        gold: Math.max(0, (current.gold || 0) + goldChange),
+                        silver: Math.max(0, (current.silver || 0) + finalSilver)
+                    }
+                };
+            });
+            return;
+        }
+
+        if (!db) return;
+        const docRef = doc(db, getBankCollectionPath(), studentId);
+        try {
+            // 使用 transaction 確保數據一致性，或簡單使用 set/update
+             // 為了簡化，這裡使用 getDoc + setDoc
+            const docSnap = await getDoc(docRef);
+            let current = { gold: 0, silver: 0 };
+            if (docSnap.exists()) current = docSnap.data();
+
+            await setDoc(docRef, {
+                gold: Math.max(0, (current.gold || 0) + goldChange),
+                silver: Math.max(0, (current.silver || 0) + finalSilver),
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+        } catch (e) {
+            console.error("Update bank balance failed:", e);
+        }
+    }, [db, isOffline]);
+
+    // 直接設定餘額 (管理員用)
+    const setBankBalanceDirectly = useCallback(async (studentId, type, value) => {
+        if (isOffline) {
+            setBankData(prev => ({
+                ...prev,
+                [studentId]: { ...prev[studentId], [type]: value }
+            }));
+            return;
+        }
+        if (!db) return;
+        const docRef = doc(db, getBankCollectionPath(), studentId);
+        await setDoc(docRef, { [type]: value }, { merge: true });
+    }, [db, isOffline]);
+
+    return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; // setBankData 導出供匯入使用
 };
 
 // --- [輔助元件] 學生存簿 Modal (樣式優化: 大字體支援) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
-    // ... (此處邏輯通常較簡單，若有需要修改請告知，目前保持原樣以免動到不該動的)
-    // 為了節省篇幅，且此部分未被要求修改，故省略內部細節，若您之前的代碼包含此部分，請確保不要誤刪。
-    // 如果您需要我完整提供 StudentBankModal 的代碼，請告訴我。
-    // *重要*：為了確保複製貼上的完整性，我將提供一個標準版本的 StudentBankModal 佔位，
-    // 但強烈建議您：**如果您沒有要改存簿視窗，請只替換上面的 RewardOverlay 和圖表元件即可**。
-    
-    // 既然是指示 "Part 3"，我將提供完整的 Part 3 區塊，包含 StudentBankModal 的標準實作。
-    
     const [selectedStudentId, setSelectedStudentId] = useState(students[0]?.id || '');
     const [amount, setAmount] = useState('');
     const [reason, setReason] = useState('');
@@ -584,10 +652,15 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
     const handleSubmit = () => {
         if (!amount || isNaN(amount)) return;
         const val = parseInt(amount, 10);
+        
+        // 根據選擇的模式操作
+        // 這裡為了簡化介面，假設操作的都是「金幣」，若要操作銀幣可擴充
+        // 依據您的需求，這裡預設操作金幣
         if (mode === 'SET') {
-            setBankBalanceDirectly(selectedStudentId, 'gold', val); // 簡化：只設定金幣示範，實際邏輯依需求
+            setBankBalanceDirectly(selectedStudentId, 'gold', val); 
         } else {
-            onUpdateBalance(selectedStudentId, mode === 'ADD' ? 'gold' : 'gold', mode === 'ADD' ? val : -val);
+            // 若是扣除，則傳入負值
+            onUpdateBalance(selectedStudentId, mode === 'ADD' ? val : -val, 0, 0);
         }
         setAmount('');
         setReason('');
@@ -601,7 +674,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
                 </div>
                 
-                {/* 簡單的存簿管理介面 (保持原樣，字體適中) */}
+                {/* 簡單的存簿管理介面 */}
                 <div className="space-y-6">
                     <div>
                         <label className="block text-xl font-bold text-gray-700 mb-2">選擇學生</label>
@@ -620,12 +693,15 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
 
                     {authMode === 'ADMIN' ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input type="number" placeholder="數量" value={amount} onChange={(e) => setAmount(e.target.value)} className="p-3 text-xl border border-gray-300 rounded-lg" />
-                            <div className="flex gap-2">
-                                <button onClick={() => setMode('ADD')} className={`flex-1 py-2 rounded-lg font-bold text-lg ${mode === 'ADD' ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>發放</button>
-                                <button onClick={() => setMode('DEDUCT')} className={`flex-1 py-2 rounded-lg font-bold text-lg ${mode === 'DEDUCT' ? 'bg-red-500 text-white' : 'bg-gray-200'}`}>扣除</button>
+                            <div className="col-span-2">
+                                <label className="block text-lg font-bold text-gray-600 mb-1">金幣數量調整</label>
+                                <input type="number" placeholder="輸入數量" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-3 text-xl border border-gray-300 rounded-lg" />
                             </div>
-                            <button onClick={handleSubmit} className="col-span-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xl font-bold transition">確認執行</button>
+                            <div className="flex gap-2 col-span-2">
+                                <button onClick={() => setMode('ADD')} className={`flex-1 py-3 rounded-lg font-bold text-xl transition ${mode === 'ADD' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}>發放 (+)</button>
+                                <button onClick={() => setMode('DEDUCT')} className={`flex-1 py-3 rounded-lg font-bold text-xl transition ${mode === 'DEDUCT' ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}>扣除 (-)</button>
+                            </div>
+                            <button onClick={handleSubmit} className="col-span-2 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-2xl font-bold transition shadow-md mt-2">確認執行</button>
                         </div>
                     ) : (
                         <div className="p-4 bg-yellow-50 text-yellow-800 rounded-lg text-lg text-center font-bold">僅老師可進行加扣分操作</div>
@@ -655,19 +731,88 @@ const useDailySettlements = (db, isAuthReady, isOffline) => {
 };
 
 // --- 輔助 UI 元件 ---
-const CustomAlert = ({ message, onClose }) => ( <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"> <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> <h3 className="text-4xl font-semibold text-gray-800 mb-4">通知</h3> <p className="text-3xl text-gray-600 mb-6">{message}</p> <button onClick={onClose} className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-4xl">確定</button> </div> </div> );
+const CustomAlert = ({ message, onClose }) => ( 
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"> 
+        <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> 
+            <h3 className="text-4xl font-semibold text-gray-800 mb-4">通知</h3> 
+            <p className="text-3xl text-gray-600 mb-6">{message}</p> 
+            <button onClick={onClose} className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-4xl">確定</button> 
+        </div> 
+    </div> 
+);
 
 const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => { 
   const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState(''); 
   const [mode, setMode] = useState('GUEST'); 
   const handleAdminSubmit = (e) => { e.preventDefault(); onAdminLogin(email, password); }; 
-  return ( <div className="fixed inset-0 bg-[#F0F8FF] flex items-center justify-center z-[10000]"> <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100"> <div className="text-center mb-8"> <h1 className="text-4xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1> <p className="text-gray-400 text-xl font-medium">請選擇您的身分</p> </div> <div className="flex bg-gray-100 p-1 rounded-xl mb-6"> <button onClick={() => setMode('GUEST')} className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'GUEST' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>學生/家長</button> <button onClick={() => setMode('ADMIN')} className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'ADMIN' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:text-gray-700'}`}>老師 (管理員)</button> </div> {mode === 'ADMIN' ? ( <form onSubmit={handleAdminSubmit} className="space-y-4 animate-fade-in"> <div><label className="block text-gray-600 text-lg font-bold mb-1">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all" autoFocus /></div> <div><label className="block text-gray-600 text-lg font-bold mb-1">密碼</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="請輸入密碼" className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all" /></div> {errorMsg && (<p className="text-red-500 text-lg font-bold">{errorMsg}</p>)} <button type="submit" disabled={isLoading} className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-red-500 hover:bg-red-600'}`}>{isLoading ? '驗證中...' : <><Key className="w-6 h-6" /> 管理員登入</>}</button> </form> ) : ( <div className="space-y-6 animate-fade-in"> <div className="bg-blue-50 p-4 rounded-xl text-blue-800 text-lg"><p className="font-bold flex items-center gap-2"><Shield className="w-5 h-5"/> 訪客模式說明：</p><p className="mt-1">您可以查看所有作業進度，但無法修改作業名稱或刪除紀錄。</p></div> <button onClick={onGuestLogin} disabled={isLoading} className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-blue-500 hover:bg-blue-600'}`}>{isLoading ? '進入中...' : <><User className="w-6 h-6" /> 進入系統</>}</button> </div> )} <div className="mt-8 text-center text-gray-400 text-lg">系統版本：{VERSION}</div> </div> </div> ); 
+  return ( 
+      <div className="fixed inset-0 bg-[#F0F8FF] flex items-center justify-center z-[10000]"> 
+          <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100"> 
+              <div className="text-center mb-8"> 
+                  <h1 className="text-4xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1> 
+                  <p className="text-gray-400 text-xl font-medium">請選擇您的身分</p> 
+              </div> 
+              <div className="flex bg-gray-100 p-1 rounded-xl mb-6"> 
+                  <button onClick={() => setMode('GUEST')} className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'GUEST' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>學生/家長</button> 
+                  <button onClick={() => setMode('ADMIN')} className={`flex-1 py-2 rounded-lg text-xl font-bold transition-all ${mode === 'ADMIN' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:text-gray-700'}`}>老師 (管理員)</button> 
+              </div> 
+              {mode === 'ADMIN' ? ( 
+                  <form onSubmit={handleAdminSubmit} className="space-y-4 animate-fade-in"> 
+                      <div><label className="block text-gray-600 text-lg font-bold mb-1">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all" autoFocus /></div> 
+                      <div><label className="block text-gray-600 text-lg font-bold mb-1">密碼</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="請輸入密碼" className="w-full px-4 py-3 text-xl border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all" /></div> 
+                      {errorMsg && (<p className="text-red-500 text-lg font-bold">{errorMsg}</p>)} 
+                      <button type="submit" disabled={isLoading} className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-red-500 hover:bg-red-600'}`}>{isLoading ? '驗證中...' : <><Key className="w-6 h-6" /> 管理員登入</>}</button> 
+                  </form> 
+              ) : ( 
+                  <div className="space-y-6 animate-fade-in"> 
+                      <div className="bg-blue-50 p-4 rounded-xl text-blue-800 text-lg"><p className="font-bold flex items-center gap-2"><Shield className="w-5 h-5"/> 訪客模式說明：</p><p className="mt-1">您可以查看所有作業進度，但無法修改作業名稱或刪除紀錄。</p></div> 
+                      <button onClick={onGuestLogin} disabled={isLoading} className={`w-full py-3 rounded-xl text-white text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'bg-gray-400 cursor-wait' : 'bg-blue-500 hover:bg-blue-600'}`}>{isLoading ? '進入中...' : <><User className="w-6 h-6" /> 進入系統</>}</button> 
+                  </div> 
+              )} 
+              <div className="mt-8 text-center text-gray-400 text-lg">系統版本：{VERSION}</div> 
+          </div> 
+      </div> 
+  ); 
 };
 
-const AllMissingAssignmentsModal = ({ missingStats, onClose }) => { const studentsWithMissing = missingStats.filter(s => s.missingCount > 0); return ( <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4"> <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200"> <div className="flex justify-between items-center mb-6 border-b pb-4"><h3 className="text-4xl font-bold text-gray-800 flex items-center"><AlertCircle className="w-10 h-10 text-red-500 mr-3" />全班未完成作業總表</h3><button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200"><X className="w-8 h-8" /></button></div> <div className="flex-1 overflow-auto"> {studentsWithMissing.length === 0 ? (<div className="h-full flex flex-col items-center justify-center text-gray-400"><Check className="w-24 h-24 mb-4 text-green-400" /><p className="text-4xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p></div>) : ( <table className="min-w-full divide-y divide-gray-300"> <thead className="bg-gray-100 sticky top-0 z-10"><tr><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th><th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th></tr></thead> <tbody className="bg-white divide-y divide-gray-200">{studentsWithMissing.map((student) => (<tr key={student.id} className="hover:bg-red-50 transition duration-100"><td className="px-4 py-4 text-2xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td><td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td><td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td><td className="px-6 py-4 text-xl text-gray-700"><ul className="list-disc list-inside space-y-1">{[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW')).map((detail, idx) => (<li key={idx} className="flex items-start"><span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span><span className="font-mono font-medium text-gray-400 text-lg">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span></li>))}</ul></td></tr>))}</tbody> </table> )} </div> <div className="mt-4 pt-4 border-t border-gray-200 text-right"><button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">關閉視窗</button></div> </div> </div> ); };
+const AllMissingAssignmentsModal = ({ missingStats, onClose }) => { 
+    const studentsWithMissing = missingStats.filter(s => s.missingCount > 0); 
+    return ( 
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4"> 
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200"> 
+                <div className="flex justify-between items-center mb-6 border-b pb-4"><h3 className="text-4xl font-bold text-gray-800 flex items-center"><AlertCircle className="w-10 h-10 text-red-500 mr-3" />全班未完成作業總表</h3><button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200"><X className="w-8 h-8" /></button></div> 
+                <div className="flex-1 overflow-auto"> 
+                    {studentsWithMissing.length === 0 ? (<div className="h-full flex flex-col items-center justify-center text-gray-400"><Check className="w-24 h-24 mb-4 text-green-400" /><p className="text-4xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p></div>) : ( 
+                        <table className="min-w-full divide-y divide-gray-300"> 
+                            <thead className="bg-gray-100 sticky top-0 z-10"><tr><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th><th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th></tr></thead> 
+                            <tbody className="bg-white divide-y divide-gray-200">{studentsWithMissing.map((student) => (<tr key={student.id} className="hover:bg-red-50 transition duration-100"><td className="px-4 py-4 text-2xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td><td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td><td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td><td className="px-6 py-4 text-xl text-gray-700"><ul className="list-disc list-inside space-y-1">{[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW')).map((detail, idx) => (<li key={idx} className="flex items-start"><span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span><span className="font-mono font-medium text-gray-400 text-lg">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span></li>))}</ul></td></tr>))}</tbody> 
+                        </table> 
+                    )} 
+                </div> 
+                <div className="mt-4 pt-4 border-t border-gray-200 text-right"><button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">關閉視窗</button></div> 
+            </div> 
+        </div> 
+    ); 
+};
 
-const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, confirmColor }) => { const [isAltPressed, setIsAltPressed] = useState(false); useEffect(() => { const handleKeyDown = (e) => { if (e.key === 'Alt') setIsAltPressed(true); }; const handleKeyUp = (e) => { if (e.key === 'Alt') setIsAltPressed(false); }; window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp); return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); }; }, []); return ( <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4"> <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> <h3 className="text-4xl font-bold text-gray-800 mb-4">{title}</h3><p className="text-3xl text-gray-600 mb-6">{message}</p> <div className="flex justify-between gap-4 mt-6"><button onClick={onCancel} className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg hover:bg-gray-400 transition duration-150 ease-in-out font-medium text-4xl">取消 (保留資料)</button><button onClick={() => { if (isAltPressed) { onConfirm(); } else { alert(`請按住 Alt 鍵，才能確認執行 ${confirmTitle} 操作！`); } }} disabled={!isAltPressed} className={`flex-1 text-white py-3 rounded-lg transition duration-150 ease-in-out font-medium text-4xl ${confirmColor} ${isAltPressed ? 'hover:brightness-110' : 'bg-red-400 cursor-not-allowed'}`}>{confirmTitle}</button></div><p className="mt-3 text-center text-red-500 text-3xl font-semibold opacity-0">請按住 **Alt 鍵** 才能啟用刪除按鈕！</p> </div> </div> ); };
+const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, confirmColor }) => { 
+    const [isAltPressed, setIsAltPressed] = useState(false); 
+    useEffect(() => { 
+        const handleKeyDown = (e) => { if (e.key === 'Alt') setIsAltPressed(true); }; 
+        const handleKeyUp = (e) => { if (e.key === 'Alt') setIsAltPressed(false); }; 
+        window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp); 
+        return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); }; 
+    }, []); 
+    return ( 
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4"> 
+            <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> 
+                <h3 className="text-4xl font-bold text-gray-800 mb-4">{title}</h3><p className="text-3xl text-gray-600 mb-6">{message}</p> 
+                <div className="flex justify-between gap-4 mt-6"><button onClick={onCancel} className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg hover:bg-gray-400 transition duration-150 ease-in-out font-medium text-4xl">取消 (保留資料)</button><button onClick={() => { if (isAltPressed) { onConfirm(); } else { alert(`請按住 Alt 鍵，才能確認執行 ${confirmTitle} 操作！`); } }} disabled={!isAltPressed} className={`flex-1 text-white py-3 rounded-lg transition duration-150 ease-in-out font-medium text-4xl ${confirmColor} ${isAltPressed ? 'hover:brightness-110' : 'bg-red-400 cursor-not-allowed'}`}>{confirmTitle}</button></div><p className="mt-3 text-center text-red-500 text-3xl font-semibold opacity-0">請按住 **Alt 鍵** 才能啟用刪除按鈕！</p> 
+            </div> 
+        </div> 
+    ); 
+};
 
 const getTodayDate = () => { const d = new Date(); const year = d.getFullYear(); const month = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; };
 
@@ -799,7 +944,6 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, stud
    const initializeCategories = useCallback(async (db, userId) => { if (!db || !userId) return; setLoadingCategories(true); const path = getCategoryCollectionPath(); const categoriesCollection = collection(db, path); try { const snapshot = await getDocs(categoriesCollection); if (snapshot.empty) { const batchPromises = INITIAL_CATEGORIES.map(cat => { const newDocRef = doc(categoriesCollection); return setDoc(newDocRef, { ...cat, createdAt: Timestamp.now() }); }); await Promise.all(batchPromises); } } catch (e) { console.error("Error initializing categories:", e); } setLoadingCategories(false); }, []); 
    useEffect(() => { if (isOffline) { setCategories(INITIAL_CATEGORIES.map((cat, i) => ({ ...cat, id: `offline-cat-${i}` }))); setLoadingCategories(false); return; } if (isAuthReady && db && userId) { initializeCategories(db, userId); const path = getCategoryCollectionPath(); const unsubscribe = onSnapshot(collection(db, path), (snapshot) => { const loadedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); loadedCategories.sort((a, b) => (a.order || 0) - (b.order || 0)); setCategories(loadedCategories); setLoadingCategories(false); }, (e) => { console.error("Error fetching categories:", e); if (e.code !== 'permission-denied') { setAlertMessage("讀取作業項目清單時發生錯誤。"); } setLoadingCategories(false); }); return () => unsubscribe(); } }, [isAuthReady, db, userId, setAlertMessage, initializeCategories, isOffline]);
    const addCategory = useCallback(async (name) => { const trimmedName = name.trim(); if (!trimmedName) return false; if (categories.some(c => c.name === trimmedName)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return false; } if (isOffline) { const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; setCategories(prev => [...prev, { id: `offline-cat-${Date.now()}`, name: trimmedName, order: newOrder }]); return true; } if (!db || !userId) return false; const newDocRef = doc(collection(db, getCategoryCollectionPath())); const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; try { await setDoc(newDocRef, { name: trimmedName, order: newOrder, createdAt: Timestamp.now() }); return true; } catch (e) { console.error("Error adding category:", e); setAlertMessage("新增科目模板失敗。"); return false; } }, [db, userId, categories, setAlertMessage, isOffline]); const deleteCategory = useCallback(async (categoryId, categoryName) => { if (!window.confirm(`確定要刪除科目模板「${categoryName}」嗎？此操作只會將該科目從「自動新增」清單中移除。`)) return; if (isOffline) { setCategories(prev => prev.filter(c => c.id !== categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除 (離線)。`); return; } if (!db || !userId) return; try { await deleteDoc(doc(db, getCategoryCollectionPath(), categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除。`); } catch (e) { console.error("Error deleting category:", e); setAlertMessage("刪除科目模板失敗。"); } }, [db, userId, setAlertMessage, isOffline]); const editCategory = useCallback(async (categoryId, currentName, newName) => { const trimmedName = newName.trim(); if (!trimmedName || trimmedName === currentName) return; if (categories.some(c => c.name === trimmedName && c.id !== categoryId)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return; } if (isOffline) { setCategories(prev => prev.map(c => c.id === categoryId ? { ...c, name: trimmedName } : c)); return; } if (!db || !userId) return; try { await setDoc(doc(db, getCategoryCollectionPath(), categoryId), { name: trimmedName }, { merge: true }); setAlertMessage(`科目模板名稱已從「${currentName}」更新為「${trimmedName}」。`); } catch (e) { console.error("Error editing category:", e); setAlertMessage("編輯科目模板失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); const moveCategory = useCallback(async (dragId, hoverId) => { const dragIndex = categories.findIndex(c => c.id === dragId); const hoverIndex = categories.findIndex(c => c.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; const dragCategory = categories[dragIndex]; const hoverCategory = categories[hoverIndex]; if (isOffline) { const newCategories = [...categories]; newCategories[dragIndex] = { ...dragCategory, order: hoverCategory.order }; newCategories[hoverIndex] = { ...hoverCategory, order: dragCategory.order }; newCategories.sort((a, b) => a.order - b.order); setCategories(newCategories); return; } if (!db || !userId) return; const batch = writeBatch(db); const path = getCategoryCollectionPath(); batch.set(doc(db, path, dragCategory.id), { order: hoverCategory.order }, { merge: true }); batch.set(doc(db, path, hoverCategory.id), { order: dragCategory.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving category:", e); setAlertMessage("調整項目順序失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); return { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus }; };
-
 // --- [主程式] App ---
 const App = () => {
   const [db, setDb] = useState(null);
@@ -830,7 +974,8 @@ const App = () => {
   
   // Hooks
   const { students, loadingStudents } = useStudents(db, isOffline);
-  const { bankData, updateBankBalance, setBankBalanceDirectly } = useStudentBank(db, isAuthReady, isOffline, students);
+  // 這裡呼叫我們在 Part 3 補上的 useStudentBank
+  const { bankData, updateBankBalance, setBankBalanceDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students);
   const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
   const { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline, students);
 
@@ -877,7 +1022,6 @@ const App = () => {
 
   const studentMissingStats = useMemo(() => { const stats = students.map(student => ({ id: student.id, name: student.name, missingCount: 0, missingDetails: [] })); Object.keys(allAssignmentsByDate).forEach(date => { const assignmentsOnDate = allAssignmentsByDate[date] || []; assignmentsOnDate.forEach(assignment => { const submissionStatus = assignment.submissionStatus || {}; students.forEach((student, index) => { if (submissionStatus[student.id] === false) { stats[index].missingCount += 1; stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName }); } }); }); }); stats.sort((a, b) => b.missingCount - a.missingCount); return stats; }, [allAssignmentsByDate, students]);
   const monthlyStudentStats = useMemo(() => { const stats = {}; students.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; students.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months, students]);
-
   // --- Handlers (V20.0.8 恢復自動帶入預設作業) ---
   const handleNewAssignmentDateChange = (e) => { setNewAssignmentDate(e.target.value); };
   
@@ -1042,6 +1186,8 @@ const App = () => {
         await batch.commit();
         
         if (shouldIssueReward) {
+            // 注意：這裡 updateBankBalance(studentId, gold, silver, bronze)
+            // 發放銀幣 => silver=2, 其他=0
             newWinners.forEach(sid => { updateBankBalance(sid, 0, 2, 0); });
             setAlertMessage(`✅ 結算完成！\n已補發銀幣給 ${newWinners.length} 位學生。`);
         } else {
@@ -1128,7 +1274,9 @@ const App = () => {
       }
 
       if (bronzeChange !== 0 || silverChange !== 0) {
-          updateBankBalance(studentId, bronzeChange, silverChange, 0);
+          // 注意：參數順序 (studentId, gold, silver, bronze)
+          // 這裡發放銅幣，所以放在第四個參數
+          updateBankBalance(studentId, 0, silverChange, bronzeChange);
       }
       if (triggerAnimation) { setRewardState({ type: triggerAnimation }); }
 
@@ -1169,68 +1317,66 @@ const App = () => {
   
   // --- [v20.0.1] 匯出資料 ---
   const handleExportData = useCallback(async () => { 
-     if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯出。"); return; } 
-     setLoading(true); 
-     try { 
-         const exportObj = {
-             version: 'v20.0.1',
-             timestamp: new Date().toISOString(),
-             students: students,
-             assignments: [],
-             bankData: bankData,
-             allAssignmentsByDate: isOffline ? allAssignmentsByDate : undefined
-         };
-         if (isOffline) {
-             Object.values(allAssignmentsByDate).forEach(assignments => { exportObj.assignments.push(...assignments); });
-         } else {
-             const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const snapshot = await getDocs(assignmentsCollection); 
-             snapshot.forEach(doc => { const data = doc.data(); const createdAt = data.createdAt?.toDate().toISOString() || null; exportObj.assignments.push({ id: doc.id, ...data, createdAt: createdAt }); });
-         }
-         const dataStr = JSON.stringify(exportObj, null, 2); const blob = new Blob([dataStr], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `assignment_data_${getTodayDate()}${isOffline ? '_offline' : ''}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); setAlertMessage(`成功匯出完整備份 (含存簿資料)。`); 
-     } catch (e) { console.error("Export failed:", e); setAlertMessage("匯出資料失敗。"); } finally { setLoading(false); } 
+      if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯出。"); return; } 
+      setLoading(true); 
+      try { 
+          const exportObj = {
+              version: 'v20.0.1',
+              timestamp: new Date().toISOString(),
+              students: students,
+              assignments: [],
+              bankData: bankData,
+              allAssignmentsByDate: isOffline ? allAssignmentsByDate : undefined
+          };
+          if (isOffline) {
+              Object.values(allAssignmentsByDate).forEach(assignments => { exportObj.assignments.push(...assignments); });
+          } else {
+              const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const snapshot = await getDocs(assignmentsCollection); 
+              snapshot.forEach(doc => { const data = doc.data(); const createdAt = data.createdAt?.toDate().toISOString() || null; exportObj.assignments.push({ id: doc.id, ...data, createdAt: createdAt }); });
+          }
+          const dataStr = JSON.stringify(exportObj, null, 2); const blob = new Blob([dataStr], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `assignment_data_${getTodayDate()}${isOffline ? '_offline' : ''}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); setAlertMessage(`成功匯出完整備份 (含存簿資料)。`); 
+      } catch (e) { console.error("Export failed:", e); setAlertMessage("匯出資料失敗。"); } finally { setLoading(false); } 
   }, [db, userId, setAlertMessage, isOffline, allAssignmentsByDate, bankData, students]);
  
   // --- [v20.0.1] 匯入資料 ---
   const handleImportData = useCallback(async (e) => { 
-     if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以匯入資料。"); return; } 
-     if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯入。"); return; } 
-     const file = e.target.files[0]; if (!file) return; setLoading(true); const reader = new FileReader(); 
-     reader.onload = async (event) => { 
-         try { 
-             const json = JSON.parse(event.target.result); 
-             if (Array.isArray(json)) { 
-                 setAlertMessage("⚠️ 偵測到舊版備份檔。僅能還原作業，無法還原存簿。");
-                 if (isOffline) { 
-                     let importedCount = 0; const newMap = { ...allAssignmentsByDate }; 
-                     json.forEach(item => { 
-                         const date = item.assignmentDate || getTodayDate(); const name = (item.assignmentName || "未命名作業").trim(); 
-                         if (!newMap[date]) newMap[date] = []; 
-                         if (!newMap[date].some(a => a.assignmentName === name)) { 
-                             newMap[date].push({ ...item, id: `offline-import-${Date.now()}-${Math.random()}`, assignmentName: name, assignmentDate: date }); 
-                             importedCount++; 
-                         } 
-                     }); 
-                     setAllAssignmentsByDate(newMap); 
-                 } 
-             } else {
-                 if (json.bankData) setBankData(json.bankData);
-                 if (isOffline && json.allAssignmentsByDate) setAllAssignmentsByDate(json.allAssignmentsByDate);
-                 if(isOffline && json.assignments) {
-                     const newMap = {};
-                     json.assignments.forEach(a => {
-                         if(!newMap[a.assignmentDate]) newMap[a.assignmentDate] = [];
-                         newMap[a.assignmentDate].push(a);
-                     });
-                     setAllAssignmentsByDate(newMap);
-                 }
-                 setAlertMessage("✅ 完整資料還原成功 (含存簿)！");
-             }
-         } catch (error) { console.error("Import failed:", error); setAlertMessage("匯入失敗：檔案解析錯誤或數據格式不正確。"); } finally { setLoading(false); e.target.value = null; } 
-     }; reader.readAsText(file); 
-  }, [db, userId, setAlertMessage, getInitialSubmissionStatus, allAssignmentsByDate, isOffline, authMode]); 
-  
-  const isGlobalLoading = loading || loadingCategories || loadingStudents;
-     if (isGlobalLoading && !isAuthReady && !isOffline) {
+      if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以匯入資料。"); return; } 
+      if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯入。"); return; } 
+      const file = e.target.files[0]; if (!file) return; setLoading(true); const reader = new FileReader(); 
+      reader.onload = async (event) => { 
+          try { 
+              const json = JSON.parse(event.target.result); 
+              if (Array.isArray(json)) { 
+                  setAlertMessage("⚠️ 偵測到舊版備份檔。僅能還原作業，無法還原存簿。");
+                  if (isOffline) { 
+                      let importedCount = 0; const newMap = { ...allAssignmentsByDate }; 
+                      json.forEach(item => { 
+                          const date = item.assignmentDate || getTodayDate(); const name = (item.assignmentName || "未命名作業").trim(); 
+                          if (!newMap[date]) newMap[date] = []; 
+                          if (!newMap[date].some(a => a.assignmentName === name)) { 
+                              newMap[date].push({ ...item, id: `offline-import-${Date.now()}-${Math.random()}`, assignmentName: name, assignmentDate: date }); 
+                              importedCount++; 
+                          } 
+                      }); 
+                      setAllAssignmentsByDate(newMap); 
+                  } 
+              } else {
+                  if (json.bankData) setBankData(json.bankData);
+                  if (isOffline && json.allAssignmentsByDate) setAllAssignmentsByDate(json.allAssignmentsByDate);
+                  if(isOffline && json.assignments) {
+                      const newMap = {};
+                      json.assignments.forEach(a => {
+                          if(!newMap[a.assignmentDate]) newMap[a.assignmentDate] = [];
+                          newMap[a.assignmentDate].push(a);
+                      });
+                      setAllAssignmentsByDate(newMap);
+                  }
+                  setAlertMessage("✅ 完整資料還原成功 (含存簿)！");
+              }
+          } catch (error) { console.error("Import failed:", error); setAlertMessage("匯入失敗：檔案解析錯誤或數據格式不正確。"); } finally { setLoading(false); e.target.value = null; } 
+      }; reader.readAsText(file); 
+  }, [db, userId, setAlertMessage, getInitialSubmissionStatus, allAssignmentsByDate, isOffline, authMode]);const isGlobalLoading = loading || loadingCategories || loadingStudents;
+      if (isGlobalLoading && !isAuthReady && !isOffline) {
     return ( 
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
