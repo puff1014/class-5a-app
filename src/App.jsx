@@ -39,7 +39,7 @@ import {
 } from 'recharts';
 
 // --- 版本資訊 ---
-const VERSION = 'v20.0.21 - 圖表文字巨大化版 (修復重複宣告)'; 
+const VERSION = 'v20.0.22 - 圖表文字巨大化版 (修復重複宣告)'; 
 
 // --- 全域變數與 Firebase 設定 ---
 const appId = 'class-5a-app'; 
@@ -106,14 +106,14 @@ const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assig
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
-// --- [圖表元件] 簡易堆疊長條圖 (V20.0.21: 軸與標籤文字巨大化) ---
-// 這裡使用的是 Recharts 版本，取代了原本的 SVG 版本，解決了重複宣告的錯誤
+// --- [圖表元件] 簡易堆疊長條圖 (V20.0.22: 版面擴增 + 數字顏色優化 + 紅色區塊顯示修正) ---
 const SimpleStackedBarChart = ({ data, height = 300 }) => {
     return (
         <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={data} margin={{ top: 30, right: 30, left: 20, bottom: 10 }}>
+            {/* margin top 加大到 80 以容納上方大字體，right 加大到 60 避免 100 被切掉 */}
+            <BarChart data={data} margin={{ top: 80, right: 60, left: 20, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                {/* X軸: 文字加大到 24px, 高度加高 */}
+                {/* X軸 */}
                 <XAxis 
                     dataKey="label" 
                     tick={{ fontSize: 24, fill: '#6B7280', fontWeight: 'bold' }} 
@@ -121,39 +121,113 @@ const SimpleStackedBarChart = ({ data, height = 300 }) => {
                     tickLine={false} 
                     height={60} 
                 />
-                {/* Y軸: 隱藏或縮小，這裡選擇隱藏以保持乾淨，滑鼠移上去看 tooltip 即可 */}
                 <YAxis hide />
-                {/* Tooltip: 內容文字加大 */}
+                
+                {/* Tooltip */}
                 <Tooltip 
                     cursor={{ fill: '#F3F4F6' }}
                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '16px' }}
                     itemStyle={{ fontSize: '24px', padding: '4px 0' }}
                     labelStyle={{ fontSize: '24px', fontWeight: 'bold', color: '#374151', marginBottom: '8px' }}
                 />
-                {/* Legend:圖例文字加大 */}
                 <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '24px' }} iconSize={24} />
                 
-                {/* Bar: 標籤數字加大到 32px */}
+                {/* 1. 準時 (綠色)：文字改深綠色 */}
                 <Bar dataKey="details.onTime" name="準時" stackId="a" fill="#4ADE80" radius={[0, 0, 4, 4]}>
-                    <LabelList dataKey="details.onTime" position="center" style={{ fontSize: '28px', fontWeight: 'bold', fill: '#064E3B', opacity: 0.7 }} formatter={(val) => val > 0 ? val : ''} />
+                    <LabelList 
+                        dataKey="details.onTime" 
+                        position="center" 
+                        style={{ fontSize: '28px', fontWeight: '900', fill: '#14532d', opacity: 0.9 }} // green-900
+                        formatter={(val) => val > 0 ? val : ''} 
+                    />
                 </Bar>
+
+                {/* 2. 補交 (黃色)：文字改深褐色 */}
                 <Bar dataKey="details.late" name="補交" stackId="a" fill="#FACC15">
-                    <LabelList dataKey="details.late" position="center" style={{ fontSize: '28px', fontWeight: 'bold', fill: '#713F12', opacity: 0.7 }} formatter={(val) => val > 0 ? val : ''} />
+                    <LabelList 
+                        dataKey="details.late" 
+                        position="center" 
+                        style={{ fontSize: '28px', fontWeight: '900', fill: '#713f12', opacity: 0.9 }} // yellow-900
+                        formatter={(val) => val > 0 ? val : ''} 
+                    />
                 </Bar>
+
+                {/* 3. 缺交 (紅色)：文字改白色，並補上 dataKey 讓它顯示 */}
                 <Bar dataKey="details.missing" name="缺交" stackId="a" fill="#F87171" radius={[4, 4, 0, 0]}>
-                    {/* 總數顯示在最上方，字體 32px */}
-                    <LabelList dataKey="value" position="top" style={{ fontSize: '32px', fontWeight: '900', fill: '#374151' }} formatter={(val) => val > 0 ? val : ''}/>
+                    {/* 紅色區塊內部的數字 (白色) */}
+                    <LabelList 
+                        dataKey="details.missing" 
+                        position="center" 
+                        style={{ fontSize: '28px', fontWeight: '900', fill: '#ffffff' }} 
+                        formatter={(val) => val > 0 ? val : ''}
+                    />
+                    
+                    {/* 4. 最上方的總分 (黑色加粗，小數點一位) */}
+                    {/* 這裡顯示的是 "value" (即平均分數)，顯示在 Bar 的頂端 */}
+                    <LabelList 
+                        dataKey="value" 
+                        position="top" 
+                        offset={15}
+                        style={{ fontSize: '36px', fontWeight: '900', fill: '#1f2937' }} // gray-800
+                        formatter={(val) => typeof val === 'number' ? parseFloat(val.toFixed(1)) : val}
+                    />
                 </Bar>
             </BarChart>
         </ResponsiveContainer>
     );
 };
 
-// --- [圖表元件] 簡易折線趨勢圖 (V20.0.21: 軸與標籤文字巨大化) ---
+// --- [圖表元件] 簡易折線趨勢圖 (V20.0.22: 直線化 + 彩色圓點 + 詳細 Tooltip) ---
+
+// 1. 客製化圓點元件 (依分數變色)
+const CustomizedDot = (props) => {
+    const { cx, cy, value } = props;
+    if (!cx || !cy) return null;
+    
+    let fill = "#ef4444"; // 紅色 (<60)
+    let stroke = "#fee2e2"; // 淺紅框
+    
+    if (value >= 80) {
+        fill = "#22c55e"; // 綠色
+        stroke = "#dcfce7";
+    } else if (value >= 60) {
+        fill = "#eab308"; // 黃色
+        stroke = "#fef9c3";
+    }
+
+    return (
+        <svg x={cx - 10} y={cy - 10} width={20} height={20}>
+            <circle cx="10" cy="10" r="8" fill={fill} stroke="white" strokeWidth="3" />
+            <circle cx="10" cy="10" r="10" fill="none" stroke={stroke} strokeWidth="1" />
+        </svg>
+    );
+};
+
+// 2. 客製化 Tooltip (顯示詳細數據)
+const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        const details = data.details || { onTime: 0, late: 0, missing: 0 };
+        return (
+            <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]">
+                <p className="text-2xl font-bold text-gray-700 mb-2 border-b pb-2 border-gray-200">
+                    {label} <span className="text-blue-600 ml-2">({data.value.toFixed(1)}分)</span>
+                </p>
+                <div className="flex flex-col gap-1 text-xl">
+                    <p className="text-green-700 font-bold">🟢 準時：{details.onTime}</p>
+                    <p className="text-yellow-700 font-bold">🟡 補交：{details.late}</p>
+                    <p className="text-red-600 font-bold">🔴 缺交：{details.missing}</p>
+                </div>
+            </div>
+        );
+    }
+    return null;
+};
+
 const SimpleLineChart = ({ data, height = 300 }) => {
     return (
         <ResponsiveContainer width="100%" height={height}>
-            <LineChart data={data} margin={{ top: 30, right: 30, left: 20, bottom: 10 }}>
+            <LineChart data={data} margin={{ top: 80, right: 60, left: 20, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis 
                     dataKey="label" 
@@ -167,36 +241,42 @@ const SimpleLineChart = ({ data, height = 300 }) => {
                     tick={{ fontSize: 20, fill: '#9CA3AF' }} 
                     axisLine={false} 
                     tickLine={false} 
-                    width={60} // 增加寬度以容納大字體
+                    width={60} 
                 />
-                <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '16px' }}
-                    itemStyle={{ fontSize: '24px', padding: '4px 0', fontWeight: 'bold', color: '#3B82F6' }}
-                    labelStyle={{ fontSize: '24px', fontWeight: 'bold', color: '#374151', marginBottom: '8px' }}
-                    formatter={(value) => [`${value} 分`, '績效分數']}
-                />
-                {/* 參考線標籤加大 */}
+                
+                {/* 使用客製化 Tooltip */}
+                <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#9CA3AF', strokeWidth: 2, strokeDasharray: '5 5' }} />
+                
+                {/* 參考線 */}
                 <ReferenceLine y={100} stroke="#E5E7EB" strokeDasharray="3 3" label={{ position: 'top', value: '100', fill: '#D1D5DB', fontSize: 20 }} />
                 <ReferenceLine y={80} stroke="#4ADE80" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '80 (佳)', fill: '#4ADE80', fontSize: 20, fontWeight: 'bold' }} />
                 <ReferenceLine y={60} stroke="#F87171" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '60 (及格)', fill: '#F87171', fontSize: 20, fontWeight: 'bold' }} />
                 
                 <Line 
-                    type="monotone" 
+                    type="linear" // 改為直線
                     dataKey="value" 
                     stroke="#3B82F6" 
                     strokeWidth={6} 
-                    dot={{ r: 8, strokeWidth: 4, fill: '#FFFFFF' }} 
+                    dot={<CustomizedDot />} // 使用彩色圓點
                     activeDot={{ r: 12, strokeWidth: 0 }} 
                     animationDuration={1500}
                 >
-                    <LabelList dataKey="value" position="top" offset={15} style={{ fontSize: '28px', fontWeight: 'bold', fill: '#2563EB' }} />
+                    {/* 線上的數字標籤 (依分數變色) */}
+                    <LabelList 
+                        dataKey="value" 
+                        position="top" 
+                        offset={20} 
+                        style={{ fontSize: '28px', fontWeight: '900' }} 
+                        formatter={(val) => val.toFixed(1)}
+                        fill="#3B82F6" // 預設藍色，若要跟隨點的顏色較複雜，這裡先用統一藍色比較整齊
+                    />
                 </Line>
             </LineChart>
         </ResponsiveContainer>
     );
 };
 
-// --- 學生學習歷程 Dashboard Modal (V20.0.20: UI字體縮回正常 + 版面修復 + 圖表區維持大尺寸) ---
+// --- 學生學習歷程 Dashboard Modal (V20.0.22: 表格標題美化 + 整合新版圖表) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
@@ -204,7 +284,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     // 處理姓名隱碼 (陳O佑)
     const maskedName = student.name[0] + 'O' + student.name.slice(2);
 
-    // *** 日期計算邏輯 (保持不變) ***
+    // *** 日期計算邏輯 ***
     const getDaysDiff = (dateString, completedAt) => {
         try {
             const targetDate = new Date(dateString); 
@@ -355,14 +435,13 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             {/* 加寬視窗至 98vw，幾近全螢幕，邊框縮小 */}
             <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-[98vw] h-[98vh] flex flex-col overflow-hidden border-[8px] ${currentFeedback.isAlert ? 'border-red-500' : 'border-white'}`}>
                 
-                {/* 1. Header 區域 (字體縮回正常大小 5xl) */}
+                {/* 1. Header 區域 */}
                 <div className={`px-4 py-3 flex justify-between items-center text-white shrink-0 transition-colors duration-500 ${currentFeedback.isAlert ? 'bg-red-600' : (viewMode === 'TREND' ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gradient-to-r from-indigo-600 to-purple-500')}`}>
                     <div className="flex items-center gap-4 w-full">
                         {/* 左側：座號 + 姓名 + 標題 */}
                         <div className="flex items-center gap-4 shrink-0">
                             <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl font-bold shadow-lg border-4 ${currentFeedback.isAlert ? 'text-red-600 border-red-200' : (viewMode === 'TREND' ? 'text-blue-600 border-blue-200' : 'text-indigo-600 border-indigo-200')}`}>{student.id}</div>
                             <div className="flex flex-col justify-center">
-                                {/* 標題縮回 5xl */}
                                 <h2 className="text-5xl font-black tracking-wide leading-none mb-1">{maskedName} 的學習歷程</h2>
                                 <p className="text-white/90 text-2xl font-medium flex items-center gap-2"><Activity className="w-5 h-5" /> {semesterId === 'S1' ? '上學期' : '下學期'}綜合分析報表</p>
                             </div>
@@ -375,14 +454,11 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                         <div className="flex flex-1 items-center bg-white/10 rounded-xl px-4 py-2 backdrop-blur-sm border border-white/20 h-full">
                             <div className="flex flex-col shrink-0 mr-4">
                                 <div className="text-xl font-bold text-white/80 mb-0">🏆 綜合總分</div>
-                                {/* 分數縮回 6xl */}
                                 <span className="text-6xl font-black text-yellow-300 drop-shadow-md leading-none">{overallData.score}</span>
                             </div>
                             <div className="h-10 w-[2px] bg-white/30 mr-4"></div>
                             <div className="flex items-center flex-1">
-                                {/* 動物縮回 5xl */}
                                 <span className="text-5xl font-bold text-white mr-3 shrink-0">{overallBadge.animal}</span>
-                                {/* 評語縮回 4xl */}
                                 <div className="text-4xl font-medium text-white/95 leading-tight overflow-hidden text-ellipsis whitespace-nowrap bg-white/20 px-3 py-1 rounded-lg backdrop-blur-md border border-white/30">{overallBadge.comment}</div>
                             </div>
                         </div>
@@ -409,7 +485,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                 {/* 3. 主要內容區 */}
                 <div className={`flex-1 overflow-auto p-4 ${currentFeedback.bg} flex flex-col gap-4`}>
                     
-                    {/* 上半部：資訊圖卡 (字體縮回) */}
+                    {/* 上半部：資訊圖卡 */}
                     <div className="flex gap-4 mb-2 shrink-0">
                         {/* 左卡：本學期統計 */}
                         <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col justify-center items-center relative overflow-hidden shrink">
@@ -424,7 +500,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                                     <span className="text-4xl text-gray-400 font-bold ml-1">{statsUnit}</span>
                                 </div>
 
-                                {/* 小數據方塊：字體縮回 3xl 以修復版面 */}
+                                {/* 小數據方塊 */}
                                 <div className="flex gap-2">
                                     <div className="flex flex-col items-center bg-green-50 px-3 py-1 rounded-lg border border-green-100">
                                         <span className="text-3xl font-bold text-green-600 leading-none">{currentStats.completed}</span>
@@ -462,7 +538,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
 
                     {/* 下半部：圖表區 + 表格區 */}
                     <div className="flex flex-col gap-4">
-                        {/* 圖表區 (維持大高度 550px) */}
+                        {/* 圖表區 */}
                         <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-200 h-[550px] shrink-0">
                             <div className="flex items-center justify-between mb-2">
                                 <h3 className="text-4xl font-bold text-gray-700 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-10 h-10 mr-3 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-10 h-10 mr-3 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
@@ -471,9 +547,14 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                             <div className="w-full h-[450px]">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} height={450} /> ) : ( <SimpleStackedBarChart data={healthData} height={450} /> )}</div>
                         </div>
 
-                        {/* 表格區 (字體縮回 3xl) */}
+                        {/* 表格區 (標題美化 + 字體 3xl) */}
                         <div className="bg-white rounded-[2rem] shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="p-4 bg-gray-50 border-b border-gray-200 text-3xl font-bold text-gray-600">詳細數據列表</div>
+                            {/* [美化重點] 這裡的標題改得更大更漂亮 */}
+                            <div className="p-5 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
+                                <FileText className="w-10 h-10 text-gray-700" />
+                                <span className="text-4xl font-extrabold text-gray-700">詳細數據列表</span>
+                            </div>
+                            
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-white"><tr><th className="px-6 py-4 text-left text-3xl font-bold text-gray-600">月份</th><th className="px-6 py-4 text-center text-3xl font-bold text-green-600">準時</th><th className="px-6 py-4 text-center text-3xl font-bold text-yellow-600">補交</th><th className="px-6 py-4 text-center text-3xl font-bold text-red-600">缺交</th><th className="px-6 py-4 text-center text-3xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
