@@ -177,53 +177,6 @@ const SimpleStackedBarChart = ({ data, height = 300 }) => {
     );
 };
 
-// --- [圖表元件] 簡易折線趨勢圖 (V20.0.22: 直線化 + 彩色圓點 + 詳細 Tooltip) ---
-
-// 1. 客製化圓點元件 (依分數變色)
-const CustomizedDot = (props) => {
-    const { cx, cy, value } = props;
-    if (!cx || !cy) return null;
-    
-    let fill = "#ef4444"; // 紅色 (<60)
-    let stroke = "#fee2e2"; // 淺紅框
-    
-    if (value >= 80) {
-        fill = "#22c55e"; // 綠色
-        stroke = "#dcfce7";
-    } else if (value >= 60) {
-        fill = "#eab308"; // 黃色
-        stroke = "#fef9c3";
-    }
-
-    return (
-        <svg x={cx - 10} y={cy - 10} width={20} height={20}>
-            <circle cx="10" cy="10" r="8" fill={fill} stroke="white" strokeWidth="3" />
-            <circle cx="10" cy="10" r="10" fill="none" stroke={stroke} strokeWidth="1" />
-        </svg>
-    );
-};
-
-// 2. 客製化 Tooltip (顯示詳細數據)
-const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-        const data = payload[0].payload;
-        const details = data.details || { onTime: 0, late: 0, missing: 0 };
-        return (
-            <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]">
-                <p className="text-2xl font-bold text-gray-700 mb-2 border-b pb-2 border-gray-200">
-                    {label} <span className="text-blue-600 ml-2">({data.value.toFixed(1)}分)</span>
-                </p>
-                <div className="flex flex-col gap-1 text-xl">
-                    <p className="text-green-700 font-bold">🟢 準時：{details.onTime}</p>
-                    <p className="text-yellow-700 font-bold">🟡 補交：{details.late}</p>
-                    <p className="text-red-600 font-bold">🔴 缺交：{details.missing}</p>
-                </div>
-            </div>
-        );
-    }
-    return null;
-};
-
 // --- [圖表元件] 簡易折線趨勢圖 (V20.0.23: 修正 100.0 顯示為 100) ---
 
 // 1. 客製化圓點元件 (依分數變色)
