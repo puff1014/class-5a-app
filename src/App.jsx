@@ -15,8 +15,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-// --- 版本資訊 (V20.0.31) ---
-const VERSION = 'v20.0.31 - 修復儀表板/嚴格結算鎖定'; 
+// --- 版本資訊 (V20.0.32) ---
+const VERSION = 'v20.0.32 - 儀表板防白屏修復'; 
 const appId = 'class-5a-app'; 
 
 const firebaseConfig = {
@@ -55,8 +55,12 @@ const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categor
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
 
-// --- 圖表元件 ---
+// --- [V20.0.32 修復] 圖表元件 (加入嚴格檢查) ---
 const SimpleStackedBarChart = ({ data, height = 300 }) => {
+    // 安全檢查：若資料為空，顯示提示而非報錯
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        return <div className="h-full flex items-center justify-center text-gray-400 text-2xl font-bold">⚠️ 暫無數據可顯示</div>;
+    }
     return (
         <ResponsiveContainer width="100%" height={height}>
             <BarChart data={data} margin={{ top: 80, right: 60, left: 20, bottom: 10 }}>
@@ -65,17 +69,49 @@ const SimpleStackedBarChart = ({ data, height = 300 }) => {
                 <YAxis hide />
                 <Tooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '16px' }} itemStyle={{ fontSize: '24px', padding: '4px 0' }} labelStyle={{ fontSize: '24px', fontWeight: 'bold', color: '#374151', marginBottom: '8px' }} />
                 <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '24px' }} iconSize={24} />
-                <Bar dataKey="details.onTime" name="準時" stackId="a" fill="#4ADE80" radius={[0, 0, 4, 4]}> <LabelList dataKey="details.onTime" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#14532d', opacity: 0.9 }} formatter={(val) => val > 0 ? val : ''} /> </Bar>
-                <Bar dataKey="details.late" name="補交" stackId="a" fill="#FACC15"> <LabelList dataKey="details.late" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#713f12', opacity: 0.9 }} formatter={(val) => val > 0 ? val : ''} /> </Bar>
-                <Bar dataKey="details.missing" name="缺交" stackId="a" fill="#F87171" radius={[4, 4, 0, 0]}> <LabelList dataKey="details.missing" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#ffffff' }} formatter={(val) => val > 0 ? val : ''} /> <LabelList dataKey="value" position="top" offset={15} style={{ fontSize: '36px', fontWeight: '900', fill: '#1f2937' }} formatter={(val) => typeof val === 'number' ? parseFloat(val.toFixed(1)) : val} /> </Bar>
+                <Bar dataKey="details.onTime" name="準時" stackId="a" fill="#4ADE80" radius={[0, 0, 4, 4]}> 
+                    <LabelList dataKey="details.onTime" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#14532d', opacity: 0.9 }} formatter={(val) => (typeof val === 'number' && val > 0) ? val : ''} /> 
+                </Bar>
+                <Bar dataKey="details.late" name="補交" stackId="a" fill="#FACC15"> 
+                    <LabelList dataKey="details.late" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#713f12', opacity: 0.9 }} formatter={(val) => (typeof val === 'number' && val > 0) ? val : ''} /> 
+                </Bar>
+                <Bar dataKey="details.missing" name="缺交" stackId="a" fill="#F87171" radius={[4, 4, 0, 0]}> 
+                    <LabelList dataKey="details.missing" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#ffffff' }} formatter={(val) => (typeof val === 'number' && val > 0) ? val : ''} /> 
+                    {/* [關鍵修復] 這裡的 formatter 加上了 typeof 檢查，防止對 undefined 呼叫 toFixed */}
+                    <LabelList dataKey="value" position="top" offset={15} style={{ fontSize: '36px', fontWeight: '900', fill: '#1f2937' }} formatter={(val) => typeof val === 'number' ? parseFloat(val.toFixed(1)) : 0} /> 
+                </Bar>
             </BarChart>
         </ResponsiveContainer>
     );
 };
 
 const CustomizedDot = (props) => { const { cx, cy, value } = props; if (!cx || !cy) return null; let fill = "#ef4444"; let stroke = "#fee2e2"; if (value >= 80) { fill = "#22c55e"; stroke = "#dcfce7"; } else if (value >= 60) { fill = "#eab308"; stroke = "#fef9c3"; } return ( <svg x={cx - 10} y={cy - 10} width={20} height={20}> <circle cx="10" cy="10" r="8" fill={fill} stroke="white" strokeWidth="3" /> <circle cx="10" cy="10" r="10" fill="none" stroke={stroke} strokeWidth="1" /> </svg> ); };
-const CustomTooltip = ({ active, payload, label }) => { if (active && payload && payload.length) { const data = payload[0].payload; const details = data.details || { onTime: 0, late: 0, missing: 0 }; return ( <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]"> <p className="text-2xl font-bold text-gray-700 mb-2 border-b pb-2 border-gray-200">{label} <span className="text-blue-600 ml-2">({parseFloat(data.value.toFixed(1))}分)</span></p> <div className="flex flex-col gap-1 text-xl"> <p className="text-green-700 font-bold">🟢 準時：{details.onTime}</p> <p className="text-yellow-700 font-bold">🟡 補交：{details.late}</p> <p className="text-red-600 font-bold">🔴 缺交：{details.missing}</p> </div> </div> ); } return null; };
+
+const CustomTooltip = ({ active, payload, label }) => { 
+    if (active && payload && payload.length && payload[0].payload) { 
+        const data = payload[0].payload; 
+        const details = data.details || { onTime: 0, late: 0, missing: 0 }; 
+        // [關鍵修復] 確保 value 是數字
+        const safeValue = typeof data.value === 'number' ? data.value : 0;
+        return ( 
+            <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]"> 
+                <p className="text-2xl font-bold text-gray-700 mb-2 border-b pb-2 border-gray-200">{label} <span className="text-blue-600 ml-2">({parseFloat(safeValue.toFixed(1))}分)</span></p> 
+                <div className="flex flex-col gap-1 text-xl"> 
+                    <p className="text-green-700 font-bold">🟢 準時：{details.onTime}</p> 
+                    <p className="text-yellow-700 font-bold">🟡 補交：{details.late}</p> 
+                    <p className="text-red-600 font-bold">🔴 缺交：{details.missing}</p> 
+                </div> 
+            </div> 
+        ); 
+    } 
+    return null; 
+};
+
 const SimpleLineChart = ({ data, height = 300 }) => {
+    // 安全檢查
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        return <div className="h-full flex items-center justify-center text-gray-400 text-2xl font-bold">⚠️ 暫無數據可顯示</div>;
+    }
     return (
         <ResponsiveContainer width="100%" height={height}>
             <LineChart data={data} margin={{ top: 80, right: 60, left: 20, bottom: 10 }}>
@@ -86,49 +122,82 @@ const SimpleLineChart = ({ data, height = 300 }) => {
                 <ReferenceLine y={100} stroke="#E5E7EB" strokeDasharray="3 3" label={{ position: 'top', value: '100', fill: '#D1D5DB', fontSize: 20 }} />
                 <ReferenceLine y={80} stroke="#4ADE80" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '80 (佳)', fill: '#4ADE80', fontSize: 20, fontWeight: 'bold' }} />
                 <ReferenceLine y={60} stroke="#F87171" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '60 (及格)', fill: '#F87171', fontSize: 20, fontWeight: 'bold' }} />
-                <Line type="linear" dataKey="value" stroke="#3B82F6" strokeWidth={6} dot={<CustomizedDot />} activeDot={{ r: 12, strokeWidth: 0 }} animationDuration={1500}> <LabelList dataKey="value" position="top" offset={20} style={{ fontSize: '28px', fontWeight: '900' }} formatter={(val) => parseFloat(val.toFixed(1))} fill="#3B82F6" /> </Line>
+                <Line type="linear" dataKey="value" stroke="#3B82F6" strokeWidth={6} dot={<CustomizedDot />} activeDot={{ r: 12, strokeWidth: 0 }} animationDuration={1500}> 
+                    {/* [關鍵修復] 同樣加上 typeof 檢查 */}
+                    <LabelList dataKey="value" position="top" offset={20} style={{ fontSize: '28px', fontWeight: '900' }} formatter={(val) => typeof val === 'number' ? parseFloat(val.toFixed(1)) : 0} fill="#3B82F6" /> 
+                </Line>
             </LineChart>
         </ResponsiveContainer>
     );
 };
 
-// --- [V20.0.31] Dashboard Modal (邏輯還原至穩定版本) ---
+// --- [V20.0.32 修復] Dashboard Modal ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
     const maskedName = student.name[0] + 'O' + student.name.slice(2);
+    
+    // [V20.0.32] 恢復簡單的日期計算函數
     const getDaysDiff = (dateString, completedAt) => { try { const targetDate = new Date(dateString); if (isNaN(targetDate.getTime())) return 0; targetDate.setHours(0,0,0,0); let completedDate = new Date(); if (completedAt) { if (typeof completedAt.toDate === 'function') completedDate = completedAt.toDate(); else if (completedAt.seconds) completedDate = new Date(completedAt.seconds * 1000); else completedDate = new Date(completedAt); } if (isNaN(completedDate.getTime())) return 0; completedDate.setHours(0,0,0,0); return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24))); } catch (e) { return 0; } };
     const getDelayFromToday = (dateString) => { try { const today = new Date(); today.setHours(0, 0, 0, 0); const target = new Date(dateString); if (isNaN(target.getTime())) return 0; target.setHours(0, 0, 0, 0); return Math.floor((today - target) / (1000 * 60 * 60 * 24)); } catch(e) { return 0; } };
+    
     const { healthData, trendData, summaryStats, trendStats, emergencyData, overallData } = useMemo(() => {
         const healthByMonth = {}; const trendByMonth = {};
         let totalItems = 0; let totalDays = 0; let totalHealthPoints = 0; let totalTrendPoints = 0;
         let itemsCompleted = 0; let itemsLate = 0; let itemsMissing = 0; let daysCompleted = 0; let daysLate = 0; let daysMissing = 0;
         let currentMissingCount = 0; let maxDelayDays = 0;
-        const sortedDates = Object.keys(allAssignmentsByDate).sort();
+        
+        // [關鍵修復] 加入 || {} 防止 undefined 錯誤
+        const sortedDates = Object.keys(allAssignmentsByDate || {}).sort();
+        
         sortedDates.forEach(date => {
-            const dateObj = new Date(date); if (isNaN(dateObj.getTime())) return;
+            const dateObj = new Date(date); 
+            if (isNaN(dateObj.getTime())) return;
             const monthKey = `${dateObj.getMonth() + 1}月`;
+            
             if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
             if (!trendByMonth[monthKey]) trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
-            const assignments = allAssignmentsByDate[date] || []; if (assignments.length === 0) return;
+            
+            const assignments = allAssignmentsByDate[date] || []; 
+            if (assignments.length === 0) return;
+            
             totalDays++; let dayHasMissing = false; let dayHasLate = false;
+            
             assignments.forEach(assign => {
-                const status = assign.submissionStatus?.[student.id]; const completedAt = assign.completedAt?.[student.id];
+                const status = assign.submissionStatus?.[student.id]; 
+                const completedAt = assign.completedAt?.[student.id];
                 let tScore = 0;
-                if (status === false) { itemsMissing++; trendByMonth[monthKey].missing++; currentMissingCount++; dayHasMissing = true; const delay = getDelayFromToday(date); if (delay > maxDelayDays) maxDelayDays = delay; tScore = 0; } 
-                else if (status === 'late') { itemsLate++; trendByMonth[monthKey].late++; dayHasLate = true; if (completedAt) { const daysLate = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLate * 5)); } else { tScore = 60; } } 
-                else { itemsCompleted++; trendByMonth[monthKey].onTime++; tScore = 100; }
+                
+                // 嚴格判斷狀態
+                if (status === false) { 
+                    itemsMissing++; trendByMonth[monthKey].missing++; currentMissingCount++; dayHasMissing = true; 
+                    const delay = getDelayFromToday(date); if (delay > maxDelayDays) maxDelayDays = delay; 
+                    tScore = 0; 
+                } else if (status === 'late') { 
+                    itemsLate++; trendByMonth[monthKey].late++; dayHasLate = true; 
+                    if (completedAt) { const daysLate = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLate * 5)); } 
+                    else { tScore = 60; } 
+                } else { 
+                    itemsCompleted++; trendByMonth[monthKey].onTime++; tScore = 100; 
+                }
                 trendByMonth[monthKey].totalPoints += tScore; trendByMonth[monthKey].count++; totalTrendPoints += tScore; totalItems++;
             });
-            let dayScore = 0; if (dayHasMissing) { dayScore = 0; healthByMonth[monthKey].missing++; daysMissing++; } else if (dayHasLate) { dayScore = 60; healthByMonth[monthKey].late++; daysLate++; } else { dayScore = 100; healthByMonth[monthKey].onTime++; daysCompleted++; }
+            
+            let dayScore = 0; 
+            if (dayHasMissing) { dayScore = 0; healthByMonth[monthKey].missing++; daysMissing++; } 
+            else if (dayHasLate) { dayScore = 60; healthByMonth[monthKey].late++; daysLate++; } 
+            else { dayScore = 100; healthByMonth[monthKey].onTime++; daysCompleted++; }
+            
             healthByMonth[monthKey].totalPoints += dayScore; healthByMonth[monthKey].count++; totalHealthPoints += dayScore;
         });
+
         const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
         const healthChart = Object.keys(healthByMonth).map(key => ({ label: key, value: safeDiv(healthByMonth[key].totalPoints, healthByMonth[key].count), details: healthByMonth[key] }));
         const trendChart = Object.keys(trendByMonth).map(key => ({ label: key, value: safeDiv(trendByMonth[key].totalPoints, trendByMonth[key].count), details: trendByMonth[key] }));
         const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
         const avgHealthScore = safeDiv(totalHealthPoints, totalDays).toFixed(1); const avgTrendScore = safeDiv(totalTrendPoints, totalItems).toFixed(1);
         const overallScore = ((parseFloat(avgHealthScore) + parseFloat(avgTrendScore)) / 2).toFixed(1);
+        
         return { healthData: healthChart, trendData: trendChart, summaryStats: { days: { total: totalDays, completed: daysCompleted, late: daysLate, missing: daysMissing }, items: { total: totalItems, completed: itemsCompleted, late: itemsLate, missing: itemsMissing }, avgScore: avgHealthScore }, trendStats: { avgScore: avgTrendScore }, emergencyData: { isEmergency, maxDelayDays, currentMissingCount }, overallData: { score: overallScore } };
     }, [allAssignmentsByDate, student.id]);
 
@@ -139,7 +208,8 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     const overallBadge = getOverallBadge(overallData.score);
     const currentStats = viewMode === 'STATUS' ? summaryStats.days : summaryStats.items;
     const statsUnit = viewMode === 'STATUS' ? '天' : '項';
-    const chartData = viewMode === 'STATUS' ? healthData : trendData;
+    // [關鍵修復] 確保 safeChartData 永遠是陣列
+    const safeChartData = (viewMode === 'STATUS' ? healthData : trendData) || [];
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
@@ -226,7 +296,8 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                             <div className="flex items-center justify-between mb-2">
                                 <h3 className="text-4xl font-bold text-gray-700 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-10 h-10 mr-3 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-10 h-10 mr-3 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
                             </div>
-                            <div className="w-full h-[450px]">{viewMode === 'TREND' ? ( <SimpleLineChart data={trendData} height={450} /> ) : ( <SimpleStackedBarChart data={healthData} height={450} /> )}</div>
+                            {/* [關鍵修復] 直接渲染，如果沒數據會被上方 SimpleLineChart 攔截顯示暫無數據 */}
+                            <div className="w-full h-[450px]">{viewMode === 'TREND' ? ( <SimpleLineChart data={safeChartData} height={450} /> ) : ( <SimpleStackedBarChart data={safeChartData} height={450} /> )}</div>
                         </div>
                         <div className="bg-white rounded-[2rem] shadow-sm border border-gray-200 overflow-hidden">
                             <div className="p-5 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
@@ -237,7 +308,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-white"><tr><th className="px-6 py-4 text-left text-3xl font-bold text-gray-600">月份</th><th className="px-6 py-4 text-center text-3xl font-bold text-green-600">準時</th><th className="px-6 py-4 text-center text-3xl font-bold text-yellow-600">補交</th><th className="px-6 py-4 text-center text-3xl font-bold text-red-600">缺交</th><th className="px-6 py-4 text-center text-3xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
                                     <tbody className="divide-y divide-gray-200">
-                                        {chartData.map((row, idx) => {
+                                        {safeChartData.map((row, idx) => {
                                             const tVal = row.value || 0;
                                             return (
                                                 <tr key={idx} className="hover:bg-gray-50"><td className="px-6 py-4 text-3xl font-bold text-gray-800">{row.label}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.onTime}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.late}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.missing}</td><td className="px-6 py-4 text-center"><span className={`inline-block px-4 py-2 rounded-full text-3xl font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>{tVal.toFixed(1)}</span></td></tr>
