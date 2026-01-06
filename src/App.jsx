@@ -15,7 +15,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-const VERSION = 'v20.0.29 - 嚴格計分/三點解鎖/兌換優化'; 
+// --- 版本資訊 (V20.0.30) ---
+const VERSION = 'v20.0.30 - 嚴格結算鎖定/黃燈循環修正'; 
 const appId = 'class-5a-app'; 
 
 const firebaseConfig = {
@@ -56,7 +57,6 @@ const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_sett
 
 // --- 圖表元件 ---
 const SimpleStackedBarChart = ({ data, height = 300 }) => {
-    // 防白屏檢查：如果 data 是空或 undefined，回傳空 div
     if (!data || data.length === 0) return <div className="h-full flex items-center justify-center text-gray-400 text-2xl">暫無數據</div>;
     return (
         <ResponsiveContainer width="100%" height={height}>
@@ -94,7 +94,7 @@ const SimpleLineChart = ({ data, height = 300 }) => {
     );
 };
 
-// --- [V20.0.29] Dashboard Modal (包含防呆修復) ---
+// --- [V20.0.30] Dashboard Modal ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
@@ -102,7 +102,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     const getDaysDiff = (dateString, completedAt) => { try { const targetDate = new Date(dateString); if (isNaN(targetDate.getTime())) return 0; targetDate.setHours(0,0,0,0); let completedDate = new Date(); if (completedAt) { if (typeof completedAt.toDate === 'function') completedDate = completedAt.toDate(); else if (completedAt.seconds) completedDate = new Date(completedAt.seconds * 1000); else completedDate = new Date(completedAt); } if (isNaN(completedDate.getTime())) return 0; completedDate.setHours(0,0,0,0); return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24))); } catch (e) { return 0; } };
     const getDelayFromToday = (dateString) => { try { const today = new Date(); today.setHours(0, 0, 0, 0); const target = new Date(dateString); if (isNaN(target.getTime())) return 0; target.setHours(0, 0, 0, 0); return Math.floor((today - target) / (1000 * 60 * 60 * 24)); } catch(e) { return 0; } };
     
-    // [V20.0.29] 強化數據計算的穩定性
     const { healthData, trendData, summaryStats, trendStats, emergencyData, overallData } = useMemo(() => {
         const healthByMonth = {}; const trendByMonth = {};
         let totalItems = 0; let totalDays = 0; let totalHealthPoints = 0; let totalTrendPoints = 0;
@@ -114,9 +113,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             sortedDates.forEach(date => {
                 const dateObj = new Date(date); 
                 if (isNaN(dateObj.getTime())) return;
-                
-                // [關鍵修復] 讓 Key 包含年份，避免 12月(2025) 和 12月(2026) 混淆，也避免跨年排序錯誤
-                // 這裡我們還是顯示 "12月"，但在排序時會依照原始 date 物件
                 const monthKey = `${dateObj.getMonth() + 1}月`;
                 
                 if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
@@ -151,13 +147,11 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
 
     const getStatusFeedback = (score, emergency) => { if (emergency.isEmergency) return { text: "❌ 紅燈警報！缺交太多了，請檢查聯絡簿。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true }; const s = parseFloat(score); if (isNaN(s)) return { text: "⚪ 資料不足", color: "text-gray-400", bg: "bg-white", border: "border-gray-300" }; if (s >= 100) return { text: "🏆 完美無瑕！作業全勤且準時！", color: "text-blue-600", bg: "bg-white", border: "border-blue-600" }; if (s >= 95) return { text: "✨ 超級優秀！你的自律讓人佩服。", color: "text-blue-500", bg: "bg-white", border: "border-blue-500" }; if (s >= 90) return { text: "🌟 表現極佳！絕大多數都準時完成。", color: "text-green-600", bg: "bg-white", border: "border-green-600" }; if (s >= 85) return { text: "👍 很不錯喔！作業狀況相當穩定。", color: "text-green-500", bg: "bg-white", border: "border-green-500" }; if (s >= 80) return { text: "👌 保持水準！要減少遲交的情況。", color: "text-lime-600", bg: "bg-white", border: "border-lime-600" }; if (s >= 70) return { text: "💪 再加油點！遲交缺交頻率變高了。", color: "text-yellow-600", bg: "bg-white", border: "border-yellow-600" }; return { text: "⚠️ 勉強及格！作業狀況令人擔心。", color: "text-orange-500", bg: "bg-white", border: "border-orange-500" }; };
     const getTrendFeedback = (score) => { const s = parseFloat(score); if (isNaN(s)) return { text: "資料不足", color: "text-gray-400", bg: "bg-gray-100", border: "border-gray-300" }; if (s === 100) return { text: "👑 傳奇等級！完美的 100 分！", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-500" }; if (s >= 98) return { text: "🎖️ 頂尖卓越！幾乎完美的表現！", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" }; if (s >= 96) return { text: "🌟 出類拔萃！令人驚嘆的自律！", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" }; if (s >= 94) return { text: "✨ 極度優秀！保持得非常好！", color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-500" }; if (s >= 90) return { text: "👍 非常棒！是大家學習的榜樣。", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" }; if (s >= 85) return { text: "🌿 表現優異，維持在高水準。", color: "text-green-600", bg: "bg-green-50", border: "border-green-500" }; if (s >= 81) return { text: "😊 相當不錯，繼續保持節奏。", color: "text-lime-600", bg: "bg-lime-50", border: "border-lime-500" }; if (s >= 75) return { text: "🆗 表現尚可，還有進步空間。", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-500" }; if (s >= 70) return { text: "😐 普普通通，遲交稍微多了點。", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" }; if (s >= 65) return { text: "😟 需要注意，分數開始下滑囉。", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-500" }; if (s >= 60) return { text: "⚠️ 低空飛過，請再多用點心。", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-600" }; if (s >= 50) return { text: "🛑 不及格邊緣！必須修正態度！", color: "text-red-500", bg: "bg-red-50", border: "border-red-400" }; if (s >= 40) return { text: "🌧️ 狀況不佳，缺交遲交太頻繁。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500" }; if (s >= 30) return { text: "⛈️ 雷雨警報，信用分數嚴重透支。", color: "text-red-700", bg: "bg-red-100", border: "border-red-600" }; if (s >= 20) return { text: "💔 令人擔憂，作業幾乎都沒完成。", color: "text-red-800", bg: "bg-red-100", border: "border-red-700" }; if (s >= 10) return { text: "🆘 緊急狀態，幾乎一片空白。", color: "text-red-900", bg: "bg-red-200", border: "border-red-800" }; if (s >= 5) return { text: "🌫️ 幾近空白，請不要放棄學習！", color: "text-gray-600", bg: "bg-gray-200", border: "border-gray-500" }; return { text: "🌑 完全空白，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" }; };
-    const getOverallBadge = (score) => { const s = parseFloat(score); if (isNaN(s)) return { animal: "🥚 蛋", comment: "尚未孵化" }; if (s >= 100) return { animal: "🐲 神龍", comment: "作業全勤無缺，品質完美無瑕。" }; if (s >= 97) return { animal: "🦁 獅王", comment: "態度極度自律，對自我要求高。" }; if (s >= 94) return { animal: "🦅 雄鷹", comment: "繳交迅速確實，準確率非常高。" }; if (s >= 91) return { animal: "🐆 獵豹", comment: "訂正效率驚人，很少拖泥帶水。" }; if (s >= 88) return { animal: "🐴 駿馬", comment: "保持穩定節奏，作業習慣良好。" }; if (s >= 85) return { animal: "🐺 戰狼", comment: "能夠自我鞭策，按時完成任務。" }; if (s >= 82) return { animal: "🦊 靈狐", comment: "繳交穩定，若能多點細心會更棒。" }; if (s >= 77) return { animal: "🦉 貓頭鷹", comment: "逐漸掌握要領，學習狀況回穩。" }; if (s >= 72) return { animal: "🐻 大熊", comment: "累積實力中，細心度略顯不足。" }; if (s >= 67) return { animal: "🐘 大象", comment: "腳踏實地，速度慢但願意補救。" }; if (s >= 60) return { animal: "🦈 鯊魚", comment: "努力跟上進度，正視缺交問題。" }; if (s >= 50) return { animal: "🦘 袋鼠", comment: "再跳一步就及格，請補齊缺交。" }; if (s >= 40) return { animal: "🐿️ 松鼠", comment: "積少成多，請勿隨意放棄作業。" }; if (s >= 30) return { animal: "🐇 白兔", comment: "別在中途停下休息，趕快追上進度！" }; if (s >= 20) return { animal: "🦔 刺蝟", comment: "面對作業不逃避，勇敢承擔責任。" }; if (s >= 10) return { animal: "🐢 烏龜", comment: "只要肯開始，總會完成，慢也沒關係。" }; return { animal: "🌱 種子", comment: "埋入土裡太久了，請讓學習發芽。" }; };
 
     const currentFeedback = viewMode === 'STATUS' ? getStatusFeedback(summaryStats.avgScore, emergencyData) : getTrendFeedback(trendStats.avgScore);
     const overallBadge = getOverallBadge(overallData.score);
     const currentStats = viewMode === 'STATUS' ? summaryStats.days : summaryStats.items;
     const statsUnit = viewMode === 'STATUS' ? '天' : '項';
-    // [V20.0.29] 防呆：若 healthData 為空，不應該讓表格渲染時壞掉
     const safeChartData = (viewMode === 'STATUS' ? healthData : trendData) || [];
 
     return (
@@ -393,7 +387,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
     return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; 
 };
 
-// --- [V20.0.29 修改] 學生存簿介面 (包含圖示兌換鈕) ---
+// --- [V20.0.30 修正] 學生存簿介面 (按鈕尺寸保留，兌換簡化且開放) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
   const sortedStudents = [...students].sort((a, b) => { 
       const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
@@ -419,7 +413,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
       setBankBalanceDirectly(studentId, 'bronze', 0);
   };
 
-  // [V20.0.29] 兌換邏輯 (開放給所有人)
   const handleExchange = (studentId, type) => {
       const bal = bankData[studentId] || { gold: 0, silver: 0, bronze: 0 };
       if (type === 'B2S') {
@@ -454,7 +447,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
     <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-[10000] p-4">
       <div className={`bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col border-4 border-orange-400 transition-colors duration-300`}>
         
-        {/* Header: 標題靠左 */}
+        {/* Header */}
         <div className="bg-gray-100 p-4 border-b flex justify-between items-center shrink-0">
           <div className="text-3xl font-bold text-gray-700 flex items-center gap-2">
             <span className="text-4xl">💰</span> 訂正存簿
@@ -472,7 +465,8 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                  <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center border-l border-gray-200">金幣</th>
                  <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
                  <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
-                 {/* 所有人可見的操作區 */}
+                 
+                 {/* [操作欄] 對所有人開放標題 */}
                  <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto">
                     <span className="text-2xl text-gray-600 block">操作</span>
                  </th>
@@ -502,19 +496,23 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                          className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" />
                      </td>
  
-                     <td className="p-2 flex justify-center items-center gap-3 border-l border-gray-100 group-hover:border-blue-100">
-                         {/* [V20.0.29] 簡潔的兌換按鈕 (圖示) */}
+                     <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100 group-hover:border-blue-100">
+                         {/* [V20.0.30] 兌換按鈕 (簡化圖示，所有人可見) */}
                          <div className="flex gap-2">
-                            <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 text-gray-700 active:scale-95 transition" title="100銅 換 1銀"><RotateCw className="w-6 h-6"/></button>
-                            <button onClick={() => handleExchange(student.id, 'S2G')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 border-2 border-yellow-400 text-yellow-700 active:scale-95 transition" title="10銀 換 1金"><RotateCw className="w-6 h-6"/></button>
+                            {/* 100銅換1銀 */}
+                            <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 text-gray-700 active:scale-95 transition" title="100銅 換 1銀"><RotateCw className="w-7 h-7"/></button>
+                            {/* 10銀換1金 */}
+                            <button onClick={() => handleExchange(student.id, 'S2G')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 border-2 border-yellow-400 text-yellow-700 active:scale-95 transition" title="10銀 換 1金"><RotateCw className="w-7 h-7"/></button>
                          </div>
 
+                         {/* 增減按鈕與歸零 (僅管理員可見) */}
                          {authMode === 'ADMIN' && (
                              <>
-                                <div className="w-[1px] h-10 bg-gray-300 mx-2"></div>
-                                <button onClick={() => onUpdateBalance(student.id, 0, 0, 10)} className="w-10 h-10 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-2xl flex items-center justify-center" title="增加銅幣">+</button>
-                                <button onClick={() => onUpdateBalance(student.id, 0, 0, -10)} className="w-10 h-10 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-2xl flex items-center justify-center" title="減少銅幣">-</button>
-                                <button onClick={() => handleResetAll(student.id)} className="p-2 ml-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="單人歸零"><Eraser className="w-6 h-6"/></button>
+                                <div className="w-[2px] h-10 bg-gray-300 mx-2"></div>
+                                {/* 按鈕不縮小，維持大尺寸 */}
+                                <button onClick={() => onUpdateBalance(student.id, 0, 0, 10)} className="w-12 h-12 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-700 font-black text-3xl flex items-center justify-center shadow-sm" title="增加銅幣">+</button>
+                                <button onClick={() => onUpdateBalance(student.id, 0, 0, -10)} className="w-12 h-12 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-black text-3xl flex items-center justify-center shadow-sm" title="減少銅幣">-</button>
+                                <button onClick={() => handleResetAll(student.id)} className="p-2 ml-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition shadow-sm" title="單人歸零"><Eraser className="w-7 h-7"/></button>
                              </>
                          )}
                      </td>
@@ -943,12 +941,31 @@ const App = () => {
       }
   }, [newAssignmentDate, allAssignmentsByDate, isOffline, categories, getInitialSubmissionStatus, db, userId]);
 
+  // [V20.0.30] 快速新增作業 (一鍵完成，無需彈窗)
   const handleAddNewAssignment = useCallback(async () => {
       if (!selectedDisplayDate) { alert("請先選擇或新增一個日期。"); return; }
+      
+      // 直接使用預設名稱，不跳出 prompt
       const name = "新增作業";
-      if (isOffline) { const newId = `offline-assign-${Date.now()}`; const newAssign = { id: newId, assignmentName: name, assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: new Date().toISOString() }; setAllAssignmentsByDate(prev => { const current = prev[selectedDisplayDate] || []; return { ...prev, [selectedDisplayDate]: [...current, newAssign] }; }); return; }
-      if (!db || !userId) return; setLoading(true);
-      try { const collectionRef = collection(db, getAssignmentCollectionPath()); await setDoc(doc(collectionRef), { assignmentName: name, assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: serverTimestamp() }); } catch (e) { console.error("Error adding assignment:", e); setAlertMessage("新增作業失敗。"); } finally { setLoading(false); }
+      
+      if (isOffline) { 
+          const newId = `offline-assign-${Date.now()}`; 
+          const newAssign = { id: newId, assignmentName: name, assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: new Date().toISOString() }; 
+          setAllAssignmentsByDate(prev => { const current = prev[selectedDisplayDate] || []; return { ...prev, [selectedDisplayDate]: [...current, newAssign] }; }); 
+          return; 
+      }
+      
+      if (!db || !userId) return; 
+      setLoading(true);
+      try { 
+          const collectionRef = collection(db, getAssignmentCollectionPath()); 
+          await setDoc(doc(collectionRef), { assignmentName: name, assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: serverTimestamp() }); 
+      } catch (e) { 
+          console.error("Error adding assignment:", e); 
+          setAlertMessage("新增作業失敗。"); 
+      } finally { 
+          setLoading(false); 
+      }
   }, [selectedDisplayDate, isOffline, assignmentsForSelectedDate.length, getInitialSubmissionStatus, db, userId]);
 
   const handleDeleteAssignment = useCallback(async (id, name, force) => {
@@ -969,6 +986,7 @@ const App = () => {
       const batch = writeBatch(db); const path = getAssignmentCollectionPath(); batch.update(doc(db, path, dragId), { order: hoverItem.order }); batch.update(doc(db, path, hoverId), { order: dragItem.order }); await batch.commit();
   }, [assignmentsForSelectedDate, isOffline, db, selectedDisplayDate]);
 
+  // --- [V20.0.30] 安全結算發布邏輯 (顯示名單) ---
   const isDaySettled = useMemo(() => dailySettlements[selectedDisplayDate]?.isSettled || false, [dailySettlements, selectedDisplayDate]);
   
   const handleBatchSettlement = useCallback(async () => {
@@ -981,6 +999,7 @@ const App = () => {
     const isPastDate = selectedDisplayDate < todayStr;
     let shouldIssueReward = true; 
 
+    // 只有在是過去日期時才詢問，否則預設就是發獎
     if (isPastDate) {
         if (!window.confirm(`⚠️ 偵測到這是過去的日期 (${selectedDisplayDate})！\n\n請問您要【補發銀幣】給全對的學生嗎？\n\n● 按【確定】= 補發銀幣 + 鎖定日期\n● 按【取消】= 不發銀幣 + 僅鎖定日期 (用於封存舊資料)`)) {
             shouldIssueReward = false;
@@ -1037,6 +1056,7 @@ const App = () => {
         
         if (shouldIssueReward) {
             newWinners.forEach(sid => { updateBankBalance(sid, 0, 2, 0); });
+            // [V20.0.30] 結算成功提示，包含名單
             setAlertMessage(`✅ 結算完成！\n\n恭喜以下 ${newWinners.length} 位同學獲得 +2 銀幣：\n${newWinnerNames.join('、')}`);
         } else {
             setAlertMessage(`🔒 封存完成！\n日期已鎖定，未發放任何獎勵。`);
@@ -1050,20 +1070,19 @@ const App = () => {
     }
   }, [selectedDisplayDate, dailySettlements, assignmentsForSelectedDate, students, isOffline, db, updateBankBalance, isDaySettled]);
 
-  // --- [V20.0.29] 燈號切換邏輯 (嚴格不計分 + 3-Click Unlock) ---
+  // --- [V20.0.30] 燈號切換邏輯 (嚴格不計分 + 3-Click Unlock) ---
+  // 關鍵修正：嚴格模式只看 isSettled，不看日期是否過去
   const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => { 
       const assignmentData = assignmentMap[assignmentName]; 
       if (!assignmentData) return; 
       
       const settledData = dailySettlements[selectedDisplayDate];
       const isSettled = settledData?.isSettled || false;
-      const todayStr = getTodayDate();
-      const isPastDate = selectedDisplayDate < todayStr;
       
-      const isStrictMode = isSettled || isPastDate;
+      // [V20.0.30 修正] 只由「是否已結算」決定是否為嚴格模式 (過去日期未結算 = 開放模式)
+      const isStrictMode = isSettled === true;
 
-      // --- 非嚴格模式 (未結算) ---
-      // 邏輯：綠(true) -> 紅(false) -> 黃(late) -> 點3次變綠(true)
+      // --- 非嚴格模式 (開放中：只變色，不計費) ---
       if (!isStrictMode) {
           const cellKey = `${studentId}-${assignmentData.id}`; 
           let newStatus; 
@@ -1077,19 +1096,21 @@ const App = () => {
               newStatus = 'late'; 
               setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
           } else { 
-              // 黃 -> 綠 (需要點3下)
+              // 黃 -> (點3下) -> 綠
+              // 黃色點一下不會變紅，會停留在黃色，直到點滿3次
               const currentCount = unlockClicks[cellKey] || 0; 
               if (currentCount < 2) { 
-                  // 還沒點滿，增加計數
+                  // 點擊次數不足，增加計數，狀態不變 (return)
                   setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); 
-                  return; // 狀態不變，直接返回
+                  return; 
               } else { 
-                  // 點滿了，變綠
+                  // 點滿3次，變綠
                   newStatus = true; 
                   setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
               } 
           }
           
+          // 執行更新 (無金錢變動)
           if (isOffline) {
               setAllAssignmentsByDate(prev => { 
                   const newMap = { ...prev }; 
@@ -1105,7 +1126,6 @@ const App = () => {
       }
 
       // --- 嚴格模式 (已結算：涉及金錢變動) ---
-      // 這裡邏輯簡化：只能做 補交(紅->黃) 或 抓到缺交(綠->紅)
       let newStatus;
       let bronzeChange = 0;
       let silverChange = 0;
@@ -1115,9 +1135,9 @@ const App = () => {
       let triggerAnimation = null;
 
       if (currentStatus === true || currentStatus === undefined) {
-          // 綠 -> 紅 (被抓到)
+          // 綠 -> 紅 (抓到缺交)
           newStatus = false;
-          // 防呆扣款
+          // 防呆扣款：只有領過錢才扣
           if (settledData?.silverRewardClaimed?.[studentId]) {
               silverChange = -2;
               settlementUpdate = { [`silverRewardClaimed.${studentId}`]: deleteField() }; 
@@ -1129,6 +1149,7 @@ const App = () => {
           makeupUpdate = { [`makeupClaimed.${studentId}`]: true };
           triggerAnimation = 'BRONZE'; 
           
+          // 清空大獎判定
           const allStudentAssignments = Object.values(allAssignmentsByDate).flat();
           const redAssignments = allStudentAssignments.filter(a => 
               a.submissionStatus[studentId] === false && a.id !== assignmentData.id 
@@ -1140,14 +1161,21 @@ const App = () => {
           }
 
       } else {
-          // 黃 -> 紅 (反悔)
-          newStatus = false;
-          bronzeChange = -10; 
-          makeupUpdate = { [`makeupClaimed.${studentId}`]: deleteField() };
-          const cellKey = `${studentId}-${assignmentData.id}`; 
-          setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
+          // 黃 -> (點3下) -> 綠 (通常嚴格模式下不太會用到這條，除非老師想手動改回綠色而不涉及金錢)
+          // 這裡為了邏輯一致，我們讓黃色變回綠色不扣錢 (因為黃色本來就沒拿全勤獎)
+          // 但如果要變回綠色，也需要遵照3點規則
+           const cellKey = `${studentId}-${assignmentData.id}`; 
+           const currentCount = unlockClicks[cellKey] || 0; 
+           if (currentCount < 2) { 
+               setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); 
+               return; 
+           } else { 
+               newStatus = true; 
+               setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
+           }
       }
 
+      // 執行餘額更新
       if (bronzeChange !== 0 || silverChange !== 0 || goldChange !== 0) {
           updateBankBalance(studentId, goldChange, silverChange, bronzeChange);
       }
@@ -1164,12 +1192,15 @@ const App = () => {
       } else {
           const batch = writeBatch(db);
           const assignRef = doc(db, getAssignmentCollectionPath(), assignmentData.id);
-          batch.update(assignRef, { [`submissionStatus.${studentId}`]: newStatus, ...makeupUpdate });
-          if (settlementUpdate) {
-              const settleRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
-              batch.update(settleRef, settlementUpdate);
+          // 注意：如果 newStatus 是 undefined (例如黃色點擊次數不夠時)，這裡就不會執行 update
+          if (newStatus !== undefined) {
+              batch.update(assignRef, { [`submissionStatus.${studentId}`]: newStatus, ...makeupUpdate });
+              if (settlementUpdate) {
+                  const settleRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
+                  batch.update(settleRef, settlementUpdate);
+              }
+              await batch.commit();
           }
-          await batch.commit();
       }
   }, [db, userId, assignmentMap, unlockClicks, isOffline, allAssignmentsByDate, updateBankBalance, selectedDisplayDate, dailySettlements]);
   const handleEditCurrentDate = useCallback(async (targetOldDate) => { const oldDate = typeof targetOldDate === 'string' ? targetOldDate : selectedDisplayDate; if (authMode !== 'ADMIN' || !oldDate) return; const newDate = prompt(`請輸入新的日期以取代 ${oldDate} (格式: YYYY-MM-DD)`, oldDate); if (!newDate || newDate === oldDate) return; const datePattern = /^\d{4}-\d{2}-\d{2}$/; if (!datePattern.test(newDate)) { alert("日期格式不正確，請使用 YYYY-MM-DD格式。"); return; } if (allAssignmentsByDate[newDate]) { alert(`日期 ${newDate} 已經存在作業資料，無法直接修改日期至此日。請手動遷移或刪除目標日期資料。`); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; newMap[newDate] = newMap[oldDate].map(a => ({...a, assignmentDate: newDate})); delete newMap[oldDate]; return newMap; }); setSelectedDisplayDate(newDate); setAlertMessage(`[離線] 日期已修改為 ${newDate}`); return; } if (!db || !userId) return; setLoading(true); try { const batch = writeBatch(db); const assignments = allAssignmentsByDate[oldDate] || []; const path = getAssignmentCollectionPath(); if (assignments.length === 0) { setAlertMessage("該日期沒有作業資料可供移動。"); setLoading(false); return; } assignments.forEach(assignment => { const docRef = doc(db, path, assignment.id); batch.update(docRef, { assignmentDate: newDate }); }); await batch.commit(); setSelectedDisplayDate(newDate); setAlertMessage(`日期已成功從 ${oldDate} 修改為 ${newDate}`); } catch(e) { console.error("Error modifying date:", e); setAlertMessage("修改日期失敗，請檢查網路或權限。"); } finally { setLoading(false); } }, [authMode, selectedDisplayDate, allAssignmentsByDate, isOffline, db, userId]);
@@ -1187,7 +1218,7 @@ const App = () => {
       setLoading(true); 
       try { 
           const exportObj = {
-              version: 'v20.0.29',
+              version: 'v20.0.30',
               timestamp: new Date().toISOString(),
               students: students,
               assignments: [],
