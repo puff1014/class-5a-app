@@ -15,8 +15,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-// --- 版本資訊 (V20.0.30) ---
-const VERSION = 'v20.0.30 - 嚴格結算鎖定/黃燈循環修正'; 
+// --- 版本資訊 (V20.0.31) ---
+const VERSION = 'v20.0.31 - 修復儀表板/嚴格結算鎖定'; 
 const appId = 'class-5a-app'; 
 
 const firebaseConfig = {
@@ -57,7 +57,6 @@ const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_sett
 
 // --- 圖表元件 ---
 const SimpleStackedBarChart = ({ data, height = 300 }) => {
-    if (!data || data.length === 0) return <div className="h-full flex items-center justify-center text-gray-400 text-2xl">暫無數據</div>;
     return (
         <ResponsiveContainer width="100%" height={height}>
             <BarChart data={data} margin={{ top: 80, right: 60, left: 20, bottom: 10 }}>
@@ -77,7 +76,6 @@ const SimpleStackedBarChart = ({ data, height = 300 }) => {
 const CustomizedDot = (props) => { const { cx, cy, value } = props; if (!cx || !cy) return null; let fill = "#ef4444"; let stroke = "#fee2e2"; if (value >= 80) { fill = "#22c55e"; stroke = "#dcfce7"; } else if (value >= 60) { fill = "#eab308"; stroke = "#fef9c3"; } return ( <svg x={cx - 10} y={cy - 10} width={20} height={20}> <circle cx="10" cy="10" r="8" fill={fill} stroke="white" strokeWidth="3" /> <circle cx="10" cy="10" r="10" fill="none" stroke={stroke} strokeWidth="1" /> </svg> ); };
 const CustomTooltip = ({ active, payload, label }) => { if (active && payload && payload.length) { const data = payload[0].payload; const details = data.details || { onTime: 0, late: 0, missing: 0 }; return ( <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]"> <p className="text-2xl font-bold text-gray-700 mb-2 border-b pb-2 border-gray-200">{label} <span className="text-blue-600 ml-2">({parseFloat(data.value.toFixed(1))}分)</span></p> <div className="flex flex-col gap-1 text-xl"> <p className="text-green-700 font-bold">🟢 準時：{details.onTime}</p> <p className="text-yellow-700 font-bold">🟡 補交：{details.late}</p> <p className="text-red-600 font-bold">🔴 缺交：{details.missing}</p> </div> </div> ); } return null; };
 const SimpleLineChart = ({ data, height = 300 }) => {
-    if (!data || data.length === 0) return <div className="h-full flex items-center justify-center text-gray-400 text-2xl">暫無數據</div>;
     return (
         <ResponsiveContainer width="100%" height={height}>
             <LineChart data={data} margin={{ top: 80, right: 60, left: 20, bottom: 10 }}>
@@ -94,48 +92,37 @@ const SimpleLineChart = ({ data, height = 300 }) => {
     );
 };
 
-// --- [V20.0.30] Dashboard Modal ---
+// --- [V20.0.31] Dashboard Modal (邏輯還原至穩定版本) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
     const maskedName = student.name[0] + 'O' + student.name.slice(2);
     const getDaysDiff = (dateString, completedAt) => { try { const targetDate = new Date(dateString); if (isNaN(targetDate.getTime())) return 0; targetDate.setHours(0,0,0,0); let completedDate = new Date(); if (completedAt) { if (typeof completedAt.toDate === 'function') completedDate = completedAt.toDate(); else if (completedAt.seconds) completedDate = new Date(completedAt.seconds * 1000); else completedDate = new Date(completedAt); } if (isNaN(completedDate.getTime())) return 0; completedDate.setHours(0,0,0,0); return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24))); } catch (e) { return 0; } };
     const getDelayFromToday = (dateString) => { try { const today = new Date(); today.setHours(0, 0, 0, 0); const target = new Date(dateString); if (isNaN(target.getTime())) return 0; target.setHours(0, 0, 0, 0); return Math.floor((today - target) / (1000 * 60 * 60 * 24)); } catch(e) { return 0; } };
-    
     const { healthData, trendData, summaryStats, trendStats, emergencyData, overallData } = useMemo(() => {
         const healthByMonth = {}; const trendByMonth = {};
         let totalItems = 0; let totalDays = 0; let totalHealthPoints = 0; let totalTrendPoints = 0;
         let itemsCompleted = 0; let itemsLate = 0; let itemsMissing = 0; let daysCompleted = 0; let daysLate = 0; let daysMissing = 0;
         let currentMissingCount = 0; let maxDelayDays = 0;
-        
-        try {
-            const sortedDates = Object.keys(allAssignmentsByDate).sort();
-            sortedDates.forEach(date => {
-                const dateObj = new Date(date); 
-                if (isNaN(dateObj.getTime())) return;
-                const monthKey = `${dateObj.getMonth() + 1}月`;
-                
-                if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
-                if (!trendByMonth[monthKey]) trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
-                
-                const assignments = allAssignmentsByDate[date] || []; if (assignments.length === 0) return;
-                totalDays++; let dayHasMissing = false; let dayHasLate = false;
-                
-                assignments.forEach(assign => {
-                    const status = assign.submissionStatus?.[student.id]; const completedAt = assign.completedAt?.[student.id];
-                    let tScore = 0;
-                    if (status === false) { itemsMissing++; trendByMonth[monthKey].missing++; currentMissingCount++; dayHasMissing = true; const delay = getDelayFromToday(date); if (delay > maxDelayDays) maxDelayDays = delay; tScore = 0; } 
-                    else if (status === 'late') { itemsLate++; trendByMonth[monthKey].late++; dayHasLate = true; if (completedAt) { const daysLate = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLate * 5)); } else { tScore = 60; } } 
-                    else { itemsCompleted++; trendByMonth[monthKey].onTime++; tScore = 100; }
-                    trendByMonth[monthKey].totalPoints += tScore; trendByMonth[monthKey].count++; totalTrendPoints += tScore; totalItems++;
-                });
-                let dayScore = 0; if (dayHasMissing) { dayScore = 0; healthByMonth[monthKey].missing++; daysMissing++; } else if (dayHasLate) { dayScore = 60; healthByMonth[monthKey].late++; daysLate++; } else { dayScore = 100; healthByMonth[monthKey].onTime++; daysCompleted++; }
-                healthByMonth[monthKey].totalPoints += dayScore; healthByMonth[monthKey].count++; totalHealthPoints += dayScore;
+        const sortedDates = Object.keys(allAssignmentsByDate).sort();
+        sortedDates.forEach(date => {
+            const dateObj = new Date(date); if (isNaN(dateObj.getTime())) return;
+            const monthKey = `${dateObj.getMonth() + 1}月`;
+            if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+            if (!trendByMonth[monthKey]) trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+            const assignments = allAssignmentsByDate[date] || []; if (assignments.length === 0) return;
+            totalDays++; let dayHasMissing = false; let dayHasLate = false;
+            assignments.forEach(assign => {
+                const status = assign.submissionStatus?.[student.id]; const completedAt = assign.completedAt?.[student.id];
+                let tScore = 0;
+                if (status === false) { itemsMissing++; trendByMonth[monthKey].missing++; currentMissingCount++; dayHasMissing = true; const delay = getDelayFromToday(date); if (delay > maxDelayDays) maxDelayDays = delay; tScore = 0; } 
+                else if (status === 'late') { itemsLate++; trendByMonth[monthKey].late++; dayHasLate = true; if (completedAt) { const daysLate = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLate * 5)); } else { tScore = 60; } } 
+                else { itemsCompleted++; trendByMonth[monthKey].onTime++; tScore = 100; }
+                trendByMonth[monthKey].totalPoints += tScore; trendByMonth[monthKey].count++; totalTrendPoints += tScore; totalItems++;
             });
-        } catch (err) {
-            console.error("Error calculating stats:", err);
-        }
-
+            let dayScore = 0; if (dayHasMissing) { dayScore = 0; healthByMonth[monthKey].missing++; daysMissing++; } else if (dayHasLate) { dayScore = 60; healthByMonth[monthKey].late++; daysLate++; } else { dayScore = 100; healthByMonth[monthKey].onTime++; daysCompleted++; }
+            healthByMonth[monthKey].totalPoints += dayScore; healthByMonth[monthKey].count++; totalHealthPoints += dayScore;
+        });
         const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
         const healthChart = Object.keys(healthByMonth).map(key => ({ label: key, value: safeDiv(healthByMonth[key].totalPoints, healthByMonth[key].count), details: healthByMonth[key] }));
         const trendChart = Object.keys(trendByMonth).map(key => ({ label: key, value: safeDiv(trendByMonth[key].totalPoints, trendByMonth[key].count), details: trendByMonth[key] }));
@@ -152,7 +139,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     const overallBadge = getOverallBadge(overallData.score);
     const currentStats = viewMode === 'STATUS' ? summaryStats.days : summaryStats.items;
     const statsUnit = viewMode === 'STATUS' ? '天' : '項';
-    const safeChartData = (viewMode === 'STATUS' ? healthData : trendData) || [];
+    const chartData = viewMode === 'STATUS' ? healthData : trendData;
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
@@ -250,7 +237,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-white"><tr><th className="px-6 py-4 text-left text-3xl font-bold text-gray-600">月份</th><th className="px-6 py-4 text-center text-3xl font-bold text-green-600">準時</th><th className="px-6 py-4 text-center text-3xl font-bold text-yellow-600">補交</th><th className="px-6 py-4 text-center text-3xl font-bold text-red-600">缺交</th><th className="px-6 py-4 text-center text-3xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
                                     <tbody className="divide-y divide-gray-200">
-                                        {safeChartData.map((row, idx) => {
+                                        {chartData.map((row, idx) => {
                                             const tVal = row.value || 0;
                                             return (
                                                 <tr key={idx} className="hover:bg-gray-50"><td className="px-6 py-4 text-3xl font-bold text-gray-800">{row.label}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.onTime}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.late}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.missing}</td><td className="px-6 py-4 text-center"><span className={`inline-block px-4 py-2 rounded-full text-3xl font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>{tVal.toFixed(1)}</span></td></tr>
