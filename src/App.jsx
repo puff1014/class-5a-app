@@ -1,46 +1,21 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
-  getAuth, 
-  signInAnonymously, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged 
+  getAuth, signInAnonymously, signInWithEmailAndPassword, signOut, onAuthStateChanged 
 } from 'firebase/auth';
 import { 
- getFirestore, 
- collection, 
- onSnapshot, 
- doc,
- setDoc, 
- deleteDoc, 
- query, 
- Timestamp, 
- getDocs, 
- writeBatch, 
- serverTimestamp, 
- where,
- deleteField,
- getDoc
+ getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, query, Timestamp, getDocs, writeBatch, serverTimestamp, where, deleteField, getDoc
 } from 'firebase/firestore';
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { 
-  BookOpen, Download, Upload, X, Check, 
-  RefreshCw, WifiOff, LogOut, FileText, AlertCircle, 
-  Eye, Shield, User, Key, Edit, Pencil, Star,
-  Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity,
-  BarChart2, Megaphone, Lock, Unlock 
+  BookOpen, Download, Upload, X, Check, RefreshCw, WifiOff, LogOut, FileText, AlertCircle, Eye, Shield, User, Key, Edit, Pencil, Star, Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity, BarChart2, Megaphone, Lock, Unlock, RotateCw
 } from 'lucide-react';
 import { 
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-// --- 版本資訊 (V20.0.28) ---
-const VERSION = 'v20.0.28 - 兌換功能/結算名單/快速新增'; 
-
-// --- 全域變數與 Firebase 設定 ---
+const VERSION = 'v20.0.29 - 嚴格計分/三點解鎖/兌換優化'; 
 const appId = 'class-5a-app'; 
 
 const firebaseConfig = {
@@ -53,61 +28,36 @@ const firebaseConfig = {
  measurementId: "G-8VGE0WKD01"
 };
 
-// --- 音效與圖片資源設定 ---
 const ASSETS = {
   BRONZE_SOUND: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3', 
   GOLD_SOUND: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3', 
   CONFETTI_BG: 'https://i.gifer.com/origin/e2/e29a997a3a304523b087050074697df0_w200.gif'
 };
 
-// --- 客製化硬幣元件 ---
 const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w-3/5 h-3/5" }) => {
    const baseClasses = `rounded-full border-[4px] flex items-center justify-center shadow-lg ${size} bg-white`;
-   if (type === 'GOLD') {
-       return (
-           <div className={`${baseClasses} border-yellow-400 text-yellow-500 bg-yellow-50`} title="金幣">
-               <Moon className={`${innerSize} fill-current`} />
-           </div>
-       );
-    }
-   if (type === 'SILVER') {
-       return (
-           <div className={`${baseClasses} border-gray-400 text-gray-500 bg-gray-50`} title="銀幣">
-               <Star className={`${innerSize} fill-current`} />
-           </div>
-       );
-    }
-   return (
-       <div className={`${baseClasses} border-orange-700 text-orange-800 bg-orange-50`} title="銅幣">
-           <span className={`font-bold ${textSize}`}>$</span>
-       </div>
-   );
+   if (type === 'GOLD') return (<div className={`${baseClasses} border-yellow-400 text-yellow-500 bg-yellow-50`} title="金幣"><Moon className={`${innerSize} fill-current`} /></div>);
+   if (type === 'SILVER') return (<div className={`${baseClasses} border-gray-400 text-gray-500 bg-gray-50`} title="銀幣"><Star className={`${innerSize} fill-current`} /></div>);
+   return (<div className={`${baseClasses} border-orange-700 text-orange-800 bg-orange-50`} title="銅幣"><span className={`font-bold ${textSize}`}>$</span></div>);
 };
 
-// --- 預設學生名單 ---
 const DEFAULT_STUDENTS = [
-  { id: '1', name: '陳昕佑' }, { id: '2', name: '徐偉綸' }, { id: '3', name: '蕭淵群' }, 
-  { id: '4', name: '吳秉晏' }, { id: '5', name: '呂秉蔚' }, { id: '6', name: '吳家昇' },
-  { id: '7', name: '翁芷儀' }, { id: '8', name: '鄭筱妍' }, { id: '9', name: '周筱涵' },
-  { id: '10', name: '李婕妤' },
+  { id: '1', name: '陳昕佑' }, { id: '2', name: '徐偉綸' }, { id: '3', name: '蕭淵群' }, { id: '4', name: '吳秉晏' }, { id: '5', name: '呂秉蔚' }, { id: '6', name: '吳家昇' },
+  { id: '7', name: '翁芷儀' }, { id: '8', name: '鄭筱妍' }, { id: '9', name: '周筱涵' }, { id: '10', name: '李婕妤' },
 ];
 
-// 預設作業項目
-const INITIAL_CATEGORIES = [
-    { name: '數課', order: 0 }, { name: '數習', order: 1 }, { name: '數八', order: 2 },
-    { name: '成語()+P.', order: 3 }, { name: '聯P.', order: 4 }, { name: '國', order: 5 },
-];
-
+const INITIAL_CATEGORIES = [{ name: '數課', order: 0 }, { name: '數習', order: 1 }, { name: '數八', order: 2 }, { name: '成語()+P.', order: 3 }, { name: '聯P.', order: 4 }, { name: '國', order: 5 }];
 const ItemTypes = { ASSIGNMENT: 'assignment' };
 
-// 公開路徑設定
 const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assignments`;
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
 
-// --- [圖表元件] 簡易堆疊長條圖 ---
+// --- 圖表元件 ---
 const SimpleStackedBarChart = ({ data, height = 300 }) => {
+    // 防白屏檢查：如果 data 是空或 undefined，回傳空 div
+    if (!data || data.length === 0) return <div className="h-full flex items-center justify-center text-gray-400 text-2xl">暫無數據</div>;
     return (
         <ResponsiveContainer width="100%" height={height}>
             <BarChart data={data} margin={{ top: 80, right: 60, left: 20, bottom: 10 }}>
@@ -116,52 +66,18 @@ const SimpleStackedBarChart = ({ data, height = 300 }) => {
                 <YAxis hide />
                 <Tooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '16px' }} itemStyle={{ fontSize: '24px', padding: '4px 0' }} labelStyle={{ fontSize: '24px', fontWeight: 'bold', color: '#374151', marginBottom: '8px' }} />
                 <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '24px' }} iconSize={24} />
-                <Bar dataKey="details.onTime" name="準時" stackId="a" fill="#4ADE80" radius={[0, 0, 4, 4]}>
-                    <LabelList dataKey="details.onTime" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#14532d', opacity: 0.9 }} formatter={(val) => val > 0 ? val : ''} />
-                </Bar>
-                <Bar dataKey="details.late" name="補交" stackId="a" fill="#FACC15">
-                    <LabelList dataKey="details.late" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#713f12', opacity: 0.9 }} formatter={(val) => val > 0 ? val : ''} />
-                </Bar>
-                <Bar dataKey="details.missing" name="缺交" stackId="a" fill="#F87171" radius={[4, 4, 0, 0]}>
-                    <LabelList dataKey="details.missing" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#ffffff' }} formatter={(val) => val > 0 ? val : ''} />
-                    <LabelList dataKey="value" position="top" offset={15} style={{ fontSize: '36px', fontWeight: '900', fill: '#1f2937' }} formatter={(val) => typeof val === 'number' ? parseFloat(val.toFixed(1)) : val} />
-                </Bar>
+                <Bar dataKey="details.onTime" name="準時" stackId="a" fill="#4ADE80" radius={[0, 0, 4, 4]}> <LabelList dataKey="details.onTime" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#14532d', opacity: 0.9 }} formatter={(val) => val > 0 ? val : ''} /> </Bar>
+                <Bar dataKey="details.late" name="補交" stackId="a" fill="#FACC15"> <LabelList dataKey="details.late" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#713f12', opacity: 0.9 }} formatter={(val) => val > 0 ? val : ''} /> </Bar>
+                <Bar dataKey="details.missing" name="缺交" stackId="a" fill="#F87171" radius={[4, 4, 0, 0]}> <LabelList dataKey="details.missing" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#ffffff' }} formatter={(val) => val > 0 ? val : ''} /> <LabelList dataKey="value" position="top" offset={15} style={{ fontSize: '36px', fontWeight: '900', fill: '#1f2937' }} formatter={(val) => typeof val === 'number' ? parseFloat(val.toFixed(1)) : val} /> </Bar>
             </BarChart>
         </ResponsiveContainer>
     );
 };
 
-// --- [圖表元件] 簡易折線趨勢圖 ---
-const CustomizedDot = (props) => {
-    const { cx, cy, value } = props;
-    if (!cx || !cy) return null;
-    let fill = "#ef4444"; let stroke = "#fee2e2"; 
-    if (value >= 80) { fill = "#22c55e"; stroke = "#dcfce7"; } else if (value >= 60) { fill = "#eab308"; stroke = "#fef9c3"; }
-    return (
-        <svg x={cx - 10} y={cy - 10} width={20} height={20}>
-            <circle cx="10" cy="10" r="8" fill={fill} stroke="white" strokeWidth="3" />
-            <circle cx="10" cy="10" r="10" fill="none" stroke={stroke} strokeWidth="1" />
-        </svg>
-    );
-};
-const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-        const data = payload[0].payload;
-        const details = data.details || { onTime: 0, late: 0, missing: 0 };
-        return (
-            <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]">
-                <p className="text-2xl font-bold text-gray-700 mb-2 border-b pb-2 border-gray-200">{label} <span className="text-blue-600 ml-2">({parseFloat(data.value.toFixed(1))}分)</span></p>
-                <div className="flex flex-col gap-1 text-xl">
-                    <p className="text-green-700 font-bold">🟢 準時：{details.onTime}</p>
-                    <p className="text-yellow-700 font-bold">🟡 補交：{details.late}</p>
-                    <p className="text-red-600 font-bold">🔴 缺交：{details.missing}</p>
-                </div>
-            </div>
-        );
-    }
-    return null;
-};
+const CustomizedDot = (props) => { const { cx, cy, value } = props; if (!cx || !cy) return null; let fill = "#ef4444"; let stroke = "#fee2e2"; if (value >= 80) { fill = "#22c55e"; stroke = "#dcfce7"; } else if (value >= 60) { fill = "#eab308"; stroke = "#fef9c3"; } return ( <svg x={cx - 10} y={cy - 10} width={20} height={20}> <circle cx="10" cy="10" r="8" fill={fill} stroke="white" strokeWidth="3" /> <circle cx="10" cy="10" r="10" fill="none" stroke={stroke} strokeWidth="1" /> </svg> ); };
+const CustomTooltip = ({ active, payload, label }) => { if (active && payload && payload.length) { const data = payload[0].payload; const details = data.details || { onTime: 0, late: 0, missing: 0 }; return ( <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]"> <p className="text-2xl font-bold text-gray-700 mb-2 border-b pb-2 border-gray-200">{label} <span className="text-blue-600 ml-2">({parseFloat(data.value.toFixed(1))}分)</span></p> <div className="flex flex-col gap-1 text-xl"> <p className="text-green-700 font-bold">🟢 準時：{details.onTime}</p> <p className="text-yellow-700 font-bold">🟡 補交：{details.late}</p> <p className="text-red-600 font-bold">🔴 缺交：{details.missing}</p> </div> </div> ); } return null; };
 const SimpleLineChart = ({ data, height = 300 }) => {
+    if (!data || data.length === 0) return <div className="h-full flex items-center justify-center text-gray-400 text-2xl">暫無數據</div>;
     return (
         <ResponsiveContainer width="100%" height={height}>
             <LineChart data={data} margin={{ top: 80, right: 60, left: 20, bottom: 10 }}>
@@ -172,45 +88,58 @@ const SimpleLineChart = ({ data, height = 300 }) => {
                 <ReferenceLine y={100} stroke="#E5E7EB" strokeDasharray="3 3" label={{ position: 'top', value: '100', fill: '#D1D5DB', fontSize: 20 }} />
                 <ReferenceLine y={80} stroke="#4ADE80" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '80 (佳)', fill: '#4ADE80', fontSize: 20, fontWeight: 'bold' }} />
                 <ReferenceLine y={60} stroke="#F87171" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '60 (及格)', fill: '#F87171', fontSize: 20, fontWeight: 'bold' }} />
-                <Line type="linear" dataKey="value" stroke="#3B82F6" strokeWidth={6} dot={<CustomizedDot />} activeDot={{ r: 12, strokeWidth: 0 }} animationDuration={1500}>
-                    <LabelList dataKey="value" position="top" offset={20} style={{ fontSize: '28px', fontWeight: '900' }} formatter={(val) => parseFloat(val.toFixed(1))} fill="#3B82F6" />
-                </Line>
+                <Line type="linear" dataKey="value" stroke="#3B82F6" strokeWidth={6} dot={<CustomizedDot />} activeDot={{ r: 12, strokeWidth: 0 }} animationDuration={1500}> <LabelList dataKey="value" position="top" offset={20} style={{ fontSize: '28px', fontWeight: '900' }} formatter={(val) => parseFloat(val.toFixed(1))} fill="#3B82F6" /> </Line>
             </LineChart>
         </ResponsiveContainer>
     );
 };
 
-// --- 學生學習歷程 Dashboard Modal ---
+// --- [V20.0.29] Dashboard Modal (包含防呆修復) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student || !allAssignmentsByDate) return null;
     const maskedName = student.name[0] + 'O' + student.name.slice(2);
     const getDaysDiff = (dateString, completedAt) => { try { const targetDate = new Date(dateString); if (isNaN(targetDate.getTime())) return 0; targetDate.setHours(0,0,0,0); let completedDate = new Date(); if (completedAt) { if (typeof completedAt.toDate === 'function') completedDate = completedAt.toDate(); else if (completedAt.seconds) completedDate = new Date(completedAt.seconds * 1000); else completedDate = new Date(completedAt); } if (isNaN(completedDate.getTime())) return 0; completedDate.setHours(0,0,0,0); return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24))); } catch (e) { return 0; } };
     const getDelayFromToday = (dateString) => { try { const today = new Date(); today.setHours(0, 0, 0, 0); const target = new Date(dateString); if (isNaN(target.getTime())) return 0; target.setHours(0, 0, 0, 0); return Math.floor((today - target) / (1000 * 60 * 60 * 24)); } catch(e) { return 0; } };
+    
+    // [V20.0.29] 強化數據計算的穩定性
     const { healthData, trendData, summaryStats, trendStats, emergencyData, overallData } = useMemo(() => {
         const healthByMonth = {}; const trendByMonth = {};
         let totalItems = 0; let totalDays = 0; let totalHealthPoints = 0; let totalTrendPoints = 0;
         let itemsCompleted = 0; let itemsLate = 0; let itemsMissing = 0; let daysCompleted = 0; let daysLate = 0; let daysMissing = 0;
         let currentMissingCount = 0; let maxDelayDays = 0;
-        const sortedDates = Object.keys(allAssignmentsByDate).sort();
-        sortedDates.forEach(date => {
-            const dateObj = new Date(date); if (isNaN(dateObj.getTime())) return;
-            const monthKey = `${dateObj.getMonth() + 1}月`;
-            if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
-            if (!trendByMonth[monthKey]) trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
-            const assignments = allAssignmentsByDate[date] || []; if (assignments.length === 0) return;
-            totalDays++; let dayHasMissing = false; let dayHasLate = false;
-            assignments.forEach(assign => {
-                const status = assign.submissionStatus?.[student.id]; const completedAt = assign.completedAt?.[student.id];
-                let tScore = 0;
-                if (status === false) { itemsMissing++; trendByMonth[monthKey].missing++; currentMissingCount++; dayHasMissing = true; const delay = getDelayFromToday(date); if (delay > maxDelayDays) maxDelayDays = delay; tScore = 0; } 
-                else if (status === 'late') { itemsLate++; trendByMonth[monthKey].late++; dayHasLate = true; if (completedAt) { const daysLate = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLate * 5)); } else { tScore = 60; } } 
-                else { itemsCompleted++; trendByMonth[monthKey].onTime++; tScore = 100; }
-                trendByMonth[monthKey].totalPoints += tScore; trendByMonth[monthKey].count++; totalTrendPoints += tScore; totalItems++;
+        
+        try {
+            const sortedDates = Object.keys(allAssignmentsByDate).sort();
+            sortedDates.forEach(date => {
+                const dateObj = new Date(date); 
+                if (isNaN(dateObj.getTime())) return;
+                
+                // [關鍵修復] 讓 Key 包含年份，避免 12月(2025) 和 12月(2026) 混淆，也避免跨年排序錯誤
+                // 這裡我們還是顯示 "12月"，但在排序時會依照原始 date 物件
+                const monthKey = `${dateObj.getMonth() + 1}月`;
+                
+                if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+                if (!trendByMonth[monthKey]) trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
+                
+                const assignments = allAssignmentsByDate[date] || []; if (assignments.length === 0) return;
+                totalDays++; let dayHasMissing = false; let dayHasLate = false;
+                
+                assignments.forEach(assign => {
+                    const status = assign.submissionStatus?.[student.id]; const completedAt = assign.completedAt?.[student.id];
+                    let tScore = 0;
+                    if (status === false) { itemsMissing++; trendByMonth[monthKey].missing++; currentMissingCount++; dayHasMissing = true; const delay = getDelayFromToday(date); if (delay > maxDelayDays) maxDelayDays = delay; tScore = 0; } 
+                    else if (status === 'late') { itemsLate++; trendByMonth[monthKey].late++; dayHasLate = true; if (completedAt) { const daysLate = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLate * 5)); } else { tScore = 60; } } 
+                    else { itemsCompleted++; trendByMonth[monthKey].onTime++; tScore = 100; }
+                    trendByMonth[monthKey].totalPoints += tScore; trendByMonth[monthKey].count++; totalTrendPoints += tScore; totalItems++;
+                });
+                let dayScore = 0; if (dayHasMissing) { dayScore = 0; healthByMonth[monthKey].missing++; daysMissing++; } else if (dayHasLate) { dayScore = 60; healthByMonth[monthKey].late++; daysLate++; } else { dayScore = 100; healthByMonth[monthKey].onTime++; daysCompleted++; }
+                healthByMonth[monthKey].totalPoints += dayScore; healthByMonth[monthKey].count++; totalHealthPoints += dayScore;
             });
-            let dayScore = 0; if (dayHasMissing) { dayScore = 0; healthByMonth[monthKey].missing++; daysMissing++; } else if (dayHasLate) { dayScore = 60; healthByMonth[monthKey].late++; daysLate++; } else { dayScore = 100; healthByMonth[monthKey].onTime++; daysCompleted++; }
-            healthByMonth[monthKey].totalPoints += dayScore; healthByMonth[monthKey].count++; totalHealthPoints += dayScore;
-        });
+        } catch (err) {
+            console.error("Error calculating stats:", err);
+        }
+
         const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
         const healthChart = Object.keys(healthByMonth).map(key => ({ label: key, value: safeDiv(healthByMonth[key].totalPoints, healthByMonth[key].count), details: healthByMonth[key] }));
         const trendChart = Object.keys(trendByMonth).map(key => ({ label: key, value: safeDiv(trendByMonth[key].totalPoints, trendByMonth[key].count), details: trendByMonth[key] }));
@@ -222,12 +151,14 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
 
     const getStatusFeedback = (score, emergency) => { if (emergency.isEmergency) return { text: "❌ 紅燈警報！缺交太多了，請檢查聯絡簿。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true }; const s = parseFloat(score); if (isNaN(s)) return { text: "⚪ 資料不足", color: "text-gray-400", bg: "bg-white", border: "border-gray-300" }; if (s >= 100) return { text: "🏆 完美無瑕！作業全勤且準時！", color: "text-blue-600", bg: "bg-white", border: "border-blue-600" }; if (s >= 95) return { text: "✨ 超級優秀！你的自律讓人佩服。", color: "text-blue-500", bg: "bg-white", border: "border-blue-500" }; if (s >= 90) return { text: "🌟 表現極佳！絕大多數都準時完成。", color: "text-green-600", bg: "bg-white", border: "border-green-600" }; if (s >= 85) return { text: "👍 很不錯喔！作業狀況相當穩定。", color: "text-green-500", bg: "bg-white", border: "border-green-500" }; if (s >= 80) return { text: "👌 保持水準！要減少遲交的情況。", color: "text-lime-600", bg: "bg-white", border: "border-lime-600" }; if (s >= 70) return { text: "💪 再加油點！遲交缺交頻率變高了。", color: "text-yellow-600", bg: "bg-white", border: "border-yellow-600" }; return { text: "⚠️ 勉強及格！作業狀況令人擔心。", color: "text-orange-500", bg: "bg-white", border: "border-orange-500" }; };
     const getTrendFeedback = (score) => { const s = parseFloat(score); if (isNaN(s)) return { text: "資料不足", color: "text-gray-400", bg: "bg-gray-100", border: "border-gray-300" }; if (s === 100) return { text: "👑 傳奇等級！完美的 100 分！", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-500" }; if (s >= 98) return { text: "🎖️ 頂尖卓越！幾乎完美的表現！", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-500" }; if (s >= 96) return { text: "🌟 出類拔萃！令人驚嘆的自律！", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-500" }; if (s >= 94) return { text: "✨ 極度優秀！保持得非常好！", color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-500" }; if (s >= 90) return { text: "👍 非常棒！是大家學習的榜樣。", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" }; if (s >= 85) return { text: "🌿 表現優異，維持在高水準。", color: "text-green-600", bg: "bg-green-50", border: "border-green-500" }; if (s >= 81) return { text: "😊 相當不錯，繼續保持節奏。", color: "text-lime-600", bg: "bg-lime-50", border: "border-lime-500" }; if (s >= 75) return { text: "🆗 表現尚可，還有進步空間。", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-500" }; if (s >= 70) return { text: "😐 普普通通，遲交稍微多了點。", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" }; if (s >= 65) return { text: "😟 需要注意，分數開始下滑囉。", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-500" }; if (s >= 60) return { text: "⚠️ 低空飛過，請再多用點心。", color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-600" }; if (s >= 50) return { text: "🛑 不及格邊緣！必須修正態度！", color: "text-red-500", bg: "bg-red-50", border: "border-red-400" }; if (s >= 40) return { text: "🌧️ 狀況不佳，缺交遲交太頻繁。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500" }; if (s >= 30) return { text: "⛈️ 雷雨警報，信用分數嚴重透支。", color: "text-red-700", bg: "bg-red-100", border: "border-red-600" }; if (s >= 20) return { text: "💔 令人擔憂，作業幾乎都沒完成。", color: "text-red-800", bg: "bg-red-100", border: "border-red-700" }; if (s >= 10) return { text: "🆘 緊急狀態，幾乎一片空白。", color: "text-red-900", bg: "bg-red-200", border: "border-red-800" }; if (s >= 5) return { text: "🌫️ 幾近空白，請不要放棄學習！", color: "text-gray-600", bg: "bg-gray-200", border: "border-gray-500" }; return { text: "🌑 完全空白，請重新開始努力！", color: "text-gray-800", bg: "bg-gray-300", border: "border-gray-700" }; };
+    const getOverallBadge = (score) => { const s = parseFloat(score); if (isNaN(s)) return { animal: "🥚 蛋", comment: "尚未孵化" }; if (s >= 100) return { animal: "🐲 神龍", comment: "作業全勤無缺，品質完美無瑕。" }; if (s >= 97) return { animal: "🦁 獅王", comment: "態度極度自律，對自我要求高。" }; if (s >= 94) return { animal: "🦅 雄鷹", comment: "繳交迅速確實，準確率非常高。" }; if (s >= 91) return { animal: "🐆 獵豹", comment: "訂正效率驚人，很少拖泥帶水。" }; if (s >= 88) return { animal: "🐴 駿馬", comment: "保持穩定節奏，作業習慣良好。" }; if (s >= 85) return { animal: "🐺 戰狼", comment: "能夠自我鞭策，按時完成任務。" }; if (s >= 82) return { animal: "🦊 靈狐", comment: "繳交穩定，若能多點細心會更棒。" }; if (s >= 77) return { animal: "🦉 貓頭鷹", comment: "逐漸掌握要領，學習狀況回穩。" }; if (s >= 72) return { animal: "🐻 大熊", comment: "累積實力中，細心度略顯不足。" }; if (s >= 67) return { animal: "🐘 大象", comment: "腳踏實地，速度慢但願意補救。" }; if (s >= 60) return { animal: "🦈 鯊魚", comment: "努力跟上進度，正視缺交問題。" }; if (s >= 50) return { animal: "🦘 袋鼠", comment: "再跳一步就及格，請補齊缺交。" }; if (s >= 40) return { animal: "🐿️ 松鼠", comment: "積少成多，請勿隨意放棄作業。" }; if (s >= 30) return { animal: "🐇 白兔", comment: "別在中途停下休息，趕快追上進度！" }; if (s >= 20) return { animal: "🦔 刺蝟", comment: "面對作業不逃避，勇敢承擔責任。" }; if (s >= 10) return { animal: "🐢 烏龜", comment: "只要肯開始，總會完成，慢也沒關係。" }; return { animal: "🌱 種子", comment: "埋入土裡太久了，請讓學習發芽。" }; };
 
     const currentFeedback = viewMode === 'STATUS' ? getStatusFeedback(summaryStats.avgScore, emergencyData) : getTrendFeedback(trendStats.avgScore);
     const overallBadge = getOverallBadge(overallData.score);
     const currentStats = viewMode === 'STATUS' ? summaryStats.days : summaryStats.items;
     const statsUnit = viewMode === 'STATUS' ? '天' : '項';
-    const chartData = viewMode === 'STATUS' ? healthData : trendData;
+    // [V20.0.29] 防呆：若 healthData 為空，不應該讓表格渲染時壞掉
+    const safeChartData = (viewMode === 'STATUS' ? healthData : trendData) || [];
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[99999] p-4 backdrop-blur-sm animate-fade-in">
@@ -325,7 +256,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-white"><tr><th className="px-6 py-4 text-left text-3xl font-bold text-gray-600">月份</th><th className="px-6 py-4 text-center text-3xl font-bold text-green-600">準時</th><th className="px-6 py-4 text-center text-3xl font-bold text-yellow-600">補交</th><th className="px-6 py-4 text-center text-3xl font-bold text-red-600">缺交</th><th className="px-6 py-4 text-center text-3xl font-bold text-blue-600">{viewMode === 'STATUS' ? '健康平均' : '績效平均'}</th></tr></thead>
                                     <tbody className="divide-y divide-gray-200">
-                                        {chartData.map((row, idx) => {
+                                        {safeChartData.map((row, idx) => {
                                             const tVal = row.value || 0;
                                             return (
                                                 <tr key={idx} className="hover:bg-gray-50"><td className="px-6 py-4 text-3xl font-bold text-gray-800">{row.label}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.onTime}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.late}</td><td className="px-6 py-4 text-center text-3xl font-medium text-gray-600">{row.details.missing}</td><td className="px-6 py-4 text-center"><span className={`inline-block px-4 py-2 rounded-full text-3xl font-bold ${tVal >= 90 ? 'bg-green-100 text-green-700' : (tVal >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}`}>{tVal.toFixed(1)}</span></td></tr>
@@ -340,6 +271,268 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             </div>
         </div>
     );
+};
+// --- [Part 3] 學生存簿系統 & 獎勵特效 ---
+
+const RewardOverlay = ({ type, onClose }) => {
+    // GOLD_CLEAR 對應音效
+    const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
+    const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
+
+    useEffect(() => { const timer = setTimeout(() => { onClose(); }, duration); return () => clearTimeout(timer); }, [duration, onClose]);
+
+    // GOLD_CLEAR 視覺特效
+    if (type === 'GOLD_CLEAR') {
+        return (
+            <div className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none overflow-hidden">
+                <audio autoPlay src={soundUrl} />
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"></div>
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-50 animate-pulse"></div>
+                <div className="absolute inset-0 bg-contain bg-center opacity-80" style={{ backgroundImage: `url(${ASSETS.CONFETTI_BG})` }}></div>
+
+                <div className="relative flex flex-col items-center justify-center animate-bounce-in bg-white/10 p-12 rounded-[3rem] backdrop-blur-md border-4 border-yellow-300 shadow-[0_0_100px_rgba(255,215,0,0.6)]">
+                    <div className="text-[12rem] filter drop-shadow-[0_0_50px_rgba(255,215,0,0.8)] animate-pulse">🎉</div>
+                    <div className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-200 to-yellow-600 drop-shadow-2xl mt-4 border-text-white text-center leading-tight">
+                        完成全部作業！<br/>你真棒 👍
+                    </div>
+                    <div className="flex items-center gap-6 mt-8 animate-bounce bg-white/20 px-8 py-4 rounded-2xl border border-white/40">
+                       <span className="text-7xl">💰</span>
+                       <div className="flex flex-col items-start">
+                          <span className="text-5xl text-yellow-300 font-black">+3 金幣</span>
+                          <span className="text-3xl text-orange-200 font-bold">+10 銅幣</span>
+                       </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // 普通補交畫面
+    return (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none">
+            <audio autoPlay src={soundUrl} />
+            <div className="bg-white/90 backdrop-blur-md px-12 py-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] transform scale-150 animate-pop-in border-4 border-orange-400 flex items-center gap-6">
+                <div className="text-8xl">🥉</div>
+                <div className="flex flex-col">
+                    <span className="text-5xl font-black text-orange-600">訂正完成！</span>
+                    <span className="text-3xl text-gray-600 font-bold mt-2">+10 銅幣</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- 學生存簿邏輯 Hook ---
+const useStudentBank = (db, isAuthReady, isOffline, students) => {
+    const [bankData, setBankData] = useState({});
+
+    useEffect(() => {
+        if (isOffline) {
+            const initialData = {};
+            students.forEach(s => initialData[s.id] = { gold: 0, silver: 0 });
+            setBankData(initialData);
+            return;
+        }
+        if (!isAuthReady || !db) return;
+        const q = query(collection(db, getBankCollectionPath()));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = {};
+            snapshot.forEach(doc => { data[doc.id] = doc.data(); });
+            setBankData(data);
+        });
+        return () => unsubscribe();
+    }, [isAuthReady, db, isOffline, students]);
+
+    const updateBankBalance = useCallback(async (studentId, goldChange, silverChange, bronzeChange) => {
+        if (isOffline) {
+            setBankData(prev => {
+                const current = prev[studentId] || { gold: 0, silver: 0, bronze: 0 };
+                return {
+                    ...prev,
+                    [studentId]: {
+                        gold: Math.max(0, (current.gold || 0) + goldChange),
+                        silver: Math.max(0, (current.silver || 0) + silverChange),
+                        bronze: Math.max(0, (current.bronze || 0) + bronzeChange)
+                    }
+                };
+            });
+            return;
+        }
+
+        if (!db) return;
+        const docRef = doc(db, getBankCollectionPath(), studentId);
+        try {
+            const docSnap = await getDoc(docRef);
+            let current = { gold: 0, silver: 0, bronze: 0 };
+            if (docSnap.exists()) current = docSnap.data();
+
+            await setDoc(docRef, {
+                gold: Math.max(0, (current.gold || 0) + goldChange),
+                silver: Math.max(0, (current.silver || 0) + silverChange),
+                bronze: Math.max(0, (current.bronze || 0) + bronzeChange),
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+        } catch (e) {
+            console.error("Update bank balance failed:", e);
+        }
+    }, [db, isOffline]);
+
+    const setBankBalanceDirectly = useCallback(async (studentId, type, value) => {
+        if (isOffline) {
+            setBankData(prev => ({
+                ...prev,
+                [studentId]: { ...prev[studentId], [type]: value }
+            }));
+            return;
+        }
+        if (!db) return;
+        const docRef = doc(db, getBankCollectionPath(), studentId);
+        await setDoc(docRef, { [type]: value }, { merge: true });
+    }, [db, isOffline]);
+
+    return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; 
+};
+
+// --- [V20.0.29 修改] 學生存簿介面 (包含圖示兌換鈕) ---
+const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
+  const sortedStudents = [...students].sort((a, b) => { 
+      const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
+      const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 }; 
+      if (bankA.gold !== bankB.gold) return bankB.gold - bankA.gold; 
+      if (bankA.silver !== bankB.silver) return bankB.silver - bankA.silver; 
+      if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze; 
+      return parseInt(a.id) - parseInt(b.id); 
+  });
+
+  const handleInputChange = (studentId, type, value) => {
+    if (authMode !== 'ADMIN') return;
+    if (value === '') { setBankBalanceDirectly(studentId, type, 0); return; }
+    const numVal = parseInt(value, 10);
+    if (!isNaN(numVal) && numVal >= 0) { setBankBalanceDirectly(studentId, type, numVal); }
+  };
+
+  const handleResetAll = async (studentId) => {
+      if (authMode !== 'ADMIN') return;
+      if (!window.confirm(`確定要將學生 ${studentId} 的【所有資產】歸零嗎？`)) return;
+      setBankBalanceDirectly(studentId, 'gold', 0);
+      setBankBalanceDirectly(studentId, 'silver', 0);
+      setBankBalanceDirectly(studentId, 'bronze', 0);
+  };
+
+  // [V20.0.29] 兌換邏輯 (開放給所有人)
+  const handleExchange = (studentId, type) => {
+      const bal = bankData[studentId] || { gold: 0, silver: 0, bronze: 0 };
+      if (type === 'B2S') {
+          // 100 銅換 1 銀
+          if ((bal.bronze || 0) >= 100) {
+              onUpdateBalance(studentId, 0, 1, -100);
+          } else {
+              alert("銅幣不足 100，無法兌換！");
+          }
+      } else if (type === 'S2G') {
+          // 10 銀換 1 金
+          if ((bal.silver || 0) >= 10) {
+              onUpdateBalance(studentId, 1, -10, 0);
+          } else {
+              alert("銀幣不足 10，無法兌換！");
+          }
+      }
+  };
+
+  const handleResetClass = () => {
+      if (authMode !== 'ADMIN') return;
+      if(!window.confirm("⚠️ 危險操作：確定要將「全班所有人的錢」全部歸零嗎？\n此操作無法復原！")) return;
+      if(!window.confirm("再次確認：您真的要歸零全班嗎？")) return;
+      students.forEach(s => {
+          setBankBalanceDirectly(s.id, 'gold', 0);
+          setBankBalanceDirectly(s.id, 'silver', 0);
+          setBankBalanceDirectly(s.id, 'bronze', 0);
+      });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-[10000] p-4">
+      <div className={`bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col border-4 border-orange-400 transition-colors duration-300`}>
+        
+        {/* Header: 標題靠左 */}
+        <div className="bg-gray-100 p-4 border-b flex justify-between items-center shrink-0">
+          <div className="text-3xl font-bold text-gray-700 flex items-center gap-2">
+            <span className="text-4xl">💰</span> 訂正存簿
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X className="w-8 h-8" /></button>
+        </div>
+
+        <div className={`flex-1 overflow-auto p-4 bg-orange-50`}>
+          <table className="w-full bg-white shadow-sm rounded-lg border border-gray-200 relative">
+            <thead className="bg-gray-100 sticky top-0 z-[100] shadow-md">
+               <tr className="border-b-2 border-gray-300">
+                 <th className="p-3 text-2xl w-20 text-center bg-gray-100">名次</th>
+                 <th className="p-3 text-2xl w-24 text-center bg-gray-100">座號</th>
+                 <th className="p-3 text-2xl text-left bg-gray-100">姓名</th>
+                 <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center border-l border-gray-200">金幣</th>
+                 <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
+                 <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
+                 {/* 所有人可見的操作區 */}
+                 <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto">
+                    <span className="text-2xl text-gray-600 block">操作</span>
+                 </th>
+               </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+               {sortedStudents.map((student, idx) => {
+                 const bal = bankData[student.id] || { gold: 0, silver: 0, bronze: 0 };
+                 let rankIcon = idx < 3 ? ["🥇","🥈","🥉"][idx] : idx + 1;
+                 
+                 return (
+                   <tr key={student.id} className="hover:bg-blue-50 transition duration-150 group">
+                     <td className="p-3 text-center text-3xl font-black text-gray-500">{rankIcon}</td>
+                     <td className="p-3 text-center text-2xl font-bold text-gray-600">{student.id}</td>
+                     <td className="p-3 text-2xl font-bold text-gray-800">{student.name[0] + 'O' + student.name.slice(2)}</td>
+                     
+                     <td className="p-2 text-center bg-yellow-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                       <input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} 
+                         className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" />
+                     </td>
+                     <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                       <input type="number" value={bal.silver || 0} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} 
+                         className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none hover:bg-white/50 rounded" />
+                     </td>
+                     <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                       <input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} 
+                         className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" />
+                     </td>
+ 
+                     <td className="p-2 flex justify-center items-center gap-3 border-l border-gray-100 group-hover:border-blue-100">
+                         {/* [V20.0.29] 簡潔的兌換按鈕 (圖示) */}
+                         <div className="flex gap-2">
+                            <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 text-gray-700 active:scale-95 transition" title="100銅 換 1銀"><RotateCw className="w-6 h-6"/></button>
+                            <button onClick={() => handleExchange(student.id, 'S2G')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 border-2 border-yellow-400 text-yellow-700 active:scale-95 transition" title="10銀 換 1金"><RotateCw className="w-6 h-6"/></button>
+                         </div>
+
+                         {authMode === 'ADMIN' && (
+                             <>
+                                <div className="w-[1px] h-10 bg-gray-300 mx-2"></div>
+                                <button onClick={() => onUpdateBalance(student.id, 0, 0, 10)} className="w-10 h-10 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-2xl flex items-center justify-center" title="增加銅幣">+</button>
+                                <button onClick={() => onUpdateBalance(student.id, 0, 0, -10)} className="w-10 h-10 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-2xl flex items-center justify-center" title="減少銅幣">-</button>
+                                <button onClick={() => handleResetAll(student.id)} className="p-2 ml-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="單人歸零"><Eraser className="w-6 h-6"/></button>
+                             </>
+                         )}
+                     </td>
+                   </tr>
+                 );
+               })}
+            </tbody>
+          </table>
+        </div>
+        
+        {authMode === 'ADMIN' && (
+            <div className="p-4 bg-gray-100 border-t flex justify-start">
+                 <button onClick={handleResetClass} className="px-6 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700 flex items-center gap-2 text-xl shadow-md">⚠️ 期末全班歸零</button>
+            </div>
+        )}
+      </div>
+    </div>
+  );
 };
 // --- [Part 4] 每日結算 Hook 與 輔助介面元件 ---
 
@@ -502,286 +695,8 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
         </div>
     ); 
 };
-// --- [Part 3] 學生存簿系統 & 獎勵特效 ---
 
-const RewardOverlay = ({ type, onClose }) => {
-    // [V20.0.28] GOLD_CLEAR 對應音效
-    const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
-    const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
-
-    useEffect(() => { const timer = setTimeout(() => { onClose(); }, duration); return () => clearTimeout(timer); }, [duration, onClose]);
-
-    // [V20.0.28] GOLD_CLEAR 視覺特效
-    if (type === 'GOLD_CLEAR') {
-        return (
-            <div className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none overflow-hidden">
-                <audio autoPlay src={soundUrl} />
-                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"></div>
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-50 animate-pulse"></div>
-                <div className="absolute inset-0 bg-contain bg-center opacity-80" style={{ backgroundImage: `url(${ASSETS.CONFETTI_BG})` }}></div>
-
-                <div className="relative flex flex-col items-center justify-center animate-bounce-in bg-white/10 p-12 rounded-[3rem] backdrop-blur-md border-4 border-yellow-300 shadow-[0_0_100px_rgba(255,215,0,0.6)]">
-                    <div className="text-[12rem] filter drop-shadow-[0_0_50px_rgba(255,215,0,0.8)] animate-pulse">🎉</div>
-                    <div className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-200 to-yellow-600 drop-shadow-2xl mt-4 border-text-white text-center leading-tight">
-                        完成全部作業！<br/>你真棒 👍
-                    </div>
-                    <div className="flex items-center gap-6 mt-8 animate-bounce bg-white/20 px-8 py-4 rounded-2xl border border-white/40">
-                       <span className="text-7xl">💰</span>
-                       <div className="flex flex-col items-start">
-                          <span className="text-5xl text-yellow-300 font-black">+3 金幣</span>
-                          <span className="text-3xl text-orange-200 font-bold">+10 銅幣</span>
-                       </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // 普通補交畫面
-    return (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none">
-            <audio autoPlay src={soundUrl} />
-            <div className="bg-white/90 backdrop-blur-md px-12 py-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] transform scale-150 animate-pop-in border-4 border-orange-400 flex items-center gap-6">
-                <div className="text-8xl">🥉</div>
-                <div className="flex flex-col">
-                    <span className="text-5xl font-black text-orange-600">訂正完成！</span>
-                    <span className="text-3xl text-gray-600 font-bold mt-2">+10 銅幣</span>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// --- 學生存簿邏輯 Hook ---
-const useStudentBank = (db, isAuthReady, isOffline, students) => {
-    const [bankData, setBankData] = useState({});
-
-    useEffect(() => {
-        if (isOffline) {
-            const initialData = {};
-            students.forEach(s => initialData[s.id] = { gold: 0, silver: 0 });
-            setBankData(initialData);
-            return;
-        }
-        if (!isAuthReady || !db) return;
-        const q = query(collection(db, getBankCollectionPath()));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data = {};
-            snapshot.forEach(doc => { data[doc.id] = doc.data(); });
-            setBankData(data);
-        });
-        return () => unsubscribe();
-    }, [isAuthReady, db, isOffline, students]);
-
-    // [核心] 更新餘額：無自動換算，直進直出
-    const updateBankBalance = useCallback(async (studentId, goldChange, silverChange, bronzeChange) => {
-        if (isOffline) {
-            setBankData(prev => {
-                const current = prev[studentId] || { gold: 0, silver: 0, bronze: 0 };
-                return {
-                    ...prev,
-                    [studentId]: {
-                        gold: Math.max(0, (current.gold || 0) + goldChange),
-                        silver: Math.max(0, (current.silver || 0) + silverChange),
-                        bronze: Math.max(0, (current.bronze || 0) + bronzeChange)
-                    }
-                };
-            });
-            return;
-        }
-
-        if (!db) return;
-        const docRef = doc(db, getBankCollectionPath(), studentId);
-        try {
-            const docSnap = await getDoc(docRef);
-            let current = { gold: 0, silver: 0, bronze: 0 };
-            if (docSnap.exists()) current = docSnap.data();
-
-            await setDoc(docRef, {
-                gold: Math.max(0, (current.gold || 0) + goldChange),
-                silver: Math.max(0, (current.silver || 0) + silverChange),
-                bronze: Math.max(0, (current.bronze || 0) + bronzeChange),
-                updatedAt: serverTimestamp()
-            }, { merge: true });
-        } catch (e) {
-            console.error("Update bank balance failed:", e);
-        }
-    }, [db, isOffline]);
-
-    const setBankBalanceDirectly = useCallback(async (studentId, type, value) => {
-        if (isOffline) {
-            setBankData(prev => ({
-                ...prev,
-                [studentId]: { ...prev[studentId], [type]: value }
-            }));
-            return;
-        }
-        if (!db) return;
-        const docRef = doc(db, getBankCollectionPath(), studentId);
-        await setDoc(docRef, { [type]: value }, { merge: true });
-    }, [db, isOffline]);
-
-    return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; 
-};
-
-// --- [V20.0.28 修改] 學生存簿介面 (包含兌換功能) ---
-const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
-  const [mode, setMode] = useState('bronze'); 
-  const MODE_CONFIG = {
-    bronze: { label: '銅幣模式', icon: '🟤', color: 'orange', step: 10, key: 'bronze', bg: 'bg-orange-50' },
-    silver: { label: '銀幣模式', icon: '⚪', color: 'gray', step: 1, key: 'silver', bg: 'bg-gray-50' },
-    gold:   { label: '金幣模式', icon: '🟡', color: 'yellow', step: 1, key: 'gold', bg: 'bg-yellow-50' },
-  };
-  const cfg = MODE_CONFIG[mode];
-
-  const sortedStudents = [...students].sort((a, b) => { 
-      const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
-      const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 }; 
-      if (bankA.gold !== bankB.gold) return bankB.gold - bankA.gold; 
-      if (bankA.silver !== bankB.silver) return bankB.silver - bankA.silver; 
-      if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze; 
-      return parseInt(a.id) - parseInt(b.id); 
-  });
-
-  const handleInputChange = (studentId, type, value) => {
-    if (authMode !== 'ADMIN') return;
-    if (value === '') { setBankBalanceDirectly(studentId, type, 0); return; }
-    const numVal = parseInt(value, 10);
-    if (!isNaN(numVal) && numVal >= 0) { setBankBalanceDirectly(studentId, type, numVal); }
-  };
-
-  const handleResetAll = async (studentId) => {
-      if (authMode !== 'ADMIN') return;
-      if (!window.confirm(`確定要將學生 ${studentId} 的【所有資產】歸零嗎？`)) return;
-      setBankBalanceDirectly(studentId, 'gold', 0);
-      setBankBalanceDirectly(studentId, 'silver', 0);
-      setBankBalanceDirectly(studentId, 'bronze', 0);
-  };
-
-  // [V20.0.28 新增] 兌換邏輯
-  const handleExchange = (studentId, type) => {
-      const bal = bankData[studentId] || { gold: 0, silver: 0, bronze: 0 };
-      if (type === 'B2S') {
-          // 100 銅換 1 銀
-          if ((bal.bronze || 0) >= 100) {
-              onUpdateBalance(studentId, 0, 1, -100);
-          } else {
-              alert("銅幣不足 100，無法兌換！");
-          }
-      } else if (type === 'S2G') {
-          // 10 銀換 1 金
-          if ((bal.silver || 0) >= 10) {
-              onUpdateBalance(studentId, 1, -10, 0);
-          } else {
-              alert("銀幣不足 10，無法兌換！");
-          }
-      }
-  };
-
-  const handleResetClass = () => {
-      if (authMode !== 'ADMIN') return;
-      if(!window.confirm("⚠️ 危險操作：確定要將「全班所有人的錢」全部歸零嗎？\n此操作無法復原！")) return;
-      if(!window.confirm("再次確認：您真的要歸零全班嗎？")) return;
-      students.forEach(s => {
-          setBankBalanceDirectly(s.id, 'gold', 0);
-          setBankBalanceDirectly(s.id, 'silver', 0);
-          setBankBalanceDirectly(s.id, 'bronze', 0);
-      });
-  };
-
-  return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-[10000] p-4">
-      <div className={`bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col border-4 border-${cfg.color}-400 transition-colors duration-300`}>
-        
-        {/* Header: 標題靠左 */}
-        <div className="bg-gray-100 p-4 border-b flex justify-between items-center shrink-0">
-          <div className="text-3xl font-bold text-gray-700 flex items-center gap-2">
-            <span className="text-4xl">{cfg.icon}</span> 訂正存簿 ({cfg.label})
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X className="w-8 h-8" /></button>
-        </div>
-
-        <div className={`flex-1 overflow-auto p-4 ${cfg.bg}`}>
-          <table className="w-full bg-white shadow-sm rounded-lg border border-gray-200 relative">
-            <thead className="bg-gray-100 sticky top-0 z-[100] shadow-md">
-               <tr className="border-b-2 border-gray-300">
-                 <th className="p-3 text-2xl w-20 text-center bg-gray-100">名次</th>
-                 <th className="p-3 text-2xl w-24 text-center bg-gray-100">座號</th>
-                 <th className="p-3 text-2xl text-left bg-gray-100">姓名</th>
-                 <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center border-l border-gray-200">金幣</th>
-                 <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
-                 <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
-                 {authMode === 'ADMIN' && (
-                     <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto">
-                        <div className="flex justify-center gap-2 mb-1">
-                            <button onClick={() => setMode('gold')} className={`px-2 py-1 rounded text-lg font-bold border-2 ${mode === 'gold' ? 'bg-yellow-100 border-yellow-400 text-yellow-800' : 'bg-white border-transparent hover:bg-yellow-50'}`}>金</button>
-                            <button onClick={() => setMode('silver')} className={`px-2 py-1 rounded text-lg font-bold border-2 ${mode === 'silver' ? 'bg-gray-200 border-gray-400 text-gray-800' : 'bg-white border-transparent hover:bg-gray-50'}`}>銀</button>
-                            <button onClick={() => setMode('bronze')} className={`px-2 py-1 rounded text-lg font-bold border-2 ${mode === 'bronze' ? 'bg-orange-100 border-orange-400 text-orange-800' : 'bg-white border-transparent hover:bg-orange-50'}`}>銅</button>
-                        </div>
-                        <span className="text-2xl text-gray-600 block">快速操作</span>
-                     </th>
-                 )}
-               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-               {sortedStudents.map((student, idx) => {
-                 const bal = bankData[student.id] || { gold: 0, silver: 0, bronze: 0 };
-                 let rankIcon = idx < 3 ? ["🥇","🥈","🥉"][idx] : idx + 1;
-                 
-                 return (
-                   <tr key={student.id} className="hover:bg-blue-50 transition duration-150 group">
-                     <td className="p-3 text-center text-3xl font-black text-gray-500">{rankIcon}</td>
-                     <td className="p-3 text-center text-2xl font-bold text-gray-600">{student.id}</td>
-                     <td className="p-3 text-2xl font-bold text-gray-800">{student.name[0] + 'O' + student.name.slice(2)}</td>
-                     
-                     <td className="p-2 text-center bg-yellow-50/30 border-l border-gray-100 group-hover:border-blue-100">
-                       <input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} 
-                         className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" />
-                     </td>
-                     <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100 group-hover:border-blue-100">
-                       <input type="number" value={bal.silver || 0} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} 
-                         className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none hover:bg-white/50 rounded" />
-                     </td>
-                     <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100 group-hover:border-blue-100">
-                       <input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} 
-                         className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" />
-                     </td>
- 
-                     {authMode === 'ADMIN' && (
-                         <td className="p-2 flex justify-center items-center gap-3 border-l border-gray-100 group-hover:border-blue-100">
-                             {/* 一般增減按鈕 */}
-                             <button onClick={() => onUpdateBalance(student.id, cfg.key==='gold'?1:0, cfg.key==='silver'?1:0, cfg.key==='bronze'?10:0)}
-                                 className={`w-12 h-12 rounded-full shadow flex items-center justify-center text-3xl font-bold transition transform active:scale-90 ${mode==='gold'?'bg-yellow-100 text-yellow-700 hover:bg-yellow-200': mode==='silver'?'bg-gray-100 text-gray-700 hover:bg-gray-200': 'bg-orange-100 text-orange-700 hover:bg-orange-200'}`} title="增加">＋</button>
-                             <button onClick={() => onUpdateBalance(student.id, cfg.key==='gold'?-1:0, cfg.key==='silver'?-1:0, cfg.key==='bronze'?-10:0)}
-                                 className={`w-12 h-12 rounded-full shadow flex items-center justify-center text-3xl font-bold transition transform active:scale-90 opacity-80 hover:opacity-100 ${mode==='gold'?'bg-yellow-50 text-yellow-600': mode==='silver'?'bg-gray-50 text-gray-600': 'bg-orange-50 text-orange-600'}`} title="減少">－</button>
-                             
-                             {/* [V20.0.28 新增] 兌換按鈕區 */}
-                             <div className="flex gap-1 ml-2">
-                                <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow flex items-center justify-center text-2xl bg-gray-100 hover:bg-gray-200 border border-gray-300" title="100銅換1銀">🔄🥈</button>
-                                <button onClick={() => handleExchange(student.id, 'S2G')} className="w-12 h-12 rounded-full shadow flex items-center justify-center text-2xl bg-yellow-100 hover:bg-yellow-200 border border-yellow-300" title="10銀換1金">🔄🥇</button>
-                             </div>
-
-                             <button onClick={() => handleResetAll(student.id)} className="p-2 ml-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="單人歸零"><Eraser className="w-6 h-6"/></button>
-                         </td>
-                     )}
-                   </tr>
-                 );
-               })}
-            </tbody>
-          </table>
-        </div>
-        
-        {authMode === 'ADMIN' && (
-            <div className="p-4 bg-gray-100 border-t flex justify-start">
-                 <button onClick={handleResetClass} className="px-6 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700 flex items-center gap-2 text-xl shadow-md">⚠️ 期末全班歸零</button>
-            </div>
-        )}
-      </div>
-    </div>
-  );
-};
-// --- [補回遺失的元件] 缺交詳情、表頭、日期標籤、保護按鈕 ---
-
+// --- [V20.0.29] 補回遺失的元件 (重要!) ---
 const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStudentGlobalData, db, userId, allAssignmentsByDate, setAlertMessage, isOffline, authMode, updateBankBalance, setRewardState }) => { 
     const [selectedItemIds, setSelectedItemIds] = useState([]); 
     const stat = missingStats.find(s => s.id === student.id); 
@@ -806,18 +721,13 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
     }, [detailedMissingItems]); 
     const handleToggleSelect = useCallback((assignmentId) => { setSelectedItemIds(prev => prev.includes(assignmentId) ? prev.filter(id => id !== assignmentId) : [...prev, assignmentId]); }, []); 
     const handleToggleSelectAll = useCallback(() => { if (selectedItemIds.length === detailedMissingItems.length) { setSelectedItemIds([]); } else { setSelectedItemIds(detailedMissingItems.map(item => item.assignmentId)); } }, [selectedItemIds.length, detailedMissingItems]); 
-    
-    // 批次補交發錢邏輯 (10銅幣)
     const handleBatchDeleteSelectedItems = useCallback(async (e) => { 
         if (selectedItemIds.length === 0) { alert("請先勾選至少一項要標記為『已補交』的作業紀錄。"); return; } 
         if (!e.ctrlKey && !e.metaKey) { return; } 
         setAlertMessage(null); 
-        
         const bronzeReward = selectedItemIds.length * 10;
-        // 發放銅幣
         updateBankBalance(student.id, 0, 0, bronzeReward);
         setRewardState({ type: 'BRONZE' });
-
         if (isOffline) { 
             setAlertMessage(`[離線模式] 成功將 ${selectedItemIds.length} 項作業標記為「已補交」（記憶體暫存）。`); 
             setSelectedItemIds([]); 
@@ -836,10 +746,8 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
             onClose(); 
         } catch (error) { console.error("Batch delete failed:", error); setAlertMessage("批次標記已訂正失敗。"); } 
     }, [selectedItemIds, db, userId, student.id, onClose, setAlertMessage, isOffline, authMode, updateBankBalance, setRewardState]); 
-    
     if (!hasMissingItems) return null; 
     const batchButtonTitle = authMode === 'ADMIN' ? "按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)" : undefined; 
-    
     return ( 
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-2"> 
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full transform transition-all duration-300 scale-100 max-h-[95vh] flex flex-col"> 
@@ -867,7 +775,7 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
 
 const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => { const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); const handleDoubleClick = (e) => { if (authMode === 'ADMIN' && isSelected && onEdit) { e.stopPropagation(); onEdit(); } }; return ( <div className="relative group"> <button onClick={() => onClick(date)} onDoubleClick={handleDoubleClick} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`} title={authMode === 'ADMIN' && isSelected ? "雙擊以修改日期" : ""}> {formattedDate} {isSelected && authMode === 'ADMIN' && ( <span onClick={(e) => { e.stopPropagation(); onEdit(); }} className="inline-flex items-center justify-center p-1 bg-white/20 rounded-full hover:bg-white/40 cursor-pointer transition-colors" title="點擊修改日期"> <Pencil className="w-4 h-4 text-white" /> </span> )} </button> </div> ); };
 
-// [就是缺了這個！] ProtectedButton
+// [V20.0.29] 補回 ProtectedButton
 const ProtectedButton = ({ onClick, disabled, className, title, children }) => { return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> ); };
 // --- [Part 5] 資料 Hooks 與 App 主邏輯 ---
 
@@ -930,29 +838,24 @@ const App = () => {
   const [rewardState, setRewardState] = useState(null);
   const [dashboardStudent, setDashboardStudent] = useState(null);
   
-  // Hooks
   const { students, loadingStudents } = useStudents(db, isOffline);
   const { bankData, updateBankBalance, setBankBalanceDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students);
   const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
   const { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline, students);
 
-  // 學期與月份
   const { defaultSemester, defaultMonth } = useMemo(() => { const today = new Date(); const m = today.getMonth() + 1; const monthStr = String(m).padStart(2, '0'); let sem = 'S1'; if (m >= 2 && m <= 7) { sem = 'S2'; } return { defaultSemester: sem, defaultMonth: monthStr }; }, []);
   const [selectedSemester, setSelectedSemester] = useState(defaultSemester); const [selectedMonth, setSelectedMonth] = useState(defaultMonth); const [unlockClicks, setUnlockClicks] = useState({});
   const academicYear = "114"; const startYear = 2025; const endYear = 2026;
   const semesters = [ { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear }, { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }, ];
   const months = useMemo(() => [ { id: '08', name: `8月`, color: 'bg-green-500', semester: 'S1' }, { id: '09', name: `9月`, color: 'bg-teal-500', semester: 'S1' }, { id: '10', name: `10月`, color: 'bg-cyan-500', semester: 'S1' }, { id: '11', name: `11月`, color: 'bg-blue-500', semester: 'S1' }, { id: '12', name: `12月`, color: 'bg-indigo-500', semester: 'S1' }, { id: '01', name: `1月`, color: 'bg-purple-500', semester: 'S1' }, { id: '02', name: `2月`, color: 'bg-pink-500', semester: 'S2' }, { id: '03', name: `3月`, color: 'bg-rose-500', semester: 'S2' }, { id: '04', name: `4月`, color: 'bg-red-500', semester: 'S2' }, { id: '05', name: `5月`, color: 'bg-orange-500', semester: 'S2' }, { id: '06', name: `6月`, color: 'bg-amber-500', semester: 'S2' }, { id: '07', name: `7月`, color: 'bg-yellow-500', semester: 'S2' }, ], []);
 
-  // Firebase Init
   useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); if (!firebaseConfig) { console.error("Firebase configuration is missing."); setError("無法載入 Firebase 設定。請檢查環境配置。"); setLoading(false); return; } try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { if (user) { setUserId(user.uid); setIsAuthReady(true); setIsAuthenticated(true); if (user.isAnonymous) { setAuthMode('GUEST'); } else { setAuthMode('ADMIN'); } } else { setIsAuthenticated(false); setAuthMode('GUEST'); } setLoadingLogin(false); }); return () => { unsubscribe(); clearTimeout(timer); }; } catch (e) { console.error("Firebase initialization failed:", e); setError("初始化失敗：" + e.message); setLoading(false); } }, []);
 
-  // Handlers
   const handleGoOffline = () => { setIsOffline(true); setUserId('guest_user'); setIsAuthReady(true); setLoading(false); setIsAuthenticated(true); setAuthMode('GUEST'); };
   const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { console.error("Login failed", error); if (error.code === 'auth/invalid-email') { setLoginError('Email 格式不正確'); } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') { setLoginError('帳號或密碼錯誤'); } else if (error.code === 'auth/too-many-requests') { setLoginError('嘗試次數過多，請稍後再試'); } else { setLoginError('登入失敗：' + error.message); } setLoadingLogin(false); } };
   const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
   const handleLogout = async () => { try { await signOut(auth); setIsAuthenticated(false); setAuthMode('GUEST'); } catch (e) { console.error("Logout failed", e); } };
 
-  // Data Fetching & Calculation
   useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const currentSemData = semesters.find(s => s.id === selectedSemester); let q; if (currentSemData) { const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`; const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`; q = query( assignmentsCollection, where("assignmentDate", ">=", startDate), where("assignmentDate", "<=", endDate) ); } else { q = query(assignmentsCollection); } const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, completedAt: data.completedAt || {}, makeupClaimed: data.makeupClaimed || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]);
   const assignmentsForSelectedDate = useMemo(() => { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; return assignments.sort((a, b) => a.order - b.order); }, [allAssignmentsByDate, selectedDisplayDate]);
   const assignmentMap = useMemo(() => { return assignmentsForSelectedDate.reduce((acc, assignment) => { acc[assignment.assignmentName] = { id: assignment.id, submissionStatus: assignment.submissionStatus, makeupClaimed: assignment.makeupClaimed }; return acc; }, {}); }, [assignmentsForSelectedDate]);
@@ -1040,31 +943,12 @@ const App = () => {
       }
   }, [newAssignmentDate, allAssignmentsByDate, isOffline, categories, getInitialSubmissionStatus, db, userId]);
 
-  // [V20.0.28] 快速新增作業 (一鍵完成，無需彈窗)
   const handleAddNewAssignment = useCallback(async () => {
       if (!selectedDisplayDate) { alert("請先選擇或新增一個日期。"); return; }
-      
-      // 直接使用預設名稱，不跳出 prompt
       const name = "新增作業";
-      
-      if (isOffline) { 
-          const newId = `offline-assign-${Date.now()}`; 
-          const newAssign = { id: newId, assignmentName: name, assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: new Date().toISOString() }; 
-          setAllAssignmentsByDate(prev => { const current = prev[selectedDisplayDate] || []; return { ...prev, [selectedDisplayDate]: [...current, newAssign] }; }); 
-          return; 
-      }
-      
-      if (!db || !userId) return; 
-      setLoading(true);
-      try { 
-          const collectionRef = collection(db, getAssignmentCollectionPath()); 
-          await setDoc(doc(collectionRef), { assignmentName: name, assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: serverTimestamp() }); 
-      } catch (e) { 
-          console.error("Error adding assignment:", e); 
-          setAlertMessage("新增作業失敗。"); 
-      } finally { 
-          setLoading(false); 
-      }
+      if (isOffline) { const newId = `offline-assign-${Date.now()}`; const newAssign = { id: newId, assignmentName: name, assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: new Date().toISOString() }; setAllAssignmentsByDate(prev => { const current = prev[selectedDisplayDate] || []; return { ...prev, [selectedDisplayDate]: [...current, newAssign] }; }); return; }
+      if (!db || !userId) return; setLoading(true);
+      try { const collectionRef = collection(db, getAssignmentCollectionPath()); await setDoc(doc(collectionRef), { assignmentName: name, assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: serverTimestamp() }); } catch (e) { console.error("Error adding assignment:", e); setAlertMessage("新增作業失敗。"); } finally { setLoading(false); }
   }, [selectedDisplayDate, isOffline, assignmentsForSelectedDate.length, getInitialSubmissionStatus, db, userId]);
 
   const handleDeleteAssignment = useCallback(async (id, name, force) => {
@@ -1085,7 +969,6 @@ const App = () => {
       const batch = writeBatch(db); const path = getAssignmentCollectionPath(); batch.update(doc(db, path, dragId), { order: hoverItem.order }); batch.update(doc(db, path, hoverId), { order: dragItem.order }); await batch.commit();
   }, [assignmentsForSelectedDate, isOffline, db, selectedDisplayDate]);
 
-  // --- [V20.0.28] 安全結算發布邏輯 (顯示名單) ---
   const isDaySettled = useMemo(() => dailySettlements[selectedDisplayDate]?.isSettled || false, [dailySettlements, selectedDisplayDate]);
   
   const handleBatchSettlement = useCallback(async () => {
@@ -1154,7 +1037,6 @@ const App = () => {
         
         if (shouldIssueReward) {
             newWinners.forEach(sid => { updateBankBalance(sid, 0, 2, 0); });
-            // [V20.0.28] 更新提示訊息，列出學生名單
             setAlertMessage(`✅ 結算完成！\n\n恭喜以下 ${newWinners.length} 位同學獲得 +2 銀幣：\n${newWinnerNames.join('、')}`);
         } else {
             setAlertMessage(`🔒 封存完成！\n日期已鎖定，未發放任何獎勵。`);
@@ -1168,7 +1050,7 @@ const App = () => {
     }
   }, [selectedDisplayDate, dailySettlements, assignmentsForSelectedDate, students, isOffline, db, updateBankBalance, isDaySettled]);
 
-  // --- 燈號切換邏輯 (含清空大獎與扣款) ---
+  // --- [V20.0.29] 燈號切換邏輯 (嚴格不計分 + 3-Click Unlock) ---
   const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => { 
       const assignmentData = assignmentMap[assignmentName]; 
       if (!assignmentData) return; 
@@ -1180,20 +1062,29 @@ const App = () => {
       
       const isStrictMode = isSettled || isPastDate;
 
+      // --- 非嚴格模式 (未結算) ---
+      // 邏輯：綠(true) -> 紅(false) -> 黃(late) -> 點3次變綠(true)
       if (!isStrictMode) {
           const cellKey = `${studentId}-${assignmentData.id}`; 
           let newStatus; 
+          
           if (currentStatus === true || currentStatus === undefined) { 
+              // 綠 -> 紅
               newStatus = false; 
               setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
           } else if (currentStatus === false) { 
+              // 紅 -> 黃
               newStatus = 'late'; 
               setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
           } else { 
+              // 黃 -> 綠 (需要點3下)
               const currentCount = unlockClicks[cellKey] || 0; 
               if (currentCount < 2) { 
-                  setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); return; 
+                  // 還沒點滿，增加計數
+                  setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); 
+                  return; // 狀態不變，直接返回
               } else { 
+                  // 點滿了，變綠
                   newStatus = true; 
                   setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
               } 
@@ -1213,6 +1104,8 @@ const App = () => {
           return;
       }
 
+      // --- 嚴格模式 (已結算：涉及金錢變動) ---
+      // 這裡邏輯簡化：只能做 補交(紅->黃) 或 抓到缺交(綠->紅)
       let newStatus;
       let bronzeChange = 0;
       let silverChange = 0;
@@ -1222,12 +1115,15 @@ const App = () => {
       let triggerAnimation = null;
 
       if (currentStatus === true || currentStatus === undefined) {
+          // 綠 -> 紅 (被抓到)
           newStatus = false;
+          // 防呆扣款
           if (settledData?.silverRewardClaimed?.[studentId]) {
               silverChange = -2;
               settlementUpdate = { [`silverRewardClaimed.${studentId}`]: deleteField() }; 
           }
       } else if (currentStatus === false) {
+          // 紅 -> 黃 (補交)
           newStatus = 'late';
           bronzeChange = 10; 
           makeupUpdate = { [`makeupClaimed.${studentId}`]: true };
@@ -1244,6 +1140,7 @@ const App = () => {
           }
 
       } else {
+          // 黃 -> 紅 (反悔)
           newStatus = false;
           bronzeChange = -10; 
           makeupUpdate = { [`makeupClaimed.${studentId}`]: deleteField() };
@@ -1290,7 +1187,7 @@ const App = () => {
       setLoading(true); 
       try { 
           const exportObj = {
-              version: 'v20.0.28',
+              version: 'v20.0.29',
               timestamp: new Date().toISOString(),
               students: students,
               assignments: [],
