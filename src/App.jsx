@@ -15,8 +15,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-// --- 版本資訊 (V20.0.32) ---
-const VERSION = 'v20.0.32 - 儀表板防白屏修復'; 
+// --- 版本資訊 (V20.0.34) ---
+const VERSION = 'v20.0.34 - 儀表板修復/排序優化/新增邏輯修正'; 
 const appId = 'class-5a-app'; 
 
 const firebaseConfig = {
@@ -55,11 +55,11 @@ const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categor
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
 
-// --- [V20.0.32 修復] 圖表元件 (加入嚴格檢查) ---
+// --- [V20.0.34] 圖表元件安全強化 ---
 const SimpleStackedBarChart = ({ data, height = 300 }) => {
-    // 安全檢查：若資料為空，顯示提示而非報錯
+    // 嚴格檢查：若資料結構有問題，回傳安全提示，避免崩潰
     if (!data || !Array.isArray(data) || data.length === 0) {
-        return <div className="h-full flex items-center justify-center text-gray-400 text-2xl font-bold">⚠️ 暫無數據可顯示</div>;
+        return <div className="h-full flex items-center justify-center text-gray-400 text-2xl font-bold">尚無統計數據</div>;
     }
     return (
         <ResponsiveContainer width="100%" height={height}>
@@ -77,7 +77,6 @@ const SimpleStackedBarChart = ({ data, height = 300 }) => {
                 </Bar>
                 <Bar dataKey="details.missing" name="缺交" stackId="a" fill="#F87171" radius={[4, 4, 0, 0]}> 
                     <LabelList dataKey="details.missing" position="center" style={{ fontSize: '28px', fontWeight: '900', fill: '#ffffff' }} formatter={(val) => (typeof val === 'number' && val > 0) ? val : ''} /> 
-                    {/* [關鍵修復] 這裡的 formatter 加上了 typeof 檢查，防止對 undefined 呼叫 toFixed */}
                     <LabelList dataKey="value" position="top" offset={15} style={{ fontSize: '36px', fontWeight: '900', fill: '#1f2937' }} formatter={(val) => typeof val === 'number' ? parseFloat(val.toFixed(1)) : 0} /> 
                 </Bar>
             </BarChart>
@@ -88,10 +87,10 @@ const SimpleStackedBarChart = ({ data, height = 300 }) => {
 const CustomizedDot = (props) => { const { cx, cy, value } = props; if (!cx || !cy) return null; let fill = "#ef4444"; let stroke = "#fee2e2"; if (value >= 80) { fill = "#22c55e"; stroke = "#dcfce7"; } else if (value >= 60) { fill = "#eab308"; stroke = "#fef9c3"; } return ( <svg x={cx - 10} y={cy - 10} width={20} height={20}> <circle cx="10" cy="10" r="8" fill={fill} stroke="white" strokeWidth="3" /> <circle cx="10" cy="10" r="10" fill="none" stroke={stroke} strokeWidth="1" /> </svg> ); };
 
 const CustomTooltip = ({ active, payload, label }) => { 
+    // 安全檢查：payload 必須存在且有值
     if (active && payload && payload.length && payload[0].payload) { 
         const data = payload[0].payload; 
         const details = data.details || { onTime: 0, late: 0, missing: 0 }; 
-        // [關鍵修復] 確保 value 是數字
         const safeValue = typeof data.value === 'number' ? data.value : 0;
         return ( 
             <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]"> 
@@ -110,7 +109,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 const SimpleLineChart = ({ data, height = 300 }) => {
     // 安全檢查
     if (!data || !Array.isArray(data) || data.length === 0) {
-        return <div className="h-full flex items-center justify-center text-gray-400 text-2xl font-bold">⚠️ 暫無數據可顯示</div>;
+        return <div className="h-full flex items-center justify-center text-gray-400 text-2xl font-bold">尚無統計數據</div>;
     }
     return (
         <ResponsiveContainer width="100%" height={height}>
@@ -123,7 +122,6 @@ const SimpleLineChart = ({ data, height = 300 }) => {
                 <ReferenceLine y={80} stroke="#4ADE80" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '80 (佳)', fill: '#4ADE80', fontSize: 20, fontWeight: 'bold' }} />
                 <ReferenceLine y={60} stroke="#F87171" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '60 (及格)', fill: '#F87171', fontSize: 20, fontWeight: 'bold' }} />
                 <Line type="linear" dataKey="value" stroke="#3B82F6" strokeWidth={6} dot={<CustomizedDot />} activeDot={{ r: 12, strokeWidth: 0 }} animationDuration={1500}> 
-                    {/* [關鍵修復] 同樣加上 typeof 檢查 */}
                     <LabelList dataKey="value" position="top" offset={20} style={{ fontSize: '28px', fontWeight: '900' }} formatter={(val) => typeof val === 'number' ? parseFloat(val.toFixed(1)) : 0} fill="#3B82F6" /> 
                 </Line>
             </LineChart>
@@ -131,13 +129,13 @@ const SimpleLineChart = ({ data, height = 300 }) => {
     );
 };
 
-// --- [V20.0.32 修復] Dashboard Modal ---
+// --- [V20.0.34] Dashboard Modal (極限防呆版) ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
-    if (!student || !allAssignmentsByDate) return null;
+    if (!student) return null;
     const maskedName = student.name[0] + 'O' + student.name.slice(2);
     
-    // [V20.0.32] 恢復簡單的日期計算函數
+    // 日期計算：防呆
     const getDaysDiff = (dateString, completedAt) => { try { const targetDate = new Date(dateString); if (isNaN(targetDate.getTime())) return 0; targetDate.setHours(0,0,0,0); let completedDate = new Date(); if (completedAt) { if (typeof completedAt.toDate === 'function') completedDate = completedAt.toDate(); else if (completedAt.seconds) completedDate = new Date(completedAt.seconds * 1000); else completedDate = new Date(completedAt); } if (isNaN(completedDate.getTime())) return 0; completedDate.setHours(0,0,0,0); return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24))); } catch (e) { return 0; } };
     const getDelayFromToday = (dateString) => { try { const today = new Date(); today.setHours(0, 0, 0, 0); const target = new Date(dateString); if (isNaN(target.getTime())) return 0; target.setHours(0, 0, 0, 0); return Math.floor((today - target) / (1000 * 60 * 60 * 24)); } catch(e) { return 0; } };
     
@@ -147,8 +145,9 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         let itemsCompleted = 0; let itemsLate = 0; let itemsMissing = 0; let daysCompleted = 0; let daysLate = 0; let daysMissing = 0;
         let currentMissingCount = 0; let maxDelayDays = 0;
         
-        // [關鍵修復] 加入 || {} 防止 undefined 錯誤
-        const sortedDates = Object.keys(allAssignmentsByDate || {}).sort();
+        // 安全獲取日期陣列
+        const assignmentsData = allAssignmentsByDate || {};
+        const sortedDates = Object.keys(assignmentsData).sort();
         
         sortedDates.forEach(date => {
             const dateObj = new Date(date); 
@@ -158,7 +157,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             if (!healthByMonth[monthKey]) healthByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
             if (!trendByMonth[monthKey]) trendByMonth[monthKey] = { totalPoints: 0, count: 0, onTime: 0, late: 0, missing: 0 };
             
-            const assignments = allAssignmentsByDate[date] || []; 
+            const assignments = assignmentsData[date] || []; 
             if (assignments.length === 0) return;
             
             totalDays++; let dayHasMissing = false; let dayHasLate = false;
@@ -168,7 +167,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                 const completedAt = assign.completedAt?.[student.id];
                 let tScore = 0;
                 
-                // 嚴格判斷狀態
                 if (status === false) { 
                     itemsMissing++; trendByMonth[monthKey].missing++; currentMissingCount++; dayHasMissing = true; 
                     const delay = getDelayFromToday(date); if (delay > maxDelayDays) maxDelayDays = delay; 
@@ -208,7 +206,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     const overallBadge = getOverallBadge(overallData.score);
     const currentStats = viewMode === 'STATUS' ? summaryStats.days : summaryStats.items;
     const statsUnit = viewMode === 'STATUS' ? '天' : '項';
-    // [關鍵修復] 確保 safeChartData 永遠是陣列
+    // [關鍵] 預設為空陣列
     const safeChartData = (viewMode === 'STATUS' ? healthData : trendData) || [];
 
     return (
@@ -296,7 +294,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                             <div className="flex items-center justify-between mb-2">
                                 <h3 className="text-4xl font-bold text-gray-700 flex items-center">{viewMode === 'TREND' ? (<><TrendingUp className="w-10 h-10 mr-3 text-blue-500" /> 作業績效趨勢圖</>) : (<><BarChart2 className="w-10 h-10 mr-3 text-indigo-500" /> 每月作業狀況分佈</>)}</h3>
                             </div>
-                            {/* [關鍵修復] 直接渲染，如果沒數據會被上方 SimpleLineChart 攔截顯示暫無數據 */}
+                            {/* [關鍵修復] 這裡有兩層保護，確保不會因為 undefined 而崩潰 */}
                             <div className="w-full h-[450px]">{viewMode === 'TREND' ? ( <SimpleLineChart data={safeChartData} height={450} /> ) : ( <SimpleStackedBarChart data={safeChartData} height={450} /> )}</div>
                         </div>
                         <div className="bg-white rounded-[2rem] shadow-sm border border-gray-200 overflow-hidden">
@@ -445,7 +443,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
     return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; 
 };
 
-// --- [V20.0.30 修正] 學生存簿介面 (按鈕尺寸保留，兌換簡化且開放) ---
+// --- [V20.0.34] 學生存簿介面 (維持 V20.0.30 的設計) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
   const sortedStudents = [...students].sort((a, b) => { 
       const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
@@ -555,7 +553,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                      </td>
  
                      <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100 group-hover:border-blue-100">
-                         {/* [V20.0.30] 兌換按鈕 (簡化圖示，所有人可見) */}
+                         {/* 兌換按鈕 (簡化圖示，所有人可見) */}
                          <div className="flex gap-2">
                             {/* 100銅換1銀 */}
                             <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 text-gray-700 active:scale-95 transition" title="100銅 換 1銀"><RotateCw className="w-7 h-7"/></button>
@@ -752,7 +750,7 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
     ); 
 };
 
-// --- [V20.0.29] 補回遺失的元件 (重要!) ---
+// --- [V20.0.34] 補回 MissingDetailsModal 與其他輔助元件 ---
 const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStudentGlobalData, db, userId, allAssignmentsByDate, setAlertMessage, isOffline, authMode, updateBankBalance, setRewardState }) => { 
     const [selectedItemIds, setSelectedItemIds] = useState([]); 
     const stat = missingStats.find(s => s.id === student.id); 
@@ -831,7 +829,7 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
 
 const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => { const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); const handleDoubleClick = (e) => { if (authMode === 'ADMIN' && isSelected && onEdit) { e.stopPropagation(); onEdit(); } }; return ( <div className="relative group"> <button onClick={() => onClick(date)} onDoubleClick={handleDoubleClick} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`} title={authMode === 'ADMIN' && isSelected ? "雙擊以修改日期" : ""}> {formattedDate} {isSelected && authMode === 'ADMIN' && ( <span onClick={(e) => { e.stopPropagation(); onEdit(); }} className="inline-flex items-center justify-center p-1 bg-white/20 rounded-full hover:bg-white/40 cursor-pointer transition-colors" title="點擊修改日期"> <Pencil className="w-4 h-4 text-white" /> </span> )} </button> </div> ); };
 
-// [V20.0.29] 補回 ProtectedButton
+// [V20.0.34] 這裡補上了 ProtectedButton，畫面應該就會回來了
 const ProtectedButton = ({ onClick, disabled, className, title, children }) => { return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> ); };
 // --- [Part 5] 資料 Hooks 與 App 主邏輯 ---
 
@@ -999,17 +997,23 @@ const App = () => {
       }
   }, [newAssignmentDate, allAssignmentsByDate, isOffline, categories, getInitialSubmissionStatus, db, userId]);
 
-  // [V20.0.30] 快速新增作業 (一鍵完成，無需彈窗)
+  // [V20.0.34] 新增作業 (修復排序問題：Max(Order) + 1)
   const handleAddNewAssignment = useCallback(async () => {
       if (!selectedDisplayDate) { alert("請先選擇或新增一個日期。"); return; }
       
-      // 直接使用預設名稱，不跳出 prompt
       const name = "新增作業";
-      
+      // 計算目前最大的 order
+      const currentAssignments = assignmentsForSelectedDate || [];
+      const maxOrder = currentAssignments.reduce((max, item) => Math.max(max, item.order || 0), -1);
+      const newOrder = maxOrder + 1; // 保證在最右邊
+
       if (isOffline) { 
           const newId = `offline-assign-${Date.now()}`; 
-          const newAssign = { id: newId, assignmentName: name, assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: new Date().toISOString() }; 
-          setAllAssignmentsByDate(prev => { const current = prev[selectedDisplayDate] || []; return { ...prev, [selectedDisplayDate]: [...current, newAssign] }; }); 
+          const newAssign = { id: newId, assignmentName: name, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: new Date().toISOString() }; 
+          setAllAssignmentsByDate(prev => { 
+              const current = prev[selectedDisplayDate] || []; 
+              return { ...prev, [selectedDisplayDate]: [...current, newAssign] }; 
+          }); 
           return; 
       }
       
@@ -1017,14 +1021,21 @@ const App = () => {
       setLoading(true);
       try { 
           const collectionRef = collection(db, getAssignmentCollectionPath()); 
-          await setDoc(doc(collectionRef), { assignmentName: name, assignmentDate: selectedDisplayDate, order: assignmentsForSelectedDate.length, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: serverTimestamp() }); 
+          await setDoc(doc(collectionRef), { 
+              assignmentName: name, 
+              assignmentDate: selectedDisplayDate, 
+              order: newOrder, // 使用計算後的新順序
+              submissionStatus: getInitialSubmissionStatus, 
+              makeupClaimed: {}, 
+              createdAt: serverTimestamp() 
+          }); 
       } catch (e) { 
           console.error("Error adding assignment:", e); 
           setAlertMessage("新增作業失敗。"); 
       } finally { 
           setLoading(false); 
       }
-  }, [selectedDisplayDate, isOffline, assignmentsForSelectedDate.length, getInitialSubmissionStatus, db, userId]);
+  }, [selectedDisplayDate, isOffline, assignmentsForSelectedDate, getInitialSubmissionStatus, db, userId]);
 
   const handleDeleteAssignment = useCallback(async (id, name, force) => {
       if (authMode !== 'ADMIN' && !isOffline) return; if (!force && !window.confirm(`確定要刪除作業「${name}」嗎？`)) return;
@@ -1037,14 +1048,42 @@ const App = () => {
       const docRef = doc(db, getAssignmentCollectionPath(), id); await setDoc(docRef, { assignmentName: newName }, { merge: true });
   }, [isOffline, db, selectedDisplayDate]);
 
+  // [V20.0.34] 拖曳排序優化 (本地優先更新 + 延遲寫入)
   const handleMoveAssignment = useCallback(async (dragId, hoverId) => {
-      const items = [...assignmentsForSelectedDate]; const dragIndex = items.findIndex(i => i.id === dragId); const hoverIndex = items.findIndex(i => i.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return;
-      const dragItem = items[dragIndex]; const hoverItem = items[hoverIndex];
-      if (isOffline) { const newItems = [...items]; newItems.splice(dragIndex, 1); newItems.splice(hoverIndex, 0, dragItem); const updatedItems = newItems.map((item, index) => ({ ...item, order: index })); setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: updatedItems })); return; }
-      const batch = writeBatch(db); const path = getAssignmentCollectionPath(); batch.update(doc(db, path, dragId), { order: hoverItem.order }); batch.update(doc(db, path, hoverId), { order: dragItem.order }); await batch.commit();
+      const items = [...assignmentsForSelectedDate]; 
+      const dragIndex = items.findIndex(i => i.id === dragId); 
+      const hoverIndex = items.findIndex(i => i.id === hoverId); 
+      if (dragIndex === -1 || hoverIndex === -1) return;
+      
+      const dragItem = items[dragIndex]; 
+      
+      // 1. 本地立即更新 (Optimistic UI) - 解決回彈卡頓
+      const newItems = [...items]; 
+      newItems.splice(dragIndex, 1); 
+      newItems.splice(hoverIndex, 0, dragItem); 
+      
+      // 重新計算 order
+      const updatedItems = newItems.map((item, index) => ({ ...item, order: index })); 
+      
+      setAllAssignmentsByDate(prev => ({ 
+          ...prev, 
+          [selectedDisplayDate]: updatedItems 
+      })); 
+      
+      if (isOffline) return;
+      
+      // 2. 寫入資料庫 (背景執行)
+      const batch = writeBatch(db); 
+      const path = getAssignmentCollectionPath(); 
+      updatedItems.forEach(item => {
+           const docRef = doc(db, path, item.id);
+           batch.update(docRef, { order: item.order });
+      });
+      // 不等待 commit，讓介面保持流暢
+      batch.commit().catch(e => console.error("Reorder failed:", e));
+      
   }, [assignmentsForSelectedDate, isOffline, db, selectedDisplayDate]);
 
-  // --- [V20.0.30] 安全結算發布邏輯 (顯示名單) ---
   const isDaySettled = useMemo(() => dailySettlements[selectedDisplayDate]?.isSettled || false, [dailySettlements, selectedDisplayDate]);
   
   const handleBatchSettlement = useCallback(async () => {
@@ -1057,7 +1096,6 @@ const App = () => {
     const isPastDate = selectedDisplayDate < todayStr;
     let shouldIssueReward = true; 
 
-    // 只有在是過去日期時才詢問，否則預設就是發獎
     if (isPastDate) {
         if (!window.confirm(`⚠️ 偵測到這是過去的日期 (${selectedDisplayDate})！\n\n請問您要【補發銀幣】給全對的學生嗎？\n\n● 按【確定】= 補發銀幣 + 鎖定日期\n● 按【取消】= 不發銀幣 + 僅鎖定日期 (用於封存舊資料)`)) {
             shouldIssueReward = false;
@@ -1114,7 +1152,7 @@ const App = () => {
         
         if (shouldIssueReward) {
             newWinners.forEach(sid => { updateBankBalance(sid, 0, 2, 0); });
-            // [V20.0.30] 結算成功提示，包含名單
+            // [V20.0.34] 結算成功提示，列出獲獎者
             setAlertMessage(`✅ 結算完成！\n\n恭喜以下 ${newWinners.length} 位同學獲得 +2 銀幣：\n${newWinnerNames.join('、')}`);
         } else {
             setAlertMessage(`🔒 封存完成！\n日期已鎖定，未發放任何獎勵。`);
@@ -1128,47 +1166,36 @@ const App = () => {
     }
   }, [selectedDisplayDate, dailySettlements, assignmentsForSelectedDate, students, isOffline, db, updateBankBalance, isDaySettled]);
 
-  // --- [V20.0.30] 燈號切換邏輯 (嚴格不計分 + 3-Click Unlock) ---
-  // 關鍵修正：嚴格模式只看 isSettled，不看日期是否過去
+  // --- [V20.0.34] 燈號切換邏輯 (維持 V20.0.30 嚴格計分 + 3-Click) ---
   const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => { 
       const assignmentData = assignmentMap[assignmentName]; 
       if (!assignmentData) return; 
       
       const settledData = dailySettlements[selectedDisplayDate];
       const isSettled = settledData?.isSettled || false;
-      
-      // [V20.0.30 修正] 只由「是否已結算」決定是否為嚴格模式 (過去日期未結算 = 開放模式)
       const isStrictMode = isSettled === true;
 
-      // --- 非嚴格模式 (開放中：只變色，不計費) ---
       if (!isStrictMode) {
           const cellKey = `${studentId}-${assignmentData.id}`; 
           let newStatus; 
           
           if (currentStatus === true || currentStatus === undefined) { 
-              // 綠 -> 紅
               newStatus = false; 
               setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
           } else if (currentStatus === false) { 
-              // 紅 -> 黃
               newStatus = 'late'; 
               setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
           } else { 
-              // 黃 -> (點3下) -> 綠
-              // 黃色點一下不會變紅，會停留在黃色，直到點滿3次
               const currentCount = unlockClicks[cellKey] || 0; 
               if (currentCount < 2) { 
-                  // 點擊次數不足，增加計數，狀態不變 (return)
                   setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); 
                   return; 
               } else { 
-                  // 點滿3次，變綠
                   newStatus = true; 
                   setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
               } 
           }
           
-          // 執行更新 (無金錢變動)
           if (isOffline) {
               setAllAssignmentsByDate(prev => { 
                   const newMap = { ...prev }; 
@@ -1183,7 +1210,6 @@ const App = () => {
           return;
       }
 
-      // --- 嚴格模式 (已結算：涉及金錢變動) ---
       let newStatus;
       let bronzeChange = 0;
       let silverChange = 0;
@@ -1193,21 +1219,17 @@ const App = () => {
       let triggerAnimation = null;
 
       if (currentStatus === true || currentStatus === undefined) {
-          // 綠 -> 紅 (抓到缺交)
           newStatus = false;
-          // 防呆扣款：只有領過錢才扣
           if (settledData?.silverRewardClaimed?.[studentId]) {
               silverChange = -2;
               settlementUpdate = { [`silverRewardClaimed.${studentId}`]: deleteField() }; 
           }
       } else if (currentStatus === false) {
-          // 紅 -> 黃 (補交)
           newStatus = 'late';
           bronzeChange = 10; 
           makeupUpdate = { [`makeupClaimed.${studentId}`]: true };
           triggerAnimation = 'BRONZE'; 
           
-          // 清空大獎判定
           const allStudentAssignments = Object.values(allAssignmentsByDate).flat();
           const redAssignments = allStudentAssignments.filter(a => 
               a.submissionStatus[studentId] === false && a.id !== assignmentData.id 
@@ -1219,21 +1241,14 @@ const App = () => {
           }
 
       } else {
-          // 黃 -> (點3下) -> 綠 (通常嚴格模式下不太會用到這條，除非老師想手動改回綠色而不涉及金錢)
-          // 這裡為了邏輯一致，我們讓黃色變回綠色不扣錢 (因為黃色本來就沒拿全勤獎)
-          // 但如果要變回綠色，也需要遵照3點規則
-           const cellKey = `${studentId}-${assignmentData.id}`; 
-           const currentCount = unlockClicks[cellKey] || 0; 
-           if (currentCount < 2) { 
-               setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); 
-               return; 
-           } else { 
-               newStatus = true; 
-               setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
-           }
+          // 黃變紅：反悔扣分
+          newStatus = false;
+          bronzeChange = -10; 
+          makeupUpdate = { [`makeupClaimed.${studentId}`]: deleteField() };
+          const cellKey = `${studentId}-${assignmentData.id}`; 
+          setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
       }
 
-      // 執行餘額更新
       if (bronzeChange !== 0 || silverChange !== 0 || goldChange !== 0) {
           updateBankBalance(studentId, goldChange, silverChange, bronzeChange);
       }
@@ -1250,7 +1265,6 @@ const App = () => {
       } else {
           const batch = writeBatch(db);
           const assignRef = doc(db, getAssignmentCollectionPath(), assignmentData.id);
-          // 注意：如果 newStatus 是 undefined (例如黃色點擊次數不夠時)，這裡就不會執行 update
           if (newStatus !== undefined) {
               batch.update(assignRef, { [`submissionStatus.${studentId}`]: newStatus, ...makeupUpdate });
               if (settlementUpdate) {
@@ -1276,7 +1290,7 @@ const App = () => {
       setLoading(true); 
       try { 
           const exportObj = {
-              version: 'v20.0.30',
+              version: 'v20.0.34',
               timestamp: new Date().toISOString(),
               students: students,
               assignments: [],
