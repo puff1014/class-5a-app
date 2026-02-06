@@ -1472,7 +1472,7 @@ const App = () => {
            {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
            
            {/* [V20.0.42 Fix] 表格容器強制鎖定寬度 (max-w-[100vw])，內部允許 overflow-auto */}
-           <div className={`w-full max-w-[100vw] relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[70vh] min-h-[500px] mb-8 bg-white`}> 
+           <div className={`w-full max-w-[100vw] relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[85vh] min-h-[500px] mb-8 bg-white`}> 
                {/* 移除 inline-block，改用 div 讓 table 自然撐開但被父層級截斷產生卷軸 */}
                <div className="min-w-full">
                    {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
