@@ -677,7 +677,7 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
 
     return ( 
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0 print:z-[20000]"> 
-            {/* --- 螢幕顯示區 (列印時隱藏) --- */}
+            {/* --- 螢幕顯示區 (維持原樣，不變動) --- */}
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200 print:hidden"> 
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
                     <h3 className="text-4xl font-bold text-gray-800 flex items-center">
@@ -735,40 +735,43 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                 </div> 
             </div> 
 
-            {/* --- 列印專用區 (螢幕隱藏，列印顯示) --- */}
-            <div className="hidden print:block w-full h-full bg-white text-black p-2">
-                <h1 className="text-4xl font-extrabold text-center mb-2 border-b-4 border-black pb-2">五年甲班 未完成作業待補單</h1>
-                <p className="text-right text-lg font-medium mb-4">列印日期：{new Date().toLocaleDateString('zh-TW')} (共 {studentsWithMissing.length} 人)</p>
+            {/* --- [列印專用區] 修改重點：卡片式設計 + 自動換行 --- */}
+            <div className="hidden print:block w-full h-full bg-white text-black p-4">
+                <h1 className="text-4xl font-extrabold text-center mb-6 border-b-4 border-black pb-4">五年甲班 未完成作業待補單</h1>
+                <p className="text-right text-lg font-medium mb-4">列印日期：{new Date().toLocaleDateString('zh-TW')} (共 {studentsWithMissing.length} 人待補)</p>
 
-                <div className="flex flex-col gap-0 border-t-2 border-black">
+                <div className="flex flex-col gap-6">
                     {studentsWithMissing.map((student) => (
-                        <div key={student.id} className="border-b-2 border-gray-400 py-3 flex gap-4 break-inside-avoid">
-                            {/* 姓名欄 (不印座號) */}
-                            <div className="w-28 shrink-0 flex flex-col justify-start pt-1 border-r border-gray-300 mr-2">
-                                <span className="text-3xl font-black tracking-widest mb-1">{student.name[0] + 'O' + student.name.slice(2)}</span>
-                                <span className="text-base text-gray-600 font-bold">缺交 {student.missingCount} 項</span>
+                        <div key={student.id} className="border-2 border-black rounded-2xl p-4 break-inside-avoid shadow-none">
+                            {/* 卡片標題：姓名 + 統計 */}
+                            <div className="flex justify-between items-center border-b-2 border-gray-300 pb-2 mb-3">
+                                <span className="text-3xl font-black tracking-widest">{student.name[0] + 'O' + student.name.slice(2)}</span>
+                                <span className="text-xl font-bold text-gray-700">共缺交 {student.missingCount} 項</span>
                             </div>
 
-                            {/* 項目欄 (多欄位 Grid + 檢核框 + 日期) */}
-                            <div className="flex-1 grid grid-cols-3 gap-x-4 gap-y-2">
+                            {/* 項目欄：Grid 佈局 + 允許換行 */}
+                            <div className="grid grid-cols-3 gap-x-6 gap-y-3">
                                 {[...student.missingDetails]
                                     .sort((a, b) => a.date.localeCompare(b.date))
                                     .map((detail, idx) => (
-                                    <div key={idx} className="flex items-center text-xl">
+                                    <div key={idx} className="flex items-start text-lg leading-tight">
                                         {/* 檢核框 */}
-                                        <div className="w-5 h-5 border-2 border-black mr-2 shrink-0 bg-white"></div>
-                                        {/* 作業名稱 */}
-                                        <span className="font-bold mr-1 truncate text-black">{detail.assignment}</span>
-                                        {/* 日期 */}
-                                        <span className="text-lg text-gray-600 font-medium shrink-0">
-                                            ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
-                                        </span>
+                                        <div className="w-5 h-5 border-2 border-black mr-2 shrink-0 bg-white mt-0.5"></div>
+                                        
+                                        {/* 作業內容 (允許換行) */}
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-black break-words whitespace-normal">{detail.assignment}</span>
+                                            <span className="text-base text-gray-500 font-medium">
+                                                ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
+                                            </span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     ))}
                 </div>
+                
                 {studentsWithMissing.length === 0 && (
                     <div className="text-center py-20 text-3xl text-gray-400 font-bold border-2 border-dashed border-gray-300 rounded-xl mt-10">
                         恭喜！全班作業皆已完成，無欠交紀錄。
