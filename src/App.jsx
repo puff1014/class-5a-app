@@ -9,7 +9,7 @@ import {
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { 
-  BookOpen, Download, Upload, X, Check, RefreshCw, WifiOff, LogOut, FileText, AlertCircle, Eye, Shield, User, Key, Edit, Pencil, Star, Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity, BarChart2, Megaphone, Lock, Unlock, RotateCw
+  BookOpen, Download, Upload, X, Check, RefreshCw, WifiOff, LogOut, FileText, AlertCircle, Eye, Shield, User, Key, Edit, Pencil, Star, Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity, BarChart2, Megaphone, Lock, Unlock, RotateCw, Printer 
 } from 'lucide-react';
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
@@ -670,20 +670,111 @@ const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
 
 const AllMissingAssignmentsModal = ({ missingStats, onClose }) => { 
     const studentsWithMissing = missingStats.filter(s => s.missingCount > 0); 
+    
+    const handlePrint = () => {
+        window.print();
+    };
+
     return ( 
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4"> 
-            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200"> 
-                <div className="flex justify-between items-center mb-6 border-b pb-4"><h3 className="text-4xl font-bold text-gray-800 flex items-center"><AlertCircle className="w-10 h-10 text-red-500 mr-3" />全班未完成作業總表</h3><button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200"><X className="w-8 h-8" /></button></div> 
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0 print:z-[20000]"> 
+            {/* --- 螢幕顯示區 (列印時隱藏) --- */}
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200 print:hidden"> 
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h3 className="text-4xl font-bold text-gray-800 flex items-center">
+                        <AlertCircle className="w-10 h-10 text-red-500 mr-3" />全班未完成作業總表
+                    </h3>
+                    <div className="flex gap-3">
+                        <button onClick={handlePrint} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xl font-bold transition shadow-sm">
+                            <Printer className="w-6 h-6"/> 列印總表
+                        </button>
+                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+                            <X className="w-8 h-8" />
+                        </button>
+                    </div>
+                </div> 
                 <div className="flex-1 overflow-auto"> 
-                    {studentsWithMissing.length === 0 ? (<div className="h-full flex flex-col items-center justify-center text-gray-400"><Check className="w-24 h-24 mb-4 text-green-400" /><p className="text-4xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p></div>) : ( 
+                    {studentsWithMissing.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                            <Check className="w-24 h-24 mb-4 text-green-400" />
+                            <p className="text-4xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p>
+                        </div>
+                    ) : ( 
                         <table className="min-w-full divide-y divide-gray-300"> 
-                            <thead className="bg-gray-100 sticky top-0 z-10"><tr><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th><th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th><th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th></tr></thead> 
-                            <tbody className="bg-white divide-y divide-gray-200">{studentsWithMissing.map((student) => (<tr key={student.id} className="hover:bg-red-50 transition duration-100"><td className="px-4 py-4 text-2xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td><td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td><td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td><td className="px-6 py-4 text-xl text-gray-700"><ul className="list-disc list-inside space-y-1">{[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW')).map((detail, idx) => (<li key={idx} className="flex items-start"><span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span><span className="font-mono font-medium text-gray-400 text-lg">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span></li>))}</ul></td></tr>))}</tbody> 
+                            <thead className="bg-gray-100 sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th>
+                                    <th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th>
+                                </tr>
+                            </thead> 
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {studentsWithMissing.map((student) => (
+                                    <tr key={student.id} className="hover:bg-red-50 transition duration-100">
+                                        <td className="px-4 py-4 text-2xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td>
+                                        <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td>
+                                        <td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td>
+                                        <td className="px-6 py-4 text-xl text-gray-700">
+                                            <ul className="list-disc list-inside space-y-1">
+                                                {[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW')).map((detail, idx) => (
+                                                    <li key={idx} className="flex items-start">
+                                                        <span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span>
+                                                        <span className="font-mono font-medium text-gray-400 text-lg">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody> 
                         </table> 
                     )} 
                 </div> 
-                <div className="mt-4 pt-4 border-t border-gray-200 text-right"><button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">關閉視窗</button></div> 
+                <div className="mt-4 pt-4 border-t border-gray-200 text-right">
+                    <button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">關閉視窗</button>
+                </div> 
             </div> 
+
+            {/* --- 列印專用區 (螢幕隱藏，列印顯示) --- */}
+            <div className="hidden print:block w-full h-full bg-white text-black p-2">
+                <h1 className="text-4xl font-extrabold text-center mb-2 border-b-4 border-black pb-2">五年甲班 未完成作業待補單</h1>
+                <p className="text-right text-lg font-medium mb-4">列印日期：{new Date().toLocaleDateString('zh-TW')} (共 {studentsWithMissing.length} 人)</p>
+
+                <div className="flex flex-col gap-0 border-t-2 border-black">
+                    {studentsWithMissing.map((student) => (
+                        <div key={student.id} className="border-b-2 border-gray-400 py-3 flex gap-4 break-inside-avoid">
+                            {/* 姓名欄 (不印座號) */}
+                            <div className="w-28 shrink-0 flex flex-col justify-start pt-1 border-r border-gray-300 mr-2">
+                                <span className="text-3xl font-black tracking-widest mb-1">{student.name[0] + 'O' + student.name.slice(2)}</span>
+                                <span className="text-base text-gray-600 font-bold">缺交 {student.missingCount} 項</span>
+                            </div>
+
+                            {/* 項目欄 (多欄位 Grid + 檢核框 + 日期) */}
+                            <div className="flex-1 grid grid-cols-3 gap-x-4 gap-y-2">
+                                {[...student.missingDetails]
+                                    .sort((a, b) => a.date.localeCompare(b.date))
+                                    .map((detail, idx) => (
+                                    <div key={idx} className="flex items-center text-xl">
+                                        {/* 檢核框 */}
+                                        <div className="w-5 h-5 border-2 border-black mr-2 shrink-0 bg-white"></div>
+                                        {/* 作業名稱 */}
+                                        <span className="font-bold mr-1 truncate text-black">{detail.assignment}</span>
+                                        {/* 日期 */}
+                                        <span className="text-lg text-gray-600 font-medium shrink-0">
+                                            ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                {studentsWithMissing.length === 0 && (
+                    <div className="text-center py-20 text-3xl text-gray-400 font-bold border-2 border-dashed border-gray-300 rounded-xl mt-10">
+                        恭喜！全班作業皆已完成，無欠交紀錄。
+                    </div>
+                )}
+            </div>
         </div> 
     ); 
 };
