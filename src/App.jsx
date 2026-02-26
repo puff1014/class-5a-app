@@ -735,7 +735,7 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                 </div> 
             </div> 
 
-            {/* --- [列印專用區] 修改重點：卡片式設計 + 自動換行 --- */}
+            {/* --- [列印專用區] --- */}
             <div className="hidden print:block w-full h-full bg-white text-black p-4">
                 <h1 className="text-4xl font-extrabold text-center mb-6 border-b-4 border-black pb-4">五年甲班 未完成作業待補單</h1>
                 <p className="text-right text-lg font-medium mb-4">列印日期：{new Date().toLocaleDateString('zh-TW')} (共 {studentsWithMissing.length} 人待補)</p>
@@ -743,9 +743,12 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                 <div className="flex flex-col gap-6">
                     {studentsWithMissing.map((student) => (
                         <div key={student.id} className="border-2 border-black rounded-2xl p-4 break-inside-avoid shadow-none">
-                            {/* 卡片標題：姓名 + 統計 */}
+                            {/* 卡片標題：姓名 + 訂正作業表 + 統計 */}
                             <div className="flex justify-between items-center border-b-2 border-gray-300 pb-2 mb-3">
-                                <span className="text-3xl font-black tracking-widest">{student.name[0] + 'O' + student.name.slice(2)}</span>
+                                {/* [修改] 加上「訂正作業表」文字 */}
+                                <span className="text-3xl font-black tracking-widest">
+                                    {student.name[0] + 'O' + student.name.slice(2)} 訂正作業表
+                                </span>
                                 <span className="text-xl font-bold text-gray-700">共缺交 {student.missingCount} 項</span>
                             </div>
 
