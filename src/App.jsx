@@ -20,13 +20,11 @@ const VERSION = 'v20.0.41 - 表頭凍結';
 const appId = 'class-5a-app'; 
 
 const firebaseConfig = {
- apiKey: "AIzaSyArwz6gPeW9lNq_8LOfnKYwZmkRN-Wgtb8",
- authDomain: "class-5a-app.firebaseapp.com",
- projectId: "class-5a-app",
- storageBucket: "class-5a-app.firebasestorage.app",
- messagingSenderId: "828328241350",
- appId: "1:828328241350:web:5d39d529209f87a2540fc7",
- measurementId: "G-8VGE0WKD01"
+  // 因為您是用 Vite 打包，所以語法是 import.meta.env
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY, 
+  authDomain: "class-5a-app.firebaseapp.com",
+  projectId: "class-5a-app",
+  // ... 其他設定保持不變
 };
 
 const ASSETS = {
