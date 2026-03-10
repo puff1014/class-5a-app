@@ -20,11 +20,14 @@ const VERSION = 'v20.0.41 - 表頭凍結';
 const appId = 'class-5a-app'; 
 
 const firebaseConfig = {
-  // 因為您是用 Vite 打包，所以語法是 import.meta.env
+  // Vite 專案必須使用 import.meta.env
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY, 
   authDomain: "class-5a-app.firebaseapp.com",
   projectId: "class-5a-app",
-  // ... 其他設定保持不變
+  storageBucket: "class-5a-app.firebasestorage.app",
+  messagingSenderId: "828328241350",
+  appId: "1:828328241350:web:5d39d529209f87a2540fc7",
+  measurementId: "G-8VGE0WKD01"
 };
 
 const ASSETS = {
@@ -1014,7 +1017,31 @@ const App = () => {
   const semesters = [ { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear }, { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }, ];
   const months = useMemo(() => [ { id: '08', name: `8月`, color: 'bg-green-500', semester: 'S1' }, { id: '09', name: `9月`, color: 'bg-teal-500', semester: 'S1' }, { id: '10', name: `10月`, color: 'bg-cyan-500', semester: 'S1' }, { id: '11', name: `11月`, color: 'bg-blue-500', semester: 'S1' }, { id: '12', name: `12月`, color: 'bg-indigo-500', semester: 'S1' }, { id: '01', name: `1月`, color: 'bg-purple-500', semester: 'S1' }, { id: '02', name: `2月`, color: 'bg-pink-500', semester: 'S2' }, { id: '03', name: `3月`, color: 'bg-rose-500', semester: 'S2' }, { id: '04', name: `4月`, color: 'bg-red-500', semester: 'S2' }, { id: '05', name: `5月`, color: 'bg-orange-500', semester: 'S2' }, { id: '06', name: `6月`, color: 'bg-amber-500', semester: 'S2' }, { id: '07', name: `7月`, color: 'bg-yellow-500', semester: 'S2' }, ], []);
 
-  useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); if (!firebaseConfig) { console.error("Firebase configuration is missing."); setError("無法載入 Firebase 設定。請檢查環境配置。"); setLoading(false); return; } try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { if (user) { setUserId(user.uid); setIsAuthReady(true); setIsAuthenticated(true); if (user.isAnonymous) { setAuthMode('GUEST'); } else { setAuthMode('ADMIN'); } } else { setIsAuthenticated(false); setAuthMode('GUEST'); } setLoadingLogin(false); }); return () => { unsubscribe(); clearTimeout(timer); }; } catch (e) { console.error("Firebase initialization failed:", e); setError("初始化失敗：" + e.message); setLoading(false); } }, []);
+  useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); if (!firebaseConfig) { console.error("Firebase configuration is missing."); setError("無法載入 Firebase 設定。請檢查環境配置。"); setLoading(false); return; } try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { 
+        if (user) { 
+            setUserId(user.uid); 
+            setIsAuthReady(true); 
+            setIsAuthenticated(true); 
+            if (user.isAnonymous) { 
+                setAuthMode('GUEST'); 
+            } else { 
+                setAuthMode('ADMIN'); 
+            } 
+        } else { 
+            setIsAuthenticated(false); 
+            setAuthMode('GUEST'); 
+            setIsAuthReady(true); // 🌟 加了這行：確保沒登入也會標記 Ready，解開轉圈圈死結
+        } 
+        setLoadingLogin(false); 
+      }); 
+
+      return () => { unsubscribe(); clearTimeout(timer); }; 
+    } catch (e) { 
+      console.error("Firebase initialization failed:", e); 
+      setError("初始化失敗：" + e.message); 
+      setLoading(false); 
+    } 
+  }, []);
 
   const handleGoOffline = () => { setIsOffline(true); setUserId('guest_user'); setIsAuthReady(true); setLoading(false); setIsAuthenticated(true); setAuthMode('GUEST'); };
   const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { console.error("Login failed", error); if (error.code === 'auth/invalid-email') { setLoginError('Email 格式不正確'); } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') { setLoginError('帳號或密碼錯誤'); } else if (error.code === 'auth/too-many-requests') { setLoginError('嘗試次數過多，請稍後再試'); } else { setLoginError('登入失敗：' + error.message); } setLoadingLogin(false); } };
