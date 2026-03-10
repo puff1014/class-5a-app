@@ -1452,20 +1452,31 @@ const App = () => {
       }; reader.readAsText(file); 
   }, [db, userId, setAlertMessage, getInitialSubmissionStatus, allAssignmentsByDate, isOffline, authMode]);
 
-  const isGlobalLoading = loading || loadingCategories || loadingStudents;
-  
-  if (isGlobalLoading && !isAuthReady && !isOffline) {
+ // 1. 尚未確認登入狀態時，顯示初始載入畫面
+  if (!isAuthReady && !isOffline) {
     return ( 
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
-        <p className="text-3xl text-gray-600 mb-6">正在連線至雲端資料庫...</p>
+        <p className="text-3xl text-gray-600 mb-6">正在確認連線狀態...</p>
         {authTimeout && ( <div className="text-center animate-fade-in"> <p className="text-2xl text-amber-600 mb-4">連線似乎有點慢，或是無法連接到伺服器。</p> <button onClick={handleGoOffline} className="bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 rounded-xl text-3xl font-bold shadow-lg transition transform hover:scale-105 flex items-center gap-3 mx-auto"> <WifiOff className="w-8 h-8" /> 強制進入 (離線/演示模式) </button> </div> )}
       </div> 
     );
   }
- 
-  if (!isAuthenticated && !loading && !loadingCategories) {
+
+  // 2. 確認狀態後，若「未登入」，直接顯示登入畫面
+  if (!isAuthenticated && !isOffline) {
       return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
+  }
+
+  // 3. 若「已登入」，才開始等待資料載入完成
+  const isGlobalLoading = loading || loadingCategories || loadingStudents;
+  if (isGlobalLoading && !isOffline) {
+    return ( 
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
+        <p className="text-3xl text-gray-600 mb-6">正在載入班級資料...</p>
+      </div> 
+    );
   }
  
   if (error) {
