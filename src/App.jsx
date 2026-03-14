@@ -9,25 +9,25 @@ import {
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { 
-  BookOpen, Download, Upload, X, Check, RefreshCw, WifiOff, LogOut, FileText, AlertCircle, Eye, Shield, User, Key, Edit, Pencil, Star, Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity, BarChart2, Megaphone, Lock, Unlock, RotateCw, Printer 
+  BookOpen, Download, Upload, X, Check, RefreshCw, WifiOff, LogOut, FileText, AlertCircle, Eye, Shield, User, Key, Edit, Pencil, Star, Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity, BarChart2, Megaphone, Lock, Unlock, RotateCw, Printer, BellRing, Type, Minus, Plus 
 } from 'lucide-react';
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-// --- 版本資訊 (V20.0.41) ---
-const VERSION = 'v20.0.41 - 表頭凍結'; 
+// --- 版本資訊 (V20.0.43) ---
+const VERSION = 'v20.0.43 - 全域廣播實裝'; 
 const appId = 'class-5a-app'; 
 
+// 🚨 終極資安防禦：已透過 Google Cloud 設定 HTTP 網域白名單，此金鑰現已受實體隔離保護，可安全運行
 const firebaseConfig = {
-  // Vite 專案必須使用 import.meta.env
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY, 
-  authDomain: "class-5a-app.firebaseapp.com",
-  projectId: "class-5a-app",
-  storageBucket: "class-5a-app.firebasestorage.app",
-  messagingSenderId: "828328241350",
-  appId: "1:828328241350:web:5d39d529209f87a2540fc7",
-  measurementId: "G-8VGE0WKD01"
+ apiKey: "AIzaSyArwz6gPeW9lNq_8LOfnKYwZmkRN-Wgtb8",
+ authDomain: "class-5a-app.firebaseapp.com",
+ projectId: "class-5a-app",
+ storageBucket: "class-5a-app.firebasestorage.app",
+ messagingSenderId: "828328241350",
+ appId: "1:828328241350:web:5d39d529209f87a2540fc7",
+ measurementId: "G-8VGE0WKD01"
 };
 
 const ASSETS = {
@@ -82,7 +82,7 @@ const CustomizedDot = (props) => { const { cx, cy, value } = props; if (!cx || !
 const CustomTooltip = ({ active, payload, label }) => { if (active && payload && payload.length && payload[0].payload) { const data = payload[0].payload; const details = data.details || { onTime: 0, late: 0, missing: 0 }; const safeValue = safeNumber(data.value); return ( <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]"> <p className="text-2xl font-bold text-gray-700 mb-2 border-b pb-2 border-gray-200">{label} <span className="text-blue-600 ml-2">({safeValue.toFixed(1)}分)</span></p> <div className="flex flex-col gap-1 text-xl"> <p className="text-green-700 font-bold">🟢 準時：{safeNumber(details.onTime)}</p> <p className="text-yellow-700 font-bold">🟡 補交：{safeNumber(details.late)}</p> <p className="text-red-600 font-bold">🔴 缺交：{safeNumber(details.missing)}</p> </div> </div> ); } return null; };
 const SimpleLineChart = ({ data, height = 300 }) => { if (!data || !Array.isArray(data) || data.length === 0) { return <div className="h-full flex items-center justify-center text-gray-400 text-2xl font-bold">尚無統計數據</div>; } const cleanData = data.map(item => ({ ...item, value: safeNumber(item.value) })); return ( <ResponsiveContainer width="100%" height={height}> <LineChart data={cleanData} margin={{ top: 80, right: 60, left: 20, bottom: 10 }}> <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" /> <XAxis dataKey="label" tick={{ fontSize: 24, fill: '#6B7280', fontWeight: 'bold' }} axisLine={{ stroke: '#9CA3AF' }} tickLine={false} height={60} /> <YAxis domain={[0, 100]} tick={{ fontSize: 20, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={60} /> <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#9CA3AF', strokeWidth: 2, strokeDasharray: '5 5' }} /> <ReferenceLine y={100} stroke="#E5E7EB" strokeDasharray="3 3" label={{ position: 'top', value: '100', fill: '#D1D5DB', fontSize: 20 }} /> <ReferenceLine y={80} stroke="#4ADE80" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '80 (佳)', fill: '#4ADE80', fontSize: 20, fontWeight: 'bold' }} /> <ReferenceLine y={60} stroke="#F87171" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '60 (及格)', fill: '#F87171', fontSize: 20, fontWeight: 'bold' }} /> <Line type="linear" dataKey="value" stroke="#3B82F6" strokeWidth={6} dot={<CustomizedDot />} activeDot={{ r: 12, strokeWidth: 0 }} animationDuration={1500}> <LabelList dataKey="value" position="top" offset={20} style={{ fontSize: '28px', fontWeight: '900' }} formatter={(val) => safeNumber(val).toFixed(1)} fill="#3B82F6" /> </Line> </LineChart> </ResponsiveContainer> ); };
 
-// --- [V20.0.37] 自定義評價與等級邏輯 (整合用戶提供版本) ---
+// --- 自定義評價與等級邏輯 ---
 const getStatusFeedback = (score, emergency) => {
     if (emergency.isEmergency) return { text: "❌ 紅燈警報！缺交太多了，請檢查聯絡簿。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true };
     const s = parseFloat(score);
@@ -141,13 +141,12 @@ const getOverallBadge = (score) => {
     return { animal: "🌱 種子", comment: "埋入土裡太久了，請讓學習發芽。" };
 };
 
-// --- [V20.0.37] Dashboard Modal ---
+// --- Dashboard Modal ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student) return null;
     const maskedName = student.name[0] + 'O' + student.name.slice(2);
     
-    // 日期計算：防呆
     const getDaysDiff = (dateString, completedAt) => { try { const targetDate = new Date(dateString); if (isNaN(targetDate.getTime())) return 0; targetDate.setHours(0,0,0,0); let completedDate = new Date(); if (completedAt) { if (typeof completedAt.toDate === 'function') completedDate = completedAt.toDate(); else if (completedAt.seconds) completedDate = new Date(completedAt.seconds * 1000); else completedDate = new Date(completedAt); } if (isNaN(completedDate.getTime())) return 0; completedDate.setHours(0,0,0,0); return Math.max(0, Math.floor((completedDate - targetDate) / (1000 * 60 * 60 * 24))); } catch (e) { return 0; } };
     const getDelayFromToday = (dateString) => { try { const today = new Date(); today.setHours(0, 0, 0, 0); const target = new Date(dateString); if (isNaN(target.getTime())) return 0; target.setHours(0, 0, 0, 0); return Math.floor((today - target) / (1000 * 60 * 60 * 24)); } catch(e) { return 0; } };
     
@@ -338,16 +337,14 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         </div>
     );
 };
-// --- [Part 3] 學生存簿系統 & 獎勵特效 ---
 
+// --- 學生存簿系統 & 獎勵特效 ---
 const RewardOverlay = ({ type, onClose }) => {
-    // GOLD_CLEAR 對應音效
     const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
     const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
 
     useEffect(() => { const timer = setTimeout(() => { onClose(); }, duration); return () => clearTimeout(timer); }, [duration, onClose]);
 
-    // GOLD_CLEAR 視覺特效
     if (type === 'GOLD_CLEAR') {
         return (
             <div className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none overflow-hidden">
@@ -373,7 +370,6 @@ const RewardOverlay = ({ type, onClose }) => {
         );
     }
 
-    // 普通補交畫面
     return (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none">
             <audio autoPlay src={soundUrl} />
@@ -388,7 +384,6 @@ const RewardOverlay = ({ type, onClose }) => {
     );
 };
 
-// --- 學生存簿邏輯 Hook ---
 const useStudentBank = (db, isAuthReady, isOffline, students) => {
     const [bankData, setBankData] = useState({});
 
@@ -459,7 +454,6 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
     return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; 
 };
 
-// --- [V20.0.35] 學生存簿介面 (維持 V20.0.30 的設計) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
   const sortedStudents = [...students].sort((a, b) => { 
       const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
@@ -488,14 +482,12 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
   const handleExchange = (studentId, type) => {
       const bal = bankData[studentId] || { gold: 0, silver: 0, bronze: 0 };
       if (type === 'B2S') {
-          // 100 銅換 1 銀
           if ((bal.bronze || 0) >= 100) {
               onUpdateBalance(studentId, 0, 1, -100);
           } else {
               alert("銅幣不足 100，無法兌換！");
           }
       } else if (type === 'S2G') {
-          // 10 銀換 1 金
           if ((bal.silver || 0) >= 10) {
               onUpdateBalance(studentId, 1, -10, 0);
           } else {
@@ -518,8 +510,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-[10000] p-4">
       <div className={`bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col border-4 border-orange-400 transition-colors duration-300`}>
-        
-        {/* Header */}
         <div className="bg-gray-100 p-4 border-b flex justify-between items-center shrink-0">
           <div className="text-3xl font-bold text-gray-700 flex items-center gap-2">
             <span className="text-4xl">💰</span> 訂正存簿
@@ -537,8 +527,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                  <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center border-l border-gray-200">金幣</th>
                  <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
                  <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
-                 
-                 {/* [操作欄] 對所有人開放標題 */}
                  <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto">
                     <span className="text-2xl text-gray-600 block">操作</span>
                  </th>
@@ -569,19 +557,13 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                      </td>
  
                      <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100 group-hover:border-blue-100">
-                         {/* 兌換按鈕 (簡化圖示，所有人可見) */}
                          <div className="flex gap-2">
-                            {/* 100銅換1銀 */}
                             <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 text-gray-700 active:scale-95 transition" title="100銅 換 1銀"><RotateCw className="w-7 h-7"/></button>
-                            {/* 10銀換1金 */}
                             <button onClick={() => handleExchange(student.id, 'S2G')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 border-2 border-yellow-400 text-yellow-700 active:scale-95 transition" title="10銀 換 1金"><RotateCw className="w-7 h-7"/></button>
                          </div>
-
-                         {/* 增減按鈕與歸零 (僅管理員可見) */}
                          {authMode === 'ADMIN' && (
                              <>
                                 <div className="w-[2px] h-10 bg-gray-300 mx-2"></div>
-                                {/* 按鈕不縮小，維持大尺寸 */}
                                 <button onClick={() => onUpdateBalance(student.id, 0, 0, 10)} className="w-12 h-12 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-700 font-black text-3xl flex items-center justify-center shadow-sm" title="增加銅幣">+</button>
                                 <button onClick={() => onUpdateBalance(student.id, 0, 0, -10)} className="w-12 h-12 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-black text-3xl flex items-center justify-center shadow-sm" title="減少銅幣">-</button>
                                 <button onClick={() => handleResetAll(student.id)} className="p-2 ml-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition shadow-sm" title="單人歸零"><Eraser className="w-7 h-7"/></button>
@@ -604,9 +586,8 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
     </div>
   );
 };
-// --- [Part 4] 每日結算 Hook 與 輔助介面元件 ---
 
-// --- 每日結算狀態 Hook ---
+// --- 每日結算 Hook 與 輔助介面元件 ---
 const useDailySettlements = (db, isAuthReady, isOffline) => {
     const [settlements, setSettlements] = useState({}); 
     useEffect(() => {
@@ -623,7 +604,6 @@ const useDailySettlements = (db, isAuthReady, isOffline) => {
     return settlements;
 };
 
-// --- 輔助 UI 元件 ---
 const CustomAlert = ({ message, onClose }) => ( 
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"> 
         <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> 
@@ -678,7 +658,6 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
 
     return ( 
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0 print:z-[20000]"> 
-            {/* --- 螢幕顯示區 (維持原樣，不變動) --- */}
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200 print:hidden"> 
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
                     <h3 className="text-4xl font-bold text-gray-800 flex items-center">
@@ -744,25 +723,19 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                 <div className="flex flex-col gap-6">
                     {studentsWithMissing.map((student) => (
                         <div key={student.id} className="border-2 border-black rounded-2xl p-4 break-inside-avoid shadow-none">
-                            {/* 卡片標題：姓名 + 訂正作業表 + 統計 */}
                             <div className="flex justify-between items-center border-b-2 border-gray-300 pb-2 mb-3">
-                                {/* [修改] 加上「訂正作業表」文字 */}
                                 <span className="text-3xl font-black tracking-widest">
                                     {student.name[0] + 'O' + student.name.slice(2)} 訂正作業表
                                 </span>
                                 <span className="text-xl font-bold text-gray-700">共缺交 {student.missingCount} 項</span>
                             </div>
 
-                            {/* 項目欄：Grid 佈局 + 允許換行 */}
                             <div className="grid grid-cols-3 gap-x-6 gap-y-3">
                                 {[...student.missingDetails]
                                     .sort((a, b) => a.date.localeCompare(b.date))
                                     .map((detail, idx) => (
                                     <div key={idx} className="flex items-start text-lg leading-tight">
-                                        {/* 檢核框 */}
                                         <div className="w-5 h-5 border-2 border-black mr-2 shrink-0 bg-white mt-0.5"></div>
-                                        
-                                        {/* 作業內容 (允許換行) */}
                                         <div className="flex flex-col">
                                             <span className="font-bold text-black break-words whitespace-normal">{detail.assignment}</span>
                                             <span className="text-base text-gray-500 font-medium">
@@ -863,7 +836,6 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
     ); 
 };
 
-// --- [V20.0.38 Fix] 補回 MissingDetailsModal 與其他輔助元件 (Z-Index修正版) ---
 const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStudentGlobalData, db, userId, allAssignmentsByDate, setAlertMessage, isOffline, authMode, updateBankBalance, setRewardState }) => { 
     const [selectedItemIds, setSelectedItemIds] = useState([]); 
     const stat = missingStats.find(s => s.id === student.id); 
@@ -916,7 +888,6 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
     if (!hasMissingItems) return null; 
     const batchButtonTitle = authMode === 'ADMIN' ? "按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)" : undefined; 
     
-    // [V20.0.38 Fix] 將 z-50 改為 z-[10000] 以確保蓋過表格標題
     return ( 
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-2"> 
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full transform transition-all duration-300 scale-100 max-h-[95vh] flex flex-col"> 
@@ -945,8 +916,8 @@ const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment,
 const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => { const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); const handleDoubleClick = (e) => { if (authMode === 'ADMIN' && isSelected && onEdit) { e.stopPropagation(); onEdit(); } }; return ( <div className="relative group"> <button onClick={() => onClick(date)} onDoubleClick={handleDoubleClick} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`} title={authMode === 'ADMIN' && isSelected ? "雙擊以修改日期" : ""}> {formattedDate} {isSelected && authMode === 'ADMIN' && ( <span onClick={(e) => { e.stopPropagation(); onEdit(); }} className="inline-flex items-center justify-center p-1 bg-white/20 rounded-full hover:bg-white/40 cursor-pointer transition-colors" title="點擊修改日期"> <Pencil className="w-4 h-4 text-white" /> </span> )} </button> </div> ); };
 
 const ProtectedButton = ({ onClick, disabled, className, title, children }) => { return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> ); };
-// --- [Part 5] 資料 Hooks 與 App 主邏輯 ---
 
+// --- 資料 Hooks 與 App 主邏輯 ---
 const useStudents = (db, isOffline) => {
    const [students, setStudents] = useState(DEFAULT_STUDENTS);
    const [loadingStudents, setLoadingStudents] = useState(true);
@@ -1006,6 +977,16 @@ const App = () => {
   const [rewardState, setRewardState] = useState(null);
   const [dashboardStudent, setDashboardStudent] = useState(null);
   
+  // 新增：全域廣播相關狀態
+  const [broadcastData, setBroadcastData] = useState(null);
+  const [dismissedBroadcastTime, setDismissedBroadcastTime] = useState(null);
+  const [showBroadcastEditor, setShowBroadcastEditor] = useState(false);
+  const [broadcastInput, setBroadcastInput] = useState("");
+  const [bcBgColor, setBcBgColor] = useState("bg-white");
+  const [bcTextColor, setBcTextColor] = useState("text-slate-800");
+  const [bcFontSize, setBcFontSize] = useState(80);
+  const [bcBiauKai, setBcBiauKai] = useState(false);
+  
   const { students, loadingStudents } = useStudents(db, isOffline);
   const { bankData, updateBankBalance, setBankBalanceDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students);
   const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
@@ -1017,36 +998,25 @@ const App = () => {
   const semesters = [ { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear }, { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }, ];
   const months = useMemo(() => [ { id: '08', name: `8月`, color: 'bg-green-500', semester: 'S1' }, { id: '09', name: `9月`, color: 'bg-teal-500', semester: 'S1' }, { id: '10', name: `10月`, color: 'bg-cyan-500', semester: 'S1' }, { id: '11', name: `11月`, color: 'bg-blue-500', semester: 'S1' }, { id: '12', name: `12月`, color: 'bg-indigo-500', semester: 'S1' }, { id: '01', name: `1月`, color: 'bg-purple-500', semester: 'S1' }, { id: '02', name: `2月`, color: 'bg-pink-500', semester: 'S2' }, { id: '03', name: `3月`, color: 'bg-rose-500', semester: 'S2' }, { id: '04', name: `4月`, color: 'bg-red-500', semester: 'S2' }, { id: '05', name: `5月`, color: 'bg-orange-500', semester: 'S2' }, { id: '06', name: `6月`, color: 'bg-amber-500', semester: 'S2' }, { id: '07', name: `7月`, color: 'bg-yellow-500', semester: 'S2' }, ], []);
 
-  useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); if (!firebaseConfig) { console.error("Firebase configuration is missing."); setError("無法載入 Firebase 設定。請檢查環境配置。"); setLoading(false); return; } try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { 
-        if (user) { 
-            setUserId(user.uid); 
-            setIsAuthReady(true); 
-            setIsAuthenticated(true); 
-            if (user.isAnonymous) { 
-                setAuthMode('GUEST'); 
-            } else { 
-                setAuthMode('ADMIN'); 
-            } 
-        } else { 
-            setIsAuthenticated(false); 
-            setAuthMode('GUEST'); 
-            setIsAuthReady(true); // 🌟 加了這行：確保沒登入也會標記 Ready，解開轉圈圈死結
-        } 
-        setLoadingLogin(false); 
-      }); 
-
-      return () => { unsubscribe(); clearTimeout(timer); }; 
-    } catch (e) { 
-      console.error("Firebase initialization failed:", e); 
-      setError("初始化失敗：" + e.message); 
-      setLoading(false); 
-    } 
-  }, []);
+  useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); if (!firebaseConfig) { console.error("Firebase configuration is missing."); setError("無法載入 Firebase 設定。請檢查環境配置。"); setLoading(false); return; } try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { if (user) { setUserId(user.uid); setIsAuthReady(true); setIsAuthenticated(true); if (user.isAnonymous) { setAuthMode('GUEST'); } else { setAuthMode('ADMIN'); } } else { setIsAuthenticated(false); setAuthMode('GUEST'); } setLoadingLogin(false); }); return () => { unsubscribe(); clearTimeout(timer); }; } catch (e) { console.error("Firebase initialization failed:", e); setError("初始化失敗：" + e.message); setLoading(false); } }, []);
 
   const handleGoOffline = () => { setIsOffline(true); setUserId('guest_user'); setIsAuthReady(true); setLoading(false); setIsAuthenticated(true); setAuthMode('GUEST'); };
   const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { console.error("Login failed", error); if (error.code === 'auth/invalid-email') { setLoginError('Email 格式不正確'); } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') { setLoginError('帳號或密碼錯誤'); } else if (error.code === 'auth/too-many-requests') { setLoginError('嘗試次數過多，請稍後再試'); } else { setLoginError('登入失敗：' + error.message); } setLoadingLogin(false); } };
   const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
   const handleLogout = async () => { try { await signOut(auth); setIsAuthenticated(false); setAuthMode('GUEST'); } catch (e) { console.error("Logout failed", e); } };
+
+  // 新增：獨立的全域廣播雷達監聽器
+  useEffect(() => {
+    if (!db) return;
+    const unsubscribeBroadcast = onSnapshot(doc(db, "broadcasts", "current"), (snap) => {
+      if (snap.exists()) {
+        setBroadcastData(snap.data());
+      } else {
+        setBroadcastData(null);
+      }
+    });
+    return () => unsubscribeBroadcast();
+  }, [db]);
 
   useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const currentSemData = semesters.find(s => s.id === selectedSemester); let q; if (currentSemData) { const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`; const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`; q = query( assignmentsCollection, where("assignmentDate", ">=", startDate), where("assignmentDate", "<=", endDate) ); } else { q = query(assignmentsCollection); } const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, completedAt: data.completedAt || {}, makeupClaimed: data.makeupClaimed || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]);
   const assignmentsForSelectedDate = useMemo(() => { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; return assignments.sort((a, b) => a.order - b.order); }, [allAssignmentsByDate, selectedDisplayDate]);
@@ -1135,7 +1105,6 @@ const App = () => {
       }
   }, [newAssignmentDate, allAssignmentsByDate, isOffline, categories, getInitialSubmissionStatus, db, userId]);
 
-  // [V20.0.35] 新增作業 (修正排序 + 確保順序)
   const handleAddNewAssignment = useCallback(async () => {
       if (!selectedDisplayDate) { alert("請先選擇或新增一個日期。"); return; }
       
@@ -1185,7 +1154,6 @@ const App = () => {
       const docRef = doc(db, getAssignmentCollectionPath(), id); await setDoc(docRef, { assignmentName: newName }, { merge: true });
   }, [isOffline, db, selectedDisplayDate]);
 
-  // [V20.0.35] 拖曳排序優化 (過濾空值，避免 undefined)
   const handleMoveAssignment = useCallback(async (dragId, hoverId) => {
       const items = [...assignmentsForSelectedDate]; 
       const dragIndex = items.findIndex(i => i.id === dragId); 
@@ -1198,7 +1166,6 @@ const App = () => {
       newItems.splice(dragIndex, 1); 
       newItems.splice(hoverIndex, 0, dragItem); 
       
-      // [關鍵] 加入 filter(i => i) 防止產生 empty slot
       const updatedItems = newItems.filter(i => i).map((item, index) => ({ ...item, order: index })); 
       
       setAllAssignmentsByDate(prev => ({ 
@@ -1299,7 +1266,6 @@ const App = () => {
     }
   }, [selectedDisplayDate, dailySettlements, assignmentsForSelectedDate, students, isOffline, db, updateBankBalance, isDaySettled]);
 
-  // --- [V20.0.35] 燈號切換邏輯 (維持 V20.0.30 嚴格計分 + 3-Click) ---
   const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => { 
       const assignmentData = assignmentMap[assignmentName]; 
       if (!assignmentData) return; 
@@ -1374,7 +1340,6 @@ const App = () => {
           }
 
       } else {
-          // 黃變紅：反悔扣分
           newStatus = false;
           bronzeChange = -10; 
           makeupUpdate = { [`makeupClaimed.${studentId}`]: deleteField() };
@@ -1479,31 +1444,20 @@ const App = () => {
       }; reader.readAsText(file); 
   }, [db, userId, setAlertMessage, getInitialSubmissionStatus, allAssignmentsByDate, isOffline, authMode]);
 
- // 1. 尚未確認登入狀態時，顯示初始載入畫面
-  if (!isAuthReady && !isOffline) {
+  const isGlobalLoading = loading || loadingCategories || loadingStudents;
+  
+  if (isGlobalLoading && !isAuthReady && !isOffline) {
     return ( 
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
-        <p className="text-3xl text-gray-600 mb-6">正在確認連線狀態...</p>
+        <p className="text-3xl text-gray-600 mb-6">正在連線至雲端資料庫...</p>
         {authTimeout && ( <div className="text-center animate-fade-in"> <p className="text-2xl text-amber-600 mb-4">連線似乎有點慢，或是無法連接到伺服器。</p> <button onClick={handleGoOffline} className="bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 rounded-xl text-3xl font-bold shadow-lg transition transform hover:scale-105 flex items-center gap-3 mx-auto"> <WifiOff className="w-8 h-8" /> 強制進入 (離線/演示模式) </button> </div> )}
       </div> 
     );
   }
-
-  // 2. 確認狀態後，若「未登入」，直接顯示登入畫面
-  if (!isAuthenticated && !isOffline) {
+ 
+  if (!isAuthenticated && !loading && !loadingCategories) {
       return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
-  }
-
-  // 3. 若「已登入」，才開始等待資料載入完成
-  const isGlobalLoading = loading || loadingCategories || loadingStudents;
-  if (isGlobalLoading && !isOffline) {
-    return ( 
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
-        <p className="text-3xl text-gray-600 mb-6">正在載入班級資料...</p>
-      </div> 
-    );
   }
  
   if (error) {
@@ -1521,7 +1475,7 @@ const App = () => {
      {dashboardStudent && ( <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={() => setDashboardStudent(null)} /> )}
      {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
      
-     {/* 未訂正視窗 (Z-Index Fix 已於 Part 3 修正) */}
+     {/* 未訂正視窗 */}
      {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={students.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} updateBankBalance={updateBankBalance} setRewardState={setRewardState} /> )}
      
      {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
@@ -1548,14 +1502,23 @@ const App = () => {
                <div className="flex items-center gap-3">
                    <button onClick={() => setShowBankModal(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md flex items-center justify-center" disabled={isGlobalLoading}> <BookOpen className="h-6 w-6 mr-2" />訂正存簿 </button>
                    {authMode === 'ADMIN' && (
-                       <button 
-                           onClick={handleBatchSettlement} 
-                           className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-500 hover:bg-gray-600' : 'bg-indigo-600 hover:bg-indigo-700'}`} 
-                           disabled={isGlobalLoading}
-                           title={dailySettlements[selectedDisplayDate]?.isSettled ? "點擊以補發給新完成的學生" : "結算並發放銀幣給全對學生"}
-                       > 
-                           {dailySettlements[selectedDisplayDate]?.isSettled ? <><Lock className="h-6 w-6 mr-2" />已發布(可補發)</> : <><Megaphone className="h-6 w-6 mr-2" />結算發布</>}
-                       </button>
+                       <>
+                           <button 
+                               onClick={handleBatchSettlement} 
+                               className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-500 hover:bg-gray-600' : 'bg-indigo-600 hover:bg-indigo-700'}`} 
+                               disabled={isGlobalLoading}
+                               title={dailySettlements[selectedDisplayDate]?.isSettled ? "點擊以補發給新完成的學生" : "結算並發放銀幣給全對學生"}
+                           > 
+                               {dailySettlements[selectedDisplayDate]?.isSettled ? <><Lock className="h-6 w-6 mr-2" />已發布(可補發)</> : <><Megaphone className="h-6 w-6 mr-2" />結算發布</>}
+                           </button>
+                           <button 
+                               onClick={() => setShowBroadcastEditor(true)} 
+                               className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md flex items-center justify-center" 
+                               disabled={isGlobalLoading}
+                           > 
+                               <Megaphone className="h-6 w-6 mr-2" />全域廣播 
+                           </button>
+                       </>
                    )}
                </div>
            </div>
@@ -1604,17 +1567,13 @@ const App = () => {
  
            {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
            
-           {/* [V20.0.42 Fix] 表格容器強制鎖定寬度 (max-w-[100vw])，內部允許 overflow-auto */}
            <div className={`w-full max-w-[100vw] relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[90vh] min-h-[500px] mb-8 bg-white`}> 
-               {/* 移除 inline-block，改用 div 讓 table 自然撐開但被父層級截斷產生卷軸 */}
                <div className="min-w-full">
                    {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
                         <table className="divide-y divide-gray-300 min-w-full w-max">
                            <thead className="bg-gray-100 sticky top-0 z-40">
                                <tr>
-                                   {/* [V20.0.40] 凍結座號：sticky left-0, bg-gray-100 (不透明), z-50 (最高) */}
                                    <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 sticky left-0 top-0 z-50 bg-gray-100 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '100px', width: '100px', maxWidth: '100px' }}>座號</th>
-                                   {/* [V20.0.42] 凍結姓名：sticky left-[100px], bg-gray-100, z-50 + 強制右側邊框陰影 */}
                                    <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 sticky top-0 left-[100px] z-50 bg-gray-100 text-center shadow-[4px_0_10px_-2px_rgba(0,0,0,0.3)] border-r-4 border-gray-300" style={{ minWidth: '128px', width: '128px', maxWidth: '128px' }}>姓名</th>
                                    {assignmentsForSelectedDate.map((assignment) => (
                                        <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} authMode={authMode} />
@@ -1624,11 +1583,9 @@ const App = () => {
                            <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
                                {(focusedStudentId ? students.filter(s => s.id === focusedStudentId) : students).map((student) => (
                                    <tr key={student.id} className={`group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
-                                           {/* [V20.0.40] 凍結座號Body：sticky left-0, bg-white (關鍵！不透明背景) */}
                                            <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 sticky left-0 z-30 bg-white text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words align-middle transition-colors" title="點擊查看學習歷程" style={{ minWidth: '100px', width: '100px', maxWidth: '100px' }}>
                                                {student.id}
                                            </td>
-                                           {/* [V20.0.42] 凍結姓名Body：sticky left-[100px], bg-white + 強制右側邊框 */}
                                            <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold sticky left-[100px] z-30 bg-white text-center shadow-[4px_0_10px_-2px_rgba(0,0,0,0.3)] border-r-4 border-gray-300 cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 align-middle transition-colors" title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"} style={{ minWidth: '128px', width: '128px', maxWidth: '128px' }}>
                                                {student.name[0] + 'O' + student.name.slice(2)}
                                            </td>
@@ -1665,6 +1622,134 @@ const App = () => {
            </div>
            <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
        </div>
+       
+       {/* 新增：全域廣播接收視窗 (學生與大螢幕用) */}
+       {(() => {
+           const currentBroadcastId = broadcastData?.timestamp?.toMillis?.() || broadcastData?.message;
+           const isBroadcastVisible = broadcastData?.active && currentBroadcastId && currentBroadcastId !== dismissedBroadcastTime;
+           
+           if (!isBroadcastVisible) return null;
+           
+           const settings = broadcastData.settings || { bgColor: 'bg-amber-400', textColor: 'text-slate-900', fontSize: 80, biauKai: false };
+           
+           return (
+             <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[99999] flex items-center justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-300 print:hidden">
+               <div className={`${settings.bgColor} rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,0.5)] p-8 md:p-16 w-full max-w-[95vw] min-h-[80vh] border-[16px] border-white/20 flex flex-col items-center justify-center text-center relative`}>
+                 <div className="absolute -top-20 bg-white/20 backdrop-blur-md p-6 rounded-full border-8 border-white/30 shadow-xl animate-bounce">
+                   <BellRing size={80} className={settings.textColor}/>
+                 </div>
+                 <div className="flex-1 flex items-center justify-center w-full py-12">
+                   <p 
+                      style={{ 
+                          fontSize: `${settings.fontSize}px`, 
+                          fontFamily: settings.biauKai ? '"BiauKai", "DFKai-SB", "標楷體", serif' : 'inherit' 
+                      }} 
+                      className={`font-black ${settings.textColor} leading-snug whitespace-pre-wrap break-words w-full max-h-[60vh] overflow-y-auto custom-scrollbar`}
+                   >
+                      {broadcastData.message}
+                   </p>
+                 </div>
+                 <button 
+                   onClick={() => setDismissedBroadcastTime(currentBroadcastId)} 
+                   className={`w-full max-w-2xl bg-black/20 hover:bg-black/40 ${settings.textColor} border-4 border-black/10 text-5xl font-black py-6 rounded-[2.5rem] shadow-xl transition-all active:scale-95 shrink-0`}
+                 >
+                   我知道了！
+                 </button>
+               </div>
+             </div>
+           );
+       })()}
+
+       {/* 新增：廣播發布編輯器 (教師用) */}
+       {showBroadcastEditor && authMode === 'ADMIN' && (
+         <div className="fixed inset-0 bg-sky-900/90 backdrop-blur-md z-[100000] flex items-center justify-center p-4 animate-in fade-in print:hidden">
+           <div className="bg-white rounded-[3rem] shadow-2xl p-10 w-full max-w-5xl border-8 border-sky-200 relative zoom-in-95 flex flex-col max-h-[95vh]">
+             <button onClick={() => setShowBroadcastEditor(false)} className="absolute top-6 right-6 p-3 text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 rounded-full transition-colors"><X size={32}/></button>
+             <h2 className="text-4xl font-black text-sky-800 flex items-center gap-4 mb-6 border-b-4 border-sky-100 pb-4 shrink-0"><Megaphone size={48}/> 全域廣播控制台</h2>
+             
+             <div className="flex flex-col gap-6 overflow-y-auto pr-4 custom-scrollbar shrink">
+                 <div className="flex flex-col gap-2">
+                     <label className="text-2xl font-bold text-slate-600 flex items-center gap-2"><Type size={28}/> 廣播內容與即時預覽</label>
+                     <textarea 
+                       value={broadcastInput} 
+                       onChange={e => setBroadcastInput(e.target.value)} 
+                       style={{ 
+                          fontSize: `${Math.min(bcFontSize, 60)}px`,
+                          fontFamily: bcBiauKai ? '"BiauKai", "DFKai-SB", "標楷體", serif' : 'inherit' 
+                       }}
+                       className={`w-full min-h-[300px] p-8 border-4 border-slate-200 rounded-[2rem] font-black focus:outline-none focus:border-sky-400 transition-colors shadow-inner ${bcBgColor} ${bcTextColor}`} 
+                       placeholder="請輸入要廣播給全班的任務或提醒..."
+                     ></textarea>
+                 </div>
+
+                 <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="space-y-4">
+                         <label className="text-2xl font-bold text-slate-600 border-b-2 border-slate-200 pb-2 block">字體設定</label>
+                         <div className="flex items-center gap-4">
+                             <button onClick={() => setBcBiauKai(!bcBiauKai)} className={`flex-1 py-4 rounded-2xl text-2xl font-bold transition-all border-2 ${bcBiauKai ? 'bg-sky-500 text-white border-sky-600 shadow-md' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'}`}>切換標楷體</button>
+                             <div className="flex items-center bg-white border-2 border-slate-300 rounded-2xl overflow-hidden shadow-sm">
+                                 <button onClick={() => setBcFontSize(f => Math.max(30, f - 10))} className="p-4 hover:bg-slate-100 text-slate-600 transition-colors"><Minus size={28}/></button>
+                                 <span className="w-20 text-center text-3xl font-black text-slate-800">{bcFontSize}</span>
+                                 <button onClick={() => setBcFontSize(f => Math.min(150, f + 10))} className="p-4 hover:bg-slate-100 text-slate-600 transition-colors"><Plus size={28}/></button>
+                             </div>
+                         </div>
+                     </div>
+                     <div className="space-y-4">
+                         <label className="text-2xl font-bold text-slate-600 border-b-2 border-slate-200 pb-2 block">戰術色彩主題</label>
+                         <div className="flex flex-wrap gap-4">
+                             {[
+                               { bg: 'bg-white', text: 'text-slate-800' },
+                               { bg: 'bg-amber-400', text: 'text-slate-900' },
+                               { bg: 'bg-rose-600', text: 'text-white' },
+                               { bg: 'bg-emerald-500', text: 'text-white' },
+                               { bg: 'bg-blue-600', text: 'text-white' },
+                               { bg: 'bg-slate-900', text: 'text-yellow-400' }
+                             ].map((theme, i) => (
+                                 <button 
+                                   key={i}
+                                   onClick={() => { setBcBgColor(theme.bg); setBcTextColor(theme.text); }}
+                                   className={`w-16 h-16 rounded-full border-4 shadow-md flex items-center justify-center transition-all active:scale-90 ${theme.bg} ${bcBgColor === theme.bg ? 'border-sky-400 scale-110 ring-4 ring-sky-200' : (theme.bg === 'bg-white' ? 'border-slate-200 hover:border-slate-400 hover:scale-105' : 'border-white hover:border-slate-300 hover:scale-105')}`}
+                                   title="套用主題"
+                                 >
+                                   <span className={`text-2xl font-black ${theme.text}`}>A</span>
+                                 </button>
+                             ))}
+                         </div>
+                     </div>
+                 </div>
+             </div>
+             
+             <div className="flex gap-6 mt-8 pt-6 border-t-4 border-sky-100 shrink-0">
+               <button 
+                 onClick={async () => {
+                   if(!broadcastInput.trim()) return;
+                   await setDoc(doc(db, "broadcasts", "current"), { 
+                       message: broadcastInput.trim(), 
+                       timestamp: serverTimestamp(), 
+                       active: true,
+                       settings: { bgColor: bcBgColor, textColor: bcTextColor, fontSize: bcFontSize, biauKai: bcBiauKai }
+                   });
+                   setShowBroadcastEditor(false);
+                 }} 
+                 className="flex-1 bg-sky-500 hover:bg-sky-600 text-white text-3xl font-black py-5 rounded-2xl shadow-xl transition-transform active:scale-95 flex items-center justify-center gap-3"
+               >
+                 <Megaphone size={36}/> 立即發布全班廣播
+               </button>
+               <button 
+                 onClick={async () => {
+                   await setDoc(doc(db, "broadcasts", "current"), { active: false }, { merge: true });
+                   setShowBroadcastEditor(false);
+                   setBroadcastInput("");
+                 }} 
+                 className="px-8 bg-slate-200 hover:bg-slate-300 text-slate-700 text-2xl font-bold py-5 rounded-2xl transition-all border-2 border-slate-300 active:scale-95"
+               >
+                 收回並清除
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
+
      </div>
    </div>
    </DndProvider>
