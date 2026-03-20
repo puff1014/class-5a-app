@@ -455,14 +455,18 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
 };
 
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
-  const sortedStudents = [...students].sort((a, b) => { 
-      const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
-      const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 }; 
-      if (bankA.gold !== bankB.gold) return bankB.gold - bankA.gold; 
-      if (bankA.silver !== bankB.silver) return bankB.silver - bankA.silver; 
-      if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze; 
-      return parseInt(a.id) - parseInt(b.id); 
-  });
+  // 🌟 關鍵優化：使用 useMemo 並將依賴項設為空陣列 []
+  // 這樣只有在「視窗剛開啟」的那一刻會計算排序，之後在視窗開啟期間名單順序就不會再變動
+  const sortedStudents = useMemo(() => {
+    return [...students].sort((a, b) => { 
+        const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
+        const bankB = bankData[b.id] || { bronze: 0, silver: 0, gold: 0 }; 
+        if (bankA.gold !== bankB.gold) return bankB.gold - bankA.gold; 
+        if (bankA.silver !== bankB.silver) return bankB.silver - bankA.silver; 
+        if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze; 
+        return parseInt(a.id) - parseInt(b.id); 
+    });
+  }, []); // 🌟 注意：這裡故意不放 bankData，確保開啟期間順序結凍
 
   const handleInputChange = (studentId, type, value) => {
     if (authMode !== 'ADMIN') return;
@@ -482,17 +486,11 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
   const handleExchange = (studentId, type) => {
       const bal = bankData[studentId] || { gold: 0, silver: 0, bronze: 0 };
       if (type === 'B2S') {
-          if ((bal.bronze || 0) >= 100) {
-              onUpdateBalance(studentId, 0, 1, -100);
-          } else {
-              alert("銅幣不足 100，無法兌換！");
-          }
+          if ((bal.bronze || 0) >= 100) { onUpdateBalance(studentId, 0, 1, -100); } 
+          else { alert("銅幣不足 100，無法兌換！"); }
       } else if (type === 'S2G') {
-          if ((bal.silver || 0) >= 10) {
-              onUpdateBalance(studentId, 1, -10, 0);
-          } else {
-              alert("銀幣不足 10，無法兌換！");
-          }
+          if ((bal.silver || 0) >= 10) { onUpdateBalance(studentId, 1, -10, 0); } 
+          else { alert("銀幣不足 10，無法兌換！"); }
       }
   };
 
@@ -503,7 +501,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
       students.forEach(s => {
           setBankBalanceDirectly(s.id, 'gold', 0);
           setBankBalanceDirectly(s.id, 'silver', 0);
-          setBankBalanceDirectly(s.id, 'bronze', 0);
+          setBankBalanceDirectly(studentId, 'bronze', 0);
       });
   };
 
@@ -512,7 +510,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
       <div className={`bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col border-4 border-orange-400 transition-colors duration-300`}>
         <div className="bg-gray-100 p-4 border-b flex justify-between items-center shrink-0">
           <div className="text-3xl font-bold text-gray-700 flex items-center gap-2">
-            <span className="text-4xl">💰</span> 訂正存簿
+            <span className="text-4xl">💰</span> 訂正存簿 <span className="text-xl font-normal text-gray-400 ml-4">(修改期間順序固定，重新開啟後更新排名)</span>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X className="w-8 h-8" /></button>
         </div>
@@ -520,59 +518,58 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
         <div className={`flex-1 overflow-auto p-4 bg-orange-50`}>
           <table className="w-full bg-white shadow-sm rounded-lg border border-gray-200 relative">
             <thead className="bg-gray-100 sticky top-0 z-[100] shadow-md">
-               <tr className="border-b-2 border-gray-300">
-                 <th className="p-3 text-2xl w-20 text-center bg-gray-100">名次</th>
-                 <th className="p-3 text-2xl w-24 text-center bg-gray-100">座號</th>
-                 <th className="p-3 text-2xl text-left bg-gray-100">姓名</th>
-                 <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center border-l border-gray-200">金幣</th>
-                 <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
-                 <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
-                 <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto">
+                <tr className="border-b-2 border-gray-300">
+                  <th className="p-3 text-2xl w-20 text-center bg-gray-100">排名</th>
+                  <th className="p-3 text-2xl w-24 text-center bg-gray-100">座號</th>
+                  <th className="p-3 text-2xl text-left bg-gray-100">姓名</th>
+                  <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center border-l border-gray-200">金幣</th>
+                  <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
+                  <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
+                  <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto">
                     <span className="text-2xl text-gray-600 block">操作</span>
-                 </th>
-               </tr>
+                  </th>
+                </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-               {sortedStudents.map((student, idx) => {
-                 const bal = bankData[student.id] || { gold: 0, silver: 0, bronze: 0 };
-                 let rankIcon = idx < 3 ? ["🥇","🥈","🥉"][idx] : idx + 1;
-                 
-                 return (
-                   <tr key={student.id} className="hover:bg-blue-50 transition duration-150 group">
-                     <td className="p-3 text-center text-3xl font-black text-gray-500">{rankIcon}</td>
-                     <td className="p-3 text-center text-2xl font-bold text-gray-600">{student.id}</td>
-                     <td className="p-3 text-2xl font-bold text-gray-800">{student.name[0] + 'O' + student.name.slice(2)}</td>
-                     
-                     <td className="p-2 text-center bg-yellow-50/30 border-l border-gray-100 group-hover:border-blue-100">
-                       <input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} 
-                         className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" />
-                     </td>
-                     <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100 group-hover:border-blue-100">
-                       <input type="number" value={bal.silver || 0} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} 
-                         className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none hover:bg-white/50 rounded" />
-                     </td>
-                     <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100 group-hover:border-blue-100">
-                       <input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} 
-                         className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" />
-                     </td>
- 
-                     <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100 group-hover:border-blue-100">
-                         <div className="flex gap-2">
+                {sortedStudents.map((student, idx) => {
+                  // 這裡改用傳入的 bankData 即時抓取最新金額，但學生順序是由 sortedStudents 決定的
+                  const bal = bankData[student.id] || { gold: 0, silver: 0, bronze: 0 };
+                  let rankIcon = idx < 3 ? ["🥇","🥈","🥉"][idx] : idx + 1;
+                  
+                  return (
+                    <tr key={student.id} className="hover:bg-blue-50 transition duration-150 group">
+                      <td className="p-3 text-center text-3xl font-black text-gray-400">{rankIcon}</td>
+                      <td className="p-3 text-center text-2xl font-bold text-gray-600">{student.id}</td>
+                      <td className="p-3 text-2xl font-bold text-gray-800">{student.name[0] + 'O' + student.name.slice(2)}</td>
+                      <td className="p-2 text-center bg-yellow-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                        <input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} 
+                          className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" />
+                      </td>
+                      <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                        <input type="number" value={bal.silver || 0} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} 
+                          className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none hover:bg-white/50 rounded" />
+                      </td>
+                      <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                        <input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} 
+                          className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" />
+                      </td>
+                      <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100 group-hover:border-blue-100">
+                          <div className="flex gap-2">
                             <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 text-gray-700 active:scale-95 transition" title="100銅 換 1銀"><RotateCw className="w-7 h-7"/></button>
                             <button onClick={() => handleExchange(student.id, 'S2G')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 border-2 border-yellow-400 text-yellow-700 active:scale-95 transition" title="10銀 換 1金"><RotateCw className="w-7 h-7"/></button>
-                         </div>
-                         {authMode === 'ADMIN' && (
-                             <>
+                          </div>
+                          {authMode === 'ADMIN' && (
+                              <>
                                 <div className="w-[2px] h-10 bg-gray-300 mx-2"></div>
                                 <button onClick={() => onUpdateBalance(student.id, 0, 0, 10)} className="w-12 h-12 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-700 font-black text-3xl flex items-center justify-center shadow-sm" title="增加銅幣">+</button>
                                 <button onClick={() => onUpdateBalance(student.id, 0, 0, -10)} className="w-12 h-12 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-black text-3xl flex items-center justify-center shadow-sm" title="減少銅幣">-</button>
                                 <button onClick={() => handleResetAll(student.id)} className="p-2 ml-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition shadow-sm" title="單人歸零"><Eraser className="w-7 h-7"/></button>
-                             </>
-                         )}
-                     </td>
-                   </tr>
-                 );
-               })}
+                              </>
+                          )}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>
@@ -586,7 +583,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
     </div>
   );
 };
-
 // --- 每日結算 Hook 與 輔助介面元件 ---
 const useDailySettlements = (db, isAuthReady, isOffline) => {
     const [settlements, setSettlements] = useState({}); 
