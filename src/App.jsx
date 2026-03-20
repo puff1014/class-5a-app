@@ -517,7 +517,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
         {/* 表格容器加入 overflow-auto */}
         <div className={`flex-1 overflow-auto p-4 bg-orange-50`}>
           <table className="w-full bg-white shadow-sm rounded-lg border border-gray-200 relative border-collapse">
-            <thead className="bg-gray-100 sticky top-0 z-[110] shadow-md">
+            <thead className="bg-gray-100 sticky top-0 z-[150] shadow-md">
                 <tr className="border-b-2 border-gray-300">
                   {/* 凍結表頭 */}
                   <th className="p-3 text-2xl w-20 text-center bg-gray-100 sticky left-0 z-[120]">排名</th>
