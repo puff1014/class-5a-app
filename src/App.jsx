@@ -454,9 +454,8 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
     return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; 
 };
 
+// --- [V20.0.43] 學生存簿介面 (修正：滾動時固定姓名欄) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
-  // 🌟 關鍵優化：使用 useMemo 並將依賴項設為空陣列 []
-  // 這樣只有在「視窗剛開啟」的那一刻會計算排序，之後在視窗開啟期間名單順序就不會再變動
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) => { 
         const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
@@ -466,7 +465,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
         if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze; 
         return parseInt(a.id) - parseInt(b.id); 
     });
-  }, []); // 🌟 注意：這裡故意不放 bankData，確保開啟期間順序結凍
+  }, []); 
 
   const handleInputChange = (studentId, type, value) => {
     if (authMode !== 'ADMIN') return;
@@ -501,7 +500,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
       students.forEach(s => {
           setBankBalanceDirectly(s.id, 'gold', 0);
           setBankBalanceDirectly(s.id, 'silver', 0);
-          setBankBalanceDirectly(studentId, 'bronze', 0);
+          setBankBalanceDirectly(s.id, 'bronze', 0);
       });
   };
 
@@ -515,14 +514,17 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X className="w-8 h-8" /></button>
         </div>
 
+        {/* 表格容器加入 overflow-auto */}
         <div className={`flex-1 overflow-auto p-4 bg-orange-50`}>
-          <table className="w-full bg-white shadow-sm rounded-lg border border-gray-200 relative">
-            <thead className="bg-gray-100 sticky top-0 z-[100] shadow-md">
+          <table className="w-full bg-white shadow-sm rounded-lg border border-gray-200 relative border-collapse">
+            <thead className="bg-gray-100 sticky top-0 z-[110] shadow-md">
                 <tr className="border-b-2 border-gray-300">
-                  <th className="p-3 text-2xl w-20 text-center bg-gray-100">排名</th>
-                  <th className="p-3 text-2xl w-24 text-center bg-gray-100">座號</th>
-                  <th className="p-3 text-2xl text-left bg-gray-100">姓名</th>
-                  <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center border-l border-gray-200">金幣</th>
+                  {/* 凍結表頭 */}
+                  <th className="p-3 text-2xl w-20 text-center bg-gray-100 sticky left-0 z-[120]">排名</th>
+                  <th className="p-3 text-2xl w-24 text-center bg-gray-100 sticky left-[80px] z-[120]">座號</th>
+                  <th className="p-3 text-2xl text-left bg-gray-100 sticky left-[176px] z-[120] border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">姓名</th>
+                  
+                  <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center">金幣</th>
                   <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
                   <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
                   <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto">
@@ -532,28 +534,29 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
             </thead>
             <tbody className="divide-y divide-gray-100">
                 {sortedStudents.map((student, idx) => {
-                  // 這裡改用傳入的 bankData 即時抓取最新金額，但學生順序是由 sortedStudents 決定的
                   const bal = bankData[student.id] || { gold: 0, silver: 0, bronze: 0 };
                   let rankIcon = idx < 3 ? ["🥇","🥈","🥉"][idx] : idx + 1;
                   
                   return (
                     <tr key={student.id} className="hover:bg-blue-50 transition duration-150 group">
-                      <td className="p-3 text-center text-3xl font-black text-gray-400">{rankIcon}</td>
-                      <td className="p-3 text-center text-2xl font-bold text-gray-600">{student.id}</td>
-                      <td className="p-3 text-2xl font-bold text-gray-800">{student.name[0] + 'O' + student.name.slice(2)}</td>
-                      <td className="p-2 text-center bg-yellow-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                      {/* 凍結表格內容欄位 */}
+                      <td className="p-3 text-center text-3xl font-black text-gray-400 sticky left-0 bg-white group-hover:bg-blue-50 z-10">{rankIcon}</td>
+                      <td className="p-3 text-center text-2xl font-bold text-gray-600 sticky left-[80px] bg-white group-hover:bg-blue-50 z-10">{student.id}</td>
+                      <td className="p-3 text-2xl font-bold text-gray-800 sticky left-[176px] bg-white group-hover:bg-blue-50 z-10 border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">{student.name[0] + 'O' + student.name.slice(2)}</td>
+                      
+                      <td className="p-2 text-center bg-yellow-50/30">
                         <input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} 
                           className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" />
                       </td>
-                      <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                      <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100">
                         <input type="number" value={bal.silver || 0} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} 
                           className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none hover:bg-white/50 rounded" />
                       </td>
-                      <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100 group-hover:border-blue-100">
+                      <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100">
                         <input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} 
                           className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" />
                       </td>
-                      <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100 group-hover:border-blue-100">
+                      <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100">
                           <div className="flex gap-2">
                             <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 text-gray-700 active:scale-95 transition" title="100銅 換 1銀"><RotateCw className="w-7 h-7"/></button>
                             <button onClick={() => handleExchange(student.id, 'S2G')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 border-2 border-yellow-400 text-yellow-700 active:scale-95 transition" title="10銀 換 1金"><RotateCw className="w-7 h-7"/></button>
@@ -573,7 +576,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
             </tbody>
           </table>
         </div>
-        
         {authMode === 'ADMIN' && (
             <div className="p-4 bg-gray-100 border-t flex justify-start">
                  <button onClick={handleResetClass} className="px-6 py-2 bg-red-600 text-white rounded font-bold hover:bg-red-700 flex items-center gap-2 text-xl shadow-md">⚠️ 期末全班歸零</button>
@@ -784,14 +786,27 @@ const MissingColorExplanation = () => { const legendTiers = MISSING_COLOR_TIERS.
 const MonthlyStudentStats = ({ monthlyStats, months }) => { 
     const studentIds = useMemo(() => Object.keys(monthlyStats).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)), [monthlyStats]); 
     if (studentIds.length === 0) return null; 
+    
+    // 計算月份欄位的寬度百分比，讓表格均分
+    const colWidth = 100 / (months.length + 1); 
+
     return (
         <div className="mt-12 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
             <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span></h2>
-            <div className="w-full relative border border-gray-300 rounded-lg shadow-lg">
-                <table className="w-full divide-y divide-gray-300 table-fixed">
-                    <thead className="bg-gray-200">
+            
+            {/* 🌟 關鍵修正：父容器設定 max-h 讓其產生內部卷軸 */}
+            <div className="w-full relative border border-gray-300 rounded-lg shadow-lg overflow-auto max-h-[80vh]">
+                <table className="w-full divide-y divide-gray-300 table-fixed border-collapse">
+                    {/* 設定各欄寬度 */}
+                    <colgroup>
+                        <col style={{ width: `${colWidth}%` }} />
+                        {months.map(m => <col key={m.id} style={{ width: `${colWidth}%` }} />)}
+                    </colgroup>
+
+                    <thead className="bg-gray-100 sticky top-0 z-[60]">
                         <tr>
-                            <th className="sticky top-0 z-[60] px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-24 border-r border-gray-300 bg-gray-200 shadow-sm">姓名</th>
+                            {/* 🌟 關鍵修正：th 加入 sticky top-0, z-60, 和不透明背景 */}
+                            <th className="sticky top-0 left-0 z-[70] px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-24 border-r border-gray-300 bg-gray-100 shadow-sm">姓名</th>
                             {months.map(month => (
                                 <th key={month.id} className={`sticky top-0 z-[60] px-1 py-4 text-3xl font-semibold uppercase tracking-wider text-white ${month.color} break-words shadow-sm`}>{month.name}</th>
                             ))}
@@ -802,8 +817,9 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                             const studentData = monthlyStats[studentId]; 
                             if (!studentData) return null; 
                             return (
-                                <tr key={studentId} className="hover:bg-gray-50 transition duration-100">
-                                    <td className="px-2 py-4 text-3xl font-semibold text-gray-900 border-r border-gray-300 text-center whitespace-nowrap">{studentData.studentName[0] + 'O' + studentData.studentName.slice(2)}</td>
+                                <tr key={studentId} className="hover:bg-gray-50 transition duration-100 group">
+                                    {/* 🌟 關鍵修正：姓名 TD 加入 sticky left-0 和不透明背景 */}
+                                    <td className="sticky left-0 z-30 px-2 py-4 text-3xl font-semibold text-gray-900 border-r border-gray-300 text-center whitespace-nowrap bg-white group-hover:bg-gray-50 transition-colors shadow-[2px_0_5px_rgba(0,0,0,0.05)]">{studentData.studentName[0] + 'O' + studentData.studentName.slice(2)}</td>
                                     {months.map(month => { 
                                         const stats = studentData.monthStats[month.id]; 
                                         const hasMissing = stats.daysMissing > 0; 
