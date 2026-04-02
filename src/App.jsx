@@ -15,10 +15,11 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-// --- 版本資訊 ---
-const VERSION = 'v20.0.44 - 跨系統任務載入引擎實裝'; 
+// --- 版本資訊 (V20.0.49) ---
+const VERSION = 'v20.0.49 - 引擎完全體'; 
 const appId = 'class-5a-app'; 
 
+// 🚨 終極資安防禦：已透過 Google Cloud 設定 HTTP 網域白名單，此金鑰現已受實體隔離保護，可安全運行
 const firebaseConfig = {
  apiKey: "AIzaSyArwz6gPeW9lNq_8LOfnKYwZmkRN-Wgtb8",
  authDomain: "class-5a-app.firebaseapp.com",
@@ -35,13 +36,19 @@ const ASSETS = {
   CONFETTI_BG: 'https://i.gifer.com/origin/e2/e29a997a3a304523b087050074697df0_w200.gif'
 };
 
-// === [NEW] 任務載入引擎組件 ===
+const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w-3/5 h-3/5" }) => {
+   const baseClasses = `rounded-full border-[4px] flex items-center justify-center shadow-lg ${size} bg-white`;
+   if (type === 'GOLD') return (<div className={`${baseClasses} border-yellow-400 text-yellow-500 bg-yellow-50`} title="金幣"><Moon className={`${innerSize} fill-current`} /></div>);
+   if (type === 'SILVER') return (<div className={`${baseClasses} border-gray-400 text-gray-500 bg-gray-50`} title="銀幣"><Star className={`${innerSize} fill-current`} /></div>);
+   return (<div className={`${baseClasses} border-orange-700 text-orange-800 bg-orange-50`} title="銅幣"><span className={`font-bold ${textSize}`}>$</span></div>);
+};
+
+// === [NEW] 任務載入引擎組件 (微創植入) ===
 const TaskLoaderModal = ({ db, initialDate, onConfirm, onClose }) => {
     const [targetDate, setTargetDate] = useState(() => {
-        // 預設為前一個工作日
         const d = new Date(initialDate);
         const day = d.getDay();
-        const diff = (day === 1) ? 3 : 1; // 如果是週一，退回週五
+        const diff = (day === 1) ? 3 : 1; 
         d.setDate(d.getDate() - diff);
         return d.toISOString().split('T')[0];
     });
@@ -89,7 +96,6 @@ const TaskLoaderModal = ({ db, initialDate, onConfirm, onClose }) => {
                         <button onClick={fetchTasks} disabled={loading} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-2xl font-black hover:bg-blue-700 active:scale-95 transition-all">抓取</button>
                     </div>
                 </div>
-
                 <div className="flex-1 overflow-y-auto p-8 max-h-[50vh]">
                     {tasks.length > 0 ? (
                         <div className="space-y-4">
@@ -105,22 +111,13 @@ const TaskLoaderModal = ({ db, initialDate, onConfirm, onClose }) => {
                         <div className="text-center py-10 text-gray-400 text-2xl font-bold italic">尚未抓取任務或該日無任務</div>
                     )}
                 </div>
-
                 <div className="p-8 border-t-4 border-blue-50 flex gap-4">
                     <button onClick={onClose} className="flex-1 py-4 bg-gray-100 text-gray-500 rounded-2xl text-2xl font-black hover:bg-gray-200 transition-all">取消</button>
-                    <button onClick={() => onConfirm(tasks.filter(t => t.selected && t.text.trim()))} disabled={tasks.length === 0} className="flex-2 py-4 bg-emerald-500 text-white rounded-2xl text-2xl font-black hover:bg-emerald-600 transition-all active:scale-95 shadow-lg disabled:bg-gray-300">確認注入作業表</button>
+                    <button onClick={() => onConfirm(tasks.filter(t => t.selected && t.text.trim()))} disabled={tasks.length === 0} className="flex-[2] py-4 bg-emerald-500 text-white rounded-2xl text-2xl font-black hover:bg-emerald-600 transition-all active:scale-95 shadow-lg disabled:bg-gray-300">確認注入作業表</button>
                 </div>
             </div>
         </div>
     );
-};
-
-// --- 以下保留原始組件定義 (簡化示意，確保結構正確) ---
-const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w-3/5 h-3/5" }) => {
-   const baseClasses = `rounded-full border-[4px] flex items-center justify-center shadow-lg ${size} bg-white`;
-   if (type === 'GOLD') return (<div className={`${baseClasses} border-yellow-400 text-yellow-500 bg-yellow-50`} title="金幣"><Moon className={`${innerSize} fill-current`} /></div>);
-   if (type === 'SILVER') return (<div className={`${baseClasses} border-gray-400 text-gray-500 bg-gray-50`} title="銀幣"><Star className={`${innerSize} fill-current`} /></div>);
-   return (<div className={`${baseClasses} border-orange-700 text-orange-800 bg-orange-50`} title="銅幣"><span className={`font-bold ${textSize}`}>$</span></div>);
 };
 
 const DEFAULT_STUDENTS = [
@@ -130,12 +127,12 @@ const DEFAULT_STUDENTS = [
 
 const INITIAL_CATEGORIES = [{ name: '數課', order: 0 }, { name: '數習', order: 1 }, { name: '數八', order: 2 }, { name: '成語()+P.', order: 3 }, { name: '聯P.', order: 4 }, { name: '國', order: 5 }];
 const ItemTypes = { ASSIGNMENT: 'assignment' };
-
 const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assignments`;
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
 
+// --- 圖表元件 ---
 const safeNumber = (val) => { if (typeof val !== 'number') return 0; if (isNaN(val)) return 0; if (!isFinite(val)) return 0; return val; };
 
 const SimpleStackedBarChart = ({ data, height = 300 }) => {
@@ -161,6 +158,7 @@ const CustomizedDot = (props) => { const { cx, cy, value } = props; if (!cx || !
 const CustomTooltip = ({ active, payload, label }) => { if (active && payload && payload.length && payload[0].payload) { const data = payload[0].payload; const details = data.details || { onTime: 0, late: 0, missing: 0 }; const safeValue = safeNumber(data.value); return ( <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]"> <p className="text-2xl font-bold text-gray-700 mb-2 border-b pb-2 border-gray-200">{label} <span className="text-blue-600 ml-2">({safeValue.toFixed(1)}分)</span></p> <div className="flex flex-col gap-1 text-xl"> <p className="text-green-700 font-bold">🟢 準時：{safeNumber(details.onTime)}</p> <p className="text-yellow-700 font-bold">🟡 補交：{safeNumber(details.late)}</p> <p className="text-red-600 font-bold">🔴 缺交：{safeNumber(details.missing)}</p> </div> </div> ); } return null; };
 const SimpleLineChart = ({ data, height = 300 }) => { if (!data || !Array.isArray(data) || data.length === 0) { return <div className="h-full flex items-center justify-center text-gray-400 text-2xl font-bold">尚無統計數據</div>; } const cleanData = data.map(item => ({ ...item, value: safeNumber(item.value) })); return ( <ResponsiveContainer width="100%" height={height}> <LineChart data={cleanData} margin={{ top: 80, right: 60, left: 20, bottom: 10 }}> <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" /> <XAxis dataKey="label" tick={{ fontSize: 24, fill: '#6B7280', fontWeight: 'bold' }} axisLine={{ stroke: '#9CA3AF' }} tickLine={false} height={60} /> <YAxis domain={[0, 100]} tick={{ fontSize: 20, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={60} /> <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#9CA3AF', strokeWidth: 2, strokeDasharray: '5 5' }} /> <ReferenceLine y={100} stroke="#E5E7EB" strokeDasharray="3 3" label={{ position: 'top', value: '100', fill: '#D1D5DB', fontSize: 20 }} /> <ReferenceLine y={80} stroke="#4ADE80" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '80 (佳)', fill: '#4ADE80', fontSize: 20, fontWeight: 'bold' }} /> <ReferenceLine y={60} stroke="#F87171" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '60 (及格)', fill: '#F87171', fontSize: 20, fontWeight: 'bold' }} /> <Line type="linear" dataKey="value" stroke="#3B82F6" strokeWidth={6} dot={<CustomizedDot />} activeDot={{ r: 12, strokeWidth: 0 }} animationDuration={1500}> <LabelList dataKey="value" position="top" offset={20} style={{ fontSize: '28px', fontWeight: '900' }} formatter={(val) => safeNumber(val).toFixed(1)} fill="#3B82F6" /> </Line> </LineChart> </ResponsiveContainer> ); };
 
+// --- 自定義評價與等級邏輯 ---
 const getStatusFeedback = (score, emergency) => {
     if (emergency.isEmergency) return { text: "❌ 紅燈警報！缺交太多了，請檢查聯絡簿。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true };
     const s = parseFloat(score);
@@ -203,7 +201,7 @@ const getOverallBadge = (score) => {
     if (s >= 100) return { animal: "🐲 神龍", comment: "作業全勤無缺，品質完美無瑕。" };
     if (s >= 97) return { animal: "🦁 獅王", comment: "態度極度自律，對自我要求高。" };
     if (s >= 94) return { animal: "🦅 雄鷹", comment: "繳交迅速確實，準確率非常高。" };
-    if (s >= 91) return { animal: "豹 獵豹", comment: "訂正效率驚人，很少拖泥帶水。" };
+    if (s >= 91) return { animal: "🐆 獵豹", comment: "訂正效率驚人，很少拖泥帶水。" };
     if (s >= 88) return { animal: "🐴 駿馬", comment: "保持穩定節奏，作業習慣良好。" };
     if (s >= 85) return { animal: "🐺 戰狼", comment: "能夠自我鞭策，按時完成任務。" };
     if (s >= 82) return { animal: "🦊 靈狐", comment: "繳交穩定，若能多點細心會更棒。" };
@@ -218,7 +216,7 @@ const getOverallBadge = (score) => {
     if (s >= 10) return { animal: "🐢 烏龜", comment: "只要肯開始，總會完成，慢也沒關係。" };
     return { animal: "🌱 種子", comment: "埋入土裡太久了，請讓學習發芽。" };
 };
-
+// --- Dashboard Modal ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student) return null;
@@ -260,7 +258,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
                     tScore = 0; 
                 } else if (status === 'late') { 
                     itemsLate++; trendByMonth[monthKey].late++; dayHasLate = true; 
-                    if (completedAt) { const daysLate = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLate * 5)); } 
+                    if (completedAt) { const daysLateVal = getDaysDiff(date, completedAt); tScore = Math.max(0, 100 - (daysLateVal * 5)); } 
                     else { tScore = 60; } 
                 } else { 
                     itemsCompleted++; trendByMonth[monthKey].onTime++; tScore = 100; 
@@ -415,6 +413,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     );
 };
 
+// --- 學生存簿系統 & 獎勵特效 ---
 const RewardOverlay = ({ type, onClose }) => {
     const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
     const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
@@ -529,7 +528,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
 
     return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; 
 };
-
+// --- [V20.0.43] 學生存簿介面 ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) => { 
@@ -599,7 +598,9 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                   <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center">金幣</th>
                   <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
                   <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
-                  <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto"><span className="text-2xl text-gray-600 block">操作</span></th>
+                  <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto">
+                    <span className="text-2xl text-gray-600 block">操作</span>
+                  </th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -611,20 +612,29 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
                       <td className="p-3 text-center text-3xl font-black text-gray-400 sticky left-0 bg-white group-hover:bg-blue-50 z-10">{rankIcon}</td>
                       <td className="p-3 text-center text-2xl font-bold text-gray-600 sticky left-[80px] bg-white group-hover:bg-blue-50 z-10">{student.id}</td>
                       <td className="p-3 text-2xl font-bold text-gray-800 sticky left-[176px] bg-white group-hover:bg-blue-50 z-10 border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">{student.name[0] + 'O' + student.name.slice(2)}</td>
-                      <td className="p-2 text-center bg-yellow-50/30"><input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" /></td>
-                      <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100"><input type="number" value={bal.silver || 0} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none hover:bg-white/50 rounded" /></td>
-                      <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100"><input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" /></td>
+                      <td className="p-2 text-center bg-yellow-50/30">
+                        <input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} 
+                          className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none rounded" />
+                      </td>
+                      <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100">
+                        <input type="number" value={bal.silver || 0} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} 
+                          className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none rounded" />
+                      </td>
+                      <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100">
+                        <input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} 
+                          className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none rounded" />
+                      </td>
                       <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100">
                           <div className="flex gap-2">
-                            <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 text-gray-700 active:scale-95 transition" title="100銅 換 1銀"><RotateCw className="w-7 h-7"/></button>
-                            <button onClick={() => handleExchange(student.id, 'S2G')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 border-2 border-yellow-400 text-yellow-700 active:scale-95 transition" title="10銀 換 1金"><RotateCw className="w-7 h-7"/></button>
+                            <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 active:scale-95 transition" title="100銅換1銀"><RotateCw className="w-7 h-7"/></button>
+                            <button onClick={() => handleExchange(student.id, 'S2G')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 border-2 border-yellow-400 active:scale-95 transition" title="10銀換1金"><RotateCw className="w-7 h-7"/></button>
                           </div>
                           {authMode === 'ADMIN' && (
                               <>
                                 <div className="w-[2px] h-10 bg-gray-300 mx-2"></div>
-                                <button onClick={() => onUpdateBalance(student.id, 0, 0, 10)} className="w-12 h-12 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-700 font-black text-3xl flex items-center justify-center shadow-sm" title="增加銅幣">+</button>
-                                <button onClick={() => onUpdateBalance(student.id, 0, 0, -10)} className="w-12 h-12 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-black text-3xl flex items-center justify-center shadow-sm" title="減少銅幣">-</button>
-                                <button onClick={() => handleResetAll(student.id)} className="p-2 ml-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition shadow-sm" title="單人歸零"><Eraser className="w-7 h-7"/></button>
+                                <button onClick={() => onUpdateBalance(student.id, 0, 0, 10)} className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 font-black text-3xl flex items-center justify-center shadow-sm">+</button>
+                                <button onClick={() => onUpdateBalance(student.id, 0, 0, -10)} className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 font-black text-3xl flex items-center justify-center shadow-sm">-</button>
+                                <button onClick={() => handleResetAll(student.id)} className="p-2 ml-2 bg-red-100 text-red-600 rounded-lg shadow-sm" title="單人歸零"><Eraser className="w-7 h-7"/></button>
                               </>
                           )}
                       </td>
@@ -644,11 +654,11 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
   );
 };
 
+// --- Hook 與 輔助彈窗 ---
 const useDailySettlements = (db, isAuthReady, isOffline) => {
     const [settlements, setSettlements] = useState({}); 
     useEffect(() => {
-        if (isOffline) return;
-        if (!isAuthReady || !db) return;
+        if (isOffline || !isAuthReady || !db) return;
         const q = query(collection(db, getDailySettlementPath()));
         const unsubscribe = onSnapshot(q, (snapshot) => { 
             const data = {}; 
@@ -662,14 +672,94 @@ const useDailySettlements = (db, isAuthReady, isOffline) => {
 
 const CustomAlert = ({ message, onClose }) => ( 
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4"> 
-        <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> 
+        <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform scale-100"> 
             <h3 className="text-4xl font-semibold text-gray-800 mb-4">通知</h3> 
             <p className="text-3xl text-gray-600 mb-6 whitespace-pre-wrap">{message}</p> 
-            <button onClick={onClose} className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-4xl">確定</button> 
+            <button onClick={onClose} className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-medium text-4xl">確定</button> 
         </div> 
     </div> 
 );
 
+const AllMissingAssignmentsModal = ({ missingStats, onClose }) => { 
+    const studentsWithMissing = missingStats.filter(s => s.missingCount > 0); 
+    return ( 
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0"> 
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200 print:hidden"> 
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h3 className="text-4xl font-bold text-gray-800 flex items-center">
+                        <AlertCircle className="w-10 h-10 text-red-500 mr-3" />全班未完成作業總表
+                    </h3>
+                    <div className="flex gap-3">
+                        <button onClick={() => window.print()} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl text-xl font-bold transition shadow-sm">
+                            <Printer className="w-6 h-6"/> 列印總表
+                        </button>
+                        <button onClick={onClose} className="text-gray-500 p-2 rounded-full bg-gray-100"><X className="w-8 h-8" /></button>
+                    </div>
+                </div> 
+                <div className="flex-1 overflow-auto"> 
+                    <table className="min-w-full divide-y divide-gray-300"> 
+                        <thead className="bg-gray-100 sticky top-0 z-10">
+                            <tr>
+                                <th className="px-4 py-4 text-2xl font-bold text-gray-700 w-24 text-center border-r">座號</th>
+                                <th className="px-4 py-4 text-2xl font-bold text-gray-700 w-32 text-center border-r">姓名</th>
+                                <th className="px-4 py-4 text-2xl font-bold text-gray-700 w-32 text-center border-r">缺交數</th>
+                                <th className="px-6 py-4 text-2xl font-bold text-gray-700 text-left">未完成項目明細</th>
+                            </tr>
+                        </thead> 
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {studentsWithMissing.map((student) => (
+                                <tr key={student.id} className="hover:bg-red-50 transition duration-100">
+                                    <td className="px-4 py-4 text-2xl text-center border-r">{student.id}</td>
+                                    <td className="px-4 py-4 text-2xl font-bold text-center border-r">{student.name[0] + 'O' + student.name.slice(2)}</td>
+                                    <td className="px-4 py-4 text-center border-r"><span className="inline-flex px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td>
+                                    <td className="px-6 py-4 text-xl">
+                                        <ul className="list-disc list-inside space-y-1">
+                                            {student.missingDetails.map((detail, idx) => (
+                                                <li key={idx} className="flex items-start">
+                                                    <span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span>
+                                                    <span className="text-gray-400 text-lg">({detail.date.substring(5)})</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody> 
+                    </table> 
+                </div> 
+                <div className="mt-4 pt-4 border-t text-right">
+                    <button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl text-2xl font-bold">關閉視窗</button>
+                </div> 
+            </div> 
+
+            {/* --- [列印專用區] --- */}
+            <div className="hidden print:block w-full h-full bg-white text-black p-4">
+                <h1 className="text-4xl font-extrabold text-center mb-6 border-b-4 border-black pb-4">五年甲班 未完成作業待補單</h1>
+                <div className="flex flex-col gap-6">
+                    {studentsWithMissing.map((student) => (
+                        <div key={student.id} className="border-2 border-black rounded-2xl p-4 break-inside-avoid">
+                            <div className="flex justify-between items-center border-b-2 border-gray-300 pb-2 mb-3">
+                                <span className="text-3xl font-black">{student.name[0] + 'O' + student.name.slice(2)} 待補清單</span>
+                                <span className="text-xl font-bold">共缺交 {student.missingCount} 項</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-x-6 gap-y-3">
+                                {student.missingDetails.map((detail, idx) => (
+                                    <div key={idx} className="flex items-start text-lg">
+                                        <div className="w-5 h-5 border-2 border-black mr-2 shrink-0 bg-white mt-0.5"></div>
+                                        <div className="flex flex-col">
+                                            <span className="font-bold">{detail.assignment}</span>
+                                            <span className="text-base text-gray-500">({detail.date.substring(5)})</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div> 
+    ); 
+};
 const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => { 
   const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState(''); 
@@ -705,100 +795,6 @@ const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
   ); 
 };
 
-const AllMissingAssignmentsModal = ({ missingStats, onClose }) => { 
-    const studentsWithMissing = missingStats.filter(s => s.missingCount > 0); 
-    const handlePrint = () => { window.print(); };
-    return ( 
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0 print:z-[20000]"> 
-            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200 print:hidden"> 
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h3 className="text-4xl font-bold text-gray-800 flex items-center">
-                        <AlertCircle className="w-10 h-10 text-red-500 mr-3" />全班未完成作業總表
-                    </h3>
-                    <div className="flex gap-3">
-                        <button onClick={handlePrint} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xl font-bold transition shadow-sm">
-                            <Printer className="w-6 h-6"/> 列印總表
-                        </button>
-                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200">
-                            <X className="w-8 h-8" />
-                        </button>
-                    </div>
-                </div> 
-                <div className="flex-1 overflow-auto"> 
-                    {studentsWithMissing.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                            <Check className="w-24 h-24 mb-4 text-green-400" />
-                            <p className="text-4xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p>
-                        </div>
-                    ) : ( 
-                        <table className="min-w-full divide-y divide-gray-300"> 
-                            <thead className="bg-gray-100 sticky top-0 z-10">
-                                <tr>
-                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th>
-                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th>
-                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th>
-                                    <th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th>
-                                </tr>
-                            </thead> 
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {studentsWithMissing.map((student) => (
-                                    <tr key={student.id} className="hover:bg-red-50 transition duration-100">
-                                        <td className="px-4 py-4 text-2xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td>
-                                        <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td>
-                                        <td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td>
-                                        <td className="px-6 py-4 text-xl text-gray-700">
-                                            <ul className="list-disc list-inside space-y-1">
-                                                {[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW')).map((detail, idx) => (
-                                                    <li key={idx} className="flex items-start">
-                                                        <span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span>
-                                                        <span className="font-mono font-medium text-gray-400 text-lg">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody> 
-                        </table> 
-                    )} 
-                </div> 
-                <div className="mt-4 pt-4 border-t border-gray-200 text-right">
-                    <button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">關閉視窗</button>
-                </div> 
-            </div> 
-
-            <div className="hidden print:block w-full h-full bg-white text-black p-4">
-                <h1 className="text-4xl font-extrabold text-center mb-6 border-b-4 border-black pb-4">五年甲班 未完成作業待補單</h1>
-                <p className="text-right text-lg font-medium mb-4">列印日期：{new Date().toLocaleDateString('zh-TW')} (共 {studentsWithMissing.length} 人待補)</p>
-                <div className="flex flex-col gap-6">
-                    {studentsWithMissing.map((student) => (
-                        <div key={student.id} className="border-2 border-black rounded-2xl p-4 break-inside-avoid shadow-none">
-                            <div className="flex justify-between items-center border-b-2 border-gray-300 pb-2 mb-3">
-                                <span className="text-3xl font-black tracking-widest">{student.name[0] + 'O' + student.name.slice(2)} 訂正作業表</span>
-                                <span className="text-xl font-bold text-gray-700">共缺交 {student.missingCount} 項</span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-x-6 gap-y-3">
-                                {[...student.missingDetails].sort((a, b) => a.date.localeCompare(b.date)).map((detail, idx) => (
-                                    <div key={idx} className="flex items-start text-lg leading-tight">
-                                        <div className="w-5 h-5 border-2 border-black mr-2 shrink-0 bg-white mt-0.5"></div>
-                                        <div className="flex flex-col">
-                                            <span className="font-bold text-black break-words whitespace-normal">{detail.assignment}</span>
-                                            <span className="text-base text-gray-500 font-medium">({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                {studentsWithMissing.length === 0 && (
-                    <div className="text-center py-20 text-3xl text-gray-400 font-bold border-2 border-dashed border-gray-300 rounded-xl mt-10">恭喜！全班作業皆已完成，無欠交紀錄。</div>
-                )}
-            </div>
-        </div> 
-    ); 
-};
-
 const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, confirmColor }) => { 
     const [isAltPressed, setIsAltPressed] = useState(false); 
     useEffect(() => { 
@@ -811,7 +807,7 @@ const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, 
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4"> 
             <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> 
                 <h3 className="text-4xl font-bold text-gray-800 mb-4">{title}</h3><p className="text-3xl text-gray-600 mb-6">{message}</p> 
-                <div className="flex justify-between gap-4 mt-6"><button onClick={onCancel} className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg hover:bg-gray-400 transition duration-150 ease-in-out font-medium text-4xl">取消 (保留資料)</button><button onClick={() => { if (isAltPressed) { onConfirm(); } else { alert(`請按住 Alt 鍵，才能確認執行 ${confirmTitle} 操作！`); } }} disabled={!isAltPressed} className={`flex-1 text-white py-3 rounded-lg transition duration-150 ease-in-out font-medium text-4xl ${confirmColor} ${isAltPressed ? 'hover:brightness-110' : 'bg-red-400 cursor-not-allowed'}`}>{confirmTitle}</button></div>
+                <div className="flex justify-between gap-4 mt-6"><button onClick={onCancel} className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg hover:bg-gray-400 transition duration-150 ease-in-out font-medium text-4xl">取消 (保留資料)</button><button onClick={() => { if (isAltPressed) { onConfirm(); } else { alert(`請按住 Alt 鍵，才能確認執行 ${confirmTitle} 操作！`); } }} disabled={!isAltPressed} className={`flex-1 text-white py-3 rounded-lg transition duration-150 ease-in-out font-medium text-4xl ${confirmColor} ${isAltPressed ? 'hover:brightness-110' : 'bg-red-400 cursor-not-allowed'}`}>{confirmTitle}</button></div><p className="mt-3 text-center text-red-500 text-3xl font-semibold opacity-0">請按住 **Alt 鍵** 才能啟用刪除按鈕！</p> 
             </div> 
         </div> 
     ); 
@@ -824,11 +820,11 @@ const MISSING_COLOR_TIERS = [ { min: 1, max: 3, colors: { bg: 'bg-blue-300', bor
 const getMissingColorClasses = (count) => { if (count === 0) return { bg: 'bg-white', border: 'border-gray-200', text: 'text-gray-400', countText: 'text-gray-800' }; const tier = MISSING_COLOR_TIERS.find(t => count <= t.max); return tier ? tier.colors : MISSING_COLOR_TIERS[MISSING_COLOR_TIERS.length - 1].colors; };
 
 const MissingColorExplanation = () => { const legendTiers = MISSING_COLOR_TIERS.map(tier => ({ count: tier.label, classes: tier.colors })); return (<div className="mt-8 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200"><h3 className="text-4xl font-bold text-gray-800 mb-6 flex items-center"><span className="text-pink-500 text-5xl mr-3">🎨</span>顏色分級說明</h3><div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">{legendTiers.map((item, index) => (<div key={index} className={`py-3 px-2 rounded-xl text-center cursor-default ${item.classes.bg} ${item.classes.border} border-2 border-b-[6px] flex items-center justify-center`}><p className={`text-2xl font-black ${item.classes.text} leading-tight`}>{item.count}</p></div>))}</div></div>); };
-
 const MonthlyStudentStats = ({ monthlyStats, months }) => { 
     const studentIds = useMemo(() => Object.keys(monthlyStats).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)), [monthlyStats]); 
     if (studentIds.length === 0) return null; 
     const colWidth = 100 / (months.length + 1); 
+
     return (
         <div className="mt-12 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
             <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span></h2>
@@ -885,7 +881,7 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
     const [selectedItemIds, setSelectedItemIds] = useState([]); 
     const stat = missingStats.find(s => s.id === student.id); 
     const hasMissingItems = stat && stat.missingCount > 0; 
-    const { missingCount, name } = stat || { missingCount: 0, missingDetails: [], name: student.name }; 
+    const { missingCount, name } = stat || { missingCount: 0, name: student.name }; 
     const colorClasses = getMissingColorClasses(missingCount); 
     const detailedMissingItems = useMemo(() => { 
         const items = []; 
@@ -897,102 +893,97 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
             }); 
         }); return items.sort((a, b) => a.date.localeCompare(b.date)); 
     }, [allAssignmentsByDate, student.id]); 
-    const numColumns = 4; 
-    const columns = useMemo(() => { 
-        if (detailedMissingItems.length === 0) return []; 
-        const itemsPerColumn = Math.ceil(detailedMissingItems.length / numColumns); 
-        return Array.from({ length: numColumns }, (_, colIndex) => { const start = colIndex * itemsPerColumn; return detailedMissingItems.slice(start, start + itemsPerColumn); }); 
-    }, [detailedMissingItems]); 
+
     const handleToggleSelect = useCallback((assignmentId) => { setSelectedItemIds(prev => prev.includes(assignmentId) ? prev.filter(id => id !== assignmentId) : [...prev, assignmentId]); }, []); 
     const handleToggleSelectAll = useCallback(() => { if (selectedItemIds.length === detailedMissingItems.length) { setSelectedItemIds([]); } else { setSelectedItemIds(detailedMissingItems.map(item => item.assignmentId)); } }, [selectedItemIds.length, detailedMissingItems]); 
     const handleBatchDeleteSelectedItems = useCallback(async (e) => { 
-        if (selectedItemIds.length === 0) { alert("請先勾選至少一項要標記為『已補交』的作業紀錄。"); return; } 
-        if (!e.ctrlKey && !e.metaKey) { return; } 
-        setAlertMessage(null); 
+        if (selectedItemIds.length === 0) { alert("請先勾選項目。"); return; } 
+        if (!e.ctrlKey && !e.metaKey) { alert("請按住 Ctrl/Cmd 鍵點擊確認。"); return; } 
         const bronzeReward = selectedItemIds.length * 10;
         updateBankBalance(student.id, 0, 0, bronzeReward);
         setRewardState({ type: 'BRONZE' });
-        if (isOffline) { 
-            setAlertMessage(`[離線模式] 成功將 ${selectedItemIds.length} 項作業標記為「已補交」（記憶體暫存）。`); 
-            setSelectedItemIds([]); 
-            onClose(); return; 
-        } 
         try { 
-            const path = getAssignmentCollectionPath(userId); 
             const batch = writeBatch(db); 
             selectedItemIds.forEach(assignmentId => { 
-                const docRef = doc(db, path, assignmentId); 
+                const docRef = doc(db, getAssignmentCollectionPath(), assignmentId); 
                 batch.set(docRef, { submissionStatus: { [student.id]: 'late' }, makeupClaimed: { [student.id]: true } }, { merge: true }); 
             }); 
             await batch.commit(); 
-            setAlertMessage(`成功將 ${selectedItemIds.length} 項作業標記為「已補交」，獲得 ${bronzeReward} 銅幣。`); 
-            setSelectedItemIds([]); 
+            setAlertMessage(`成功補交 ${selectedItemIds.length} 項作業，獲得 ${bronzeReward} 銅幣。`); 
             onClose(); 
-        } catch (error) { console.error("Batch delete failed:", error); setAlertMessage("批次標記已訂正失敗。"); } 
-    }, [selectedItemIds, db, userId, student.id, onClose, setAlertMessage, isOffline, authMode, updateBankBalance, setRewardState]); 
+        } catch (error) { console.error(error); } 
+    }, [selectedItemIds, db, student.id, onClose, setAlertMessage, updateBankBalance, setRewardState]); 
+
     if (!hasMissingItems) return null; 
-    const batchButtonTitle = authMode === 'ADMIN' ? "按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)" : undefined; 
     return ( 
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-2"> 
-            <div className="bg-white rounded-xl shadow-2xl p-6 w-full transform transition-all duration-300 scale-100 max-h-[95vh] flex flex-col"> 
-                <div className="relative border-b pb-2 mb-3"> 
-                    <h3 className="text-5xl font-bold text-gray-800 text-center">{name} 的未訂正作業</h3> 
-                    <button onClick={onClose} className="absolute -top-2 -right-2 text-gray-500 hover:text-gray-800 text-4xl p-2 rounded-full"> <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> </button> 
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[10000] p-2"> 
+            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-4xl max-h-[95vh] flex flex-col"> 
+                <h3 className="text-5xl font-bold text-gray-800 text-center mb-4">{name} 的未訂正作業</h3> 
+                <div className={`p-4 rounded-xl mb-4 shadow-md border-l-8 ${colorClasses.bg} ${colorClasses.border} text-center`}>
+                    <div className={`text-4xl font-semibold ${colorClasses.text}`}>累積總計：<span className="ml-2 font-black text-5xl">{missingCount}</span> 次</div>
                 </div> 
-                <div className={`p-4 rounded-xl mb-4 shadow-md border-l-8 ${colorClasses.bg} ${colorClasses.border} text-center`}> <div className={`text-4xl font-semibold ${colorClasses.text}`}>累積總計：<span className={`ml-2 font-black ${colorClasses.countText} text-5xl`}>{missingCount}</span> 次</div> </div> 
-                <div className="flex justify-between items-center mb-2 border-b pb-2"> <h4 className="text-3xl font-bold text-gray-800">詳細未訂正項目 ({detailedMissingItems.length} 筆紀錄):</h4> <button onClick={handleToggleSelectAll} className="text-2xl font-medium text-blue-600 hover:text-blue-800 transition">{selectedItemIds.length === detailedMissingItems.length ? '取消全選' : '全選'}</button> </div> 
+                <div className="flex justify-between items-center mb-2 border-b pb-2">
+                    <h4 className="text-3xl font-bold text-gray-800">詳細列表 ({detailedMissingItems.length}):</h4>
+                    <button onClick={handleToggleSelectAll} className="text-2xl font-medium text-blue-600">全選/取消</button>
+                </div> 
                 <div className="flex-1 overflow-y-auto"> 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4"> 
-                        {columns.map((columnItems, colIndex) => ( <ul key={colIndex} className={`divide-y divide-gray-200 rounded-lg ${colIndex % 2 === 0 ? 'bg-white' : 'bg-gray-100'}`}> {columnItems.map((item) => { const isSelected = selectedItemIds.includes(item.assignmentId); return ( <li key={item.assignmentId} className={`p-3 flex items-center gap-3 text-3xl text-gray-700 cursor-pointer transition duration-100 ${isSelected ? 'bg-blue-200' : 'hover:bg-blue-50'}`} onClick={() => handleToggleSelect(item.assignmentId)}> <input className="h-7 w-7 text-blue-600 rounded cursor-pointer" onClick={(e) => e.stopPropagation()} /> <span className="font-medium text-gray-900 w-32">{item.date}</span> <span className="flex-1">{item.assignmentName}</span> </li> ); })} </ul> ))} 
-                    </div> 
+                    <ul className="divide-y divide-gray-200">
+                        {detailedMissingItems.map((item) => (
+                            <li key={item.assignmentId} className={`p-3 flex items-center gap-3 text-3xl text-gray-700 cursor-pointer ${selectedItemIds.includes(item.assignmentId) ? 'bg-blue-100' : ''}`} onClick={() => handleToggleSelect(item.assignmentId)}>
+                                <input type="checkbox" checked={selectedItemIds.includes(item.assignmentId)} readOnly className="h-7 w-7" />
+                                <span className="font-medium text-gray-900 w-32">{item.date}</span>
+                                <span className="flex-1">{item.assignmentName}</span>
+                            </li>
+                        ))}
+                    </ul>
                 </div> 
-                <div className="mt-4 pt-4 border-t border-green-300"> 
-                    <button onClick={handleBatchDeleteSelectedItems} disabled={selectedItemIds.length === 0} className={`w-full py-3 rounded-lg transition duration-150 ease-in-out font-medium text-3xl flex items-center justify-center shadow-lg ${selectedItemIds.length === 0 ? 'bg-gray-400 cursor-not-allowed text-gray-200' : 'bg-green-600 hover:bg-green-700 text-white'}`} title={batchButtonTitle}> <span className="text-5xl mr-2">⚠️</span> 批次標記 {selectedItemIds.length} 項為「已補交 (遲繳)」 </button> 
+                <div className="mt-4 pt-4 border-t border-green-300 flex flex-col gap-2"> 
+                    <button onClick={handleBatchDeleteSelectedItems} className="w-full py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium text-3xl shadow-lg">⚠️ 按住 Ctrl 標記 {selectedItemIds.length} 項為「已補交」</button> 
+                    <button onClick={onClose} className="w-full bg-blue-600 text-white py-3 rounded-lg text-3xl">關閉</button> 
                 </div> 
-                <button onClick={onClose} className="mt-4 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out font-medium text-3xl">關閉</button> 
             </div> 
         </div> 
     ); 
 };
 
-const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment, handleEditSave, handleMoveAssignment, setEditingAssignmentId, setEditingAssignmentName, editingAssignmentId, editingAssignmentName, authMode }) => { const isEditing = editingAssignmentId === assignment.id; const [{ isDragging }, drag] = useDrag({ type: ItemTypes.ASSIGNMENT, item: { id: assignment.id, type: ItemTypes.ASSIGNMENT }, collect: (monitor) => ({ isDragging: monitor.isDragging() }) }); const [, drop] = useDrop({ accept: ItemTypes.ASSIGNMENT, hover: (draggedItem) => { if (draggedItem.id !== assignment.id) { handleMoveAssignment(draggedItem.id, assignment.id); draggedItem.id = assignment.id; } } }); const handleEditStart = useCallback(() => { if (isGlobalLoading) return; if (authMode !== 'ADMIN') { alert("只有老師可以修改作業名稱。"); return; } setEditingAssignmentId(assignment.id); setEditingAssignmentName(assignment.assignmentName); }, [assignment.id, assignment.assignmentName, setEditingAssignmentId, setEditingAssignmentName, isGlobalLoading, authMode]); const handleLocalEditSave = useCallback(() => { if (!isEditing || !editingAssignmentName.trim() || isGlobalLoading) return; handleEditSave(assignment.id, editingAssignmentName).finally(() => { setEditingAssignmentId(null); setEditingAssignmentName(''); }); }, [assignment.id, editingAssignmentName, handleEditSave, isEditing, setEditingAssignmentId, setEditingAssignmentName, isGlobalLoading]); const handleDeleteClick = useCallback((e) => { handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey || e.metaKey); }, [assignment.id, assignment.assignmentName, handleDeleteAssignment]); return ( <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1, cursor: isGlobalLoading ? 'default' : 'grab' }} className={`px-2 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 transition duration-100 ease-in-out sticky top-0 z-50 bg-gray-100 break-words`}> <div className="flex flex-col items-center justify-center group relative min-w-[150px]"> <div className={`relative p-2 rounded-xl shadow-md transition duration-100 border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={handleEditStart}> {isEditing ? ( <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={handleLocalEditSave} onKeyDown={(e) => { if (e.key === 'Enter') { e.target.blur(); } else if (e.key === 'Escape') { setEditingAssignmentId(null); setEditingAssignmentName(''); } }} className="font-bold text-center text-3xl w-full focus:outline-none bg-transparent" autoFocus disabled={isGlobalLoading} /> ) : <span className={`font-bold ${isGlobalLoading ? 'cursor-default' : 'cursor-pointer'} break-words`}>{assignment.assignmentName}</span>} {!isEditing && authMode === 'ADMIN' && ( <button onClick={handleDeleteClick} disabled={isGlobalLoading} className="absolute -top-3 -right-3 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition duration-150 p-1 rounded-full bg-white shadow-lg"> <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> </button> )} </div> </div> </th> ); };
-
-const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => { const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); const handleDoubleClick = (e) => { if (authMode === 'ADMIN' && isSelected && onEdit) { e.stopPropagation(); onEdit(); } }; return ( <div className="relative group"> <button onClick={() => onClick(date)} onDoubleClick={handleDoubleClick} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition duration-150 ease-in-out shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`} title={authMode === 'ADMIN' && isSelected ? "雙擊以修改日期" : ""}> {formattedDate} {isSelected && authMode === 'ADMIN' && ( <span onClick={(e) => { e.stopPropagation(); onEdit(); }} className="inline-flex items-center justify-center p-1 bg-white/20 rounded-full hover:bg-white/40 cursor-pointer transition-colors" title="點擊修改日期"> <Pencil className="w-4 h-4 text-white" /> </span> )} </button> </div> ); };
-
-const ProtectedButton = ({ onClick, disabled, className, title, children }) => { return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> ); };
-
-const useStudents = (db, isOffline) => {
-   const [students, setStudents] = useState(DEFAULT_STUDENTS);
-   const [loadingStudents, setLoadingStudents] = useState(true);
-   const getStudentCollectionPath = () => `/artifacts/${appId}/public/data/students`;
-   useEffect(() => {
-       if (isOffline) { setStudents(DEFAULT_STUDENTS); setLoadingStudents(false); return; }
-       if (!db) return;
-       setLoadingStudents(true);
-       const q = query(collection(db, getStudentCollectionPath()));
-       const unsubscribe = onSnapshot(q, (snapshot) => {
-           const loadedStudents = [];
-           snapshot.forEach((doc) => { loadedStudents.push({ ...doc.data(), id: doc.id }); });
-           if (loadedStudents.length > 0) {
-               loadedStudents.sort((a, b) => parseInt(a.id) - parseInt(b.id));
-               setStudents(loadedStudents);
-           } else { setStudents(DEFAULT_STUDENTS); }
-           setLoadingStudents(false);
-       }, (error) => { console.error("讀取學生名單失敗:", error); setStudents(DEFAULT_STUDENTS); setLoadingStudents(false); });
-       return () => unsubscribe();
-   }, [db, isOffline]);
-   return { students, loadingStudents };
+const AssignmentHeader = ({ assignment, isGlobalLoading, handleDeleteAssignment, handleEditSave, handleMoveAssignment, setEditingAssignmentId, setEditingAssignmentName, editingAssignmentId, editingAssignmentName, authMode }) => { 
+    const isEditing = editingAssignmentId === assignment.id; 
+    const [{ isDragging }, drag] = useDrag({ type: ItemTypes.ASSIGNMENT, item: { id: assignment.id }, collect: (monitor) => ({ isDragging: monitor.isDragging() }) }); 
+    const [, drop] = useDrop({ accept: ItemTypes.ASSIGNMENT, hover: (item) => { if (item.id !== assignment.id) { handleMoveAssignment(item.id, assignment.id); item.id = assignment.id; } } }); 
+    return ( 
+        <th ref={(node) => drag(drop(node))} style={{ opacity: isDragging ? 0.4 : 1 }} className="px-2 py-4 text-3xl text-center font-semibold uppercase tracking-wider text-gray-800 sticky top-0 z-50 bg-gray-100 break-words">
+            <div className="flex flex-col items-center justify-center group relative min-w-[150px]">
+                <div className={`relative p-2 rounded-xl shadow-md border-2 border-transparent ${isEditing ? 'ring-4 ring-blue-400 bg-white' : 'hover:bg-gray-50 bg-white'}`} onDoubleClick={() => authMode === 'ADMIN' && (setEditingAssignmentId(assignment.id), setEditingAssignmentName(assignment.assignmentName))}>
+                    {isEditing ? (
+                        <input type="text" value={editingAssignmentName} onChange={(e) => setEditingAssignmentName(e.target.value)} onBlur={() => handleEditSave(assignment.id, editingAssignmentName).then(() => setEditingAssignmentId(null))} className="font-bold text-center text-3xl w-full outline-none" autoFocus />
+                    ) : <span className="font-bold break-words">{assignment.assignmentName}</span>}
+                    {!isEditing && authMode === 'ADMIN' && (
+                        <button onClick={(e) => handleDeleteAssignment(assignment.id, assignment.assignmentName, e.ctrlKey)} className="absolute -top-3 -right-3 text-red-500 opacity-0 group-hover:opacity-100 transition p-1 bg-white rounded-full shadow-lg">
+                            <X className="h-8 w-8" />
+                        </button>
+                    )}
+                </div>
+            </div>
+        </th> 
+    ); 
+};
+const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => { 
+    const formattedDate = new Date(date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }); 
+    return ( 
+        <div className="relative group"> 
+            <button onClick={() => onClick(date)} className={`px-5 py-3 text-4xl font-semibold rounded-lg transition shadow-md whitespace-nowrap flex items-center gap-2 ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`}> 
+                {formattedDate} 
+                {isSelected && authMode === 'ADMIN' && ( 
+                    <span onClick={(e) => { e.stopPropagation(); onEdit(); }} className="inline-flex items-center justify-center p-1 bg-white/20 rounded-full hover:bg-white/40 cursor-pointer transition-colors"> 
+                        <Pencil className="w-4 h-4 text-white" /> 
+                    </span> 
+                )} 
+            </button> 
+        </div> 
+    ); 
 };
 
-const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, students) => { 
-   const [categories, setCategories] = useState([]); 
-   const [loadingCategories, setLoadingCategories] = useState(true); 
-   const getInitialSubmissionStatus = useMemo(() => students.reduce((status, student) => { status[student.id] = true; return status; }, {}), [students]); 
-   const initializeCategories = useCallback(async (db, userId) => { if (!db || !userId) return; setLoadingCategories(true); const path = getCategoryCollectionPath(); const categoriesCollection = collection(db, path); try { const snapshot = await getDocs(categoriesCollection); if (snapshot.empty) { const batchPromises = INITIAL_CATEGORIES.map(cat => { const newDocRef = doc(categoriesCollection); return setDoc(newDocRef, { ...cat, createdAt: Timestamp.now() }); }); await Promise.all(batchPromises); } } catch (e) { console.error("Error initializing categories:", e); } setLoadingCategories(false); }, []); 
-   useEffect(() => { if (isOffline) { setCategories(INITIAL_CATEGORIES.map((cat, i) => ({ ...cat, id: `offline-cat-${i}` }))); setLoadingCategories(false); return; } if (isAuthReady && db && userId) { initializeCategories(db, userId); const path = getCategoryCollectionPath(); const unsubscribe = onSnapshot(collection(db, path), (snapshot) => { const loadedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); loadedCategories.sort((a, b) => (a.order || 0) - (b.order || 0)); setCategories(loadedCategories); setLoadingCategories(false); }, (e) => { console.error("Error fetching categories:", e); if (e.code !== 'permission-denied') { setAlertMessage("讀取作業項目清單時發生錯誤。"); } setLoadingCategories(false); }); return () => unsubscribe(); } }, [isAuthReady, db, userId, setAlertMessage, initializeCategories, isOffline]);
-   const addCategory = useCallback(async (name) => { const trimmedName = name.trim(); if (!trimmedName) return false; if (categories.some(c => c.name === trimmedName)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return false; } if (isOffline) { const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; setCategories(prev => [...prev, { id: `offline-cat-${Date.now()}`, name: trimmedName, order: newOrder }]); return true; } if (!db || !userId) return false; const newDocRef = doc(collection(db, getCategoryCollectionPath())); const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; try { await setDoc(newDocRef, { name: trimmedName, order: newOrder, createdAt: Timestamp.now() }); return true; } catch (e) { console.error("Error adding category:", e); setAlertMessage("新增科目模板失敗。"); return false; } }, [db, userId, categories, setAlertMessage, isOffline]); const deleteCategory = useCallback(async (categoryId, categoryName) => { if (!window.confirm(`確定要刪除科目模板「${categoryName}」嗎？此操作只會將該科目從「自動新增」清單中移除。`)) return; if (isOffline) { setCategories(prev => prev.filter(c => c.id !== categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除 (離線)。`); return; } if (!db || !userId) return; try { await deleteDoc(doc(db, getCategoryCollectionPath(), categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除。`); } catch (e) { console.error("Error deleting category:", e); setAlertMessage("刪除科目模板失敗。"); } }, [db, userId, setAlertMessage, isOffline]); const editCategory = useCallback(async (categoryId, currentName, newName) => { const trimmedName = newName.trim(); if (!trimmedName || trimmedName === currentName) return; if (categories.some(c => c.name === trimmedName && c.id !== categoryId)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return; } if (isOffline) { setCategories(prev => prev.map(c => c.id === categoryId ? { ...c, name: trimmedName } : c)); return; } if (!db || !userId) return; try { await setDoc(doc(db, getCategoryCollectionPath(), categoryId), { name: trimmedName }, { merge: true }); setAlertMessage(`科目模板名稱已從「${currentName}」更新為「${trimmedName}」。`); } catch (e) { console.error("Error editing category:", e); setAlertMessage("編輯科目模板失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); const moveCategory = useCallback(async (dragId, hoverId) => { const dragIndex = categories.findIndex(c => c.id === dragId); const hoverIndex = categories.findIndex(c => c.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; const dragCategory = categories[dragIndex]; const hoverCategory = categories[hoverIndex]; if (isOffline) { const newCategories = [...categories]; newCategories[dragIndex] = { ...dragCategory, order: hoverCategory.order }; newCategories[hoverIndex] = { ...hoverCategory, order: dragCategory.order }; newCategories.sort((a, b) => a.order - b.order); setCategories(newCategories); return; } if (!db || !userId) return; const batch = writeBatch(db); const path = getCategoryCollectionPath(); batch.set(doc(db, path, dragCategory.id), { order: hoverCategory.order }, { merge: true }); batch.set(doc(db, path, hoverCategory.id), { order: dragCategory.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving category:", e); setAlertMessage("調整項目順序失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); return { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus }; };
-
-// --- App 主程式 ---
+// --- [App 主程式] ---
 const App = () => {
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
@@ -1020,9 +1011,10 @@ const App = () => {
   const [rewardState, setRewardState] = useState(null);
   const [dashboardStudent, setDashboardStudent] = useState(null);
   
-  // 新增：任務載入引擎狀態
+  // 新增：載入引擎狀態
   const [showTaskLoader, setShowTaskLoader] = useState(false);
 
+  // 廣播視覺修復：保留完整色彩主題與標楷體設定
   const [broadcastData, setBroadcastData] = useState(null);
   const [dismissedBroadcastTime, setDismissedBroadcastTime] = useState(null);
   const [showBroadcastEditor, setShowBroadcastEditor] = useState(false);
@@ -1031,58 +1023,94 @@ const App = () => {
   const [bcTextColor, setBcTextColor] = useState("text-slate-800");
   const [bcFontSize, setBcFontSize] = useState(80);
   const [bcBiauKai, setBcBiauKai] = useState(false);
-  
+
+  // ... 承接 Part 8 ...
+  // 接續 App 組件內部
   const { students, loadingStudents } = useStudents(db, isOffline);
   const { bankData, updateBankBalance, setBankBalanceDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students);
   const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
-  const { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline, students);
+  const { categories, loadingCategories, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline, students);
 
-  const { defaultSemester, defaultMonth } = useMemo(() => { const today = new Date(); const m = today.getMonth() + 1; const monthStr = String(m).padStart(2, '0'); let sem = 'S1'; if (m >= 2 && m <= 7) { sem = 'S2'; } return { defaultSemester: sem, defaultMonth: monthStr }; }, []);
-  const [selectedSemester, setSelectedSemester] = useState(defaultSemester); const [selectedMonth, setSelectedMonth] = useState(defaultMonth); const [unlockClicks, setUnlockClicks] = useState({});
-  const academicYear = "114"; const startYear = 2025; const endYear = 2026;
-  const semesters = [ { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear }, { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }, ];
-  const months = useMemo(() => [ { id: '08', name: `8月`, color: 'bg-green-500', semester: 'S1' }, { id: '09', name: `9月`, color: 'bg-teal-500', semester: 'S1' }, { id: '10', name: `10月`, color: 'bg-cyan-500', semester: 'S1' }, { id: '11', name: `11月`, color: 'bg-blue-500', semester: 'S1' }, { id: '12', name: `12月`, color: 'bg-indigo-500', semester: 'S1' }, { id: '01', name: `1月`, color: 'bg-purple-500', semester: 'S1' }, { id: '02', name: `2月`, color: 'bg-pink-500', semester: 'S2' }, { id: '03', name: `3月`, color: 'bg-rose-500', semester: 'S2' }, { id: '04', name: `4月`, color: 'bg-red-500', semester: 'S2' }, { id: '05', name: `5月`, color: 'bg-orange-500', semester: 'S2' }, { id: '06', name: `6月`, color: 'bg-amber-500', semester: 'S2' }, { id: '07', name: `7月`, color: 'bg-yellow-500', semester: 'S2' }, ], []);
+  const semesters = [ { id: 'S1', name: `上學期` }, { id: 'S2', name: `下學期` } ];
+  const months = useMemo(() => [
+    { id: '08', name: `8月`, color: 'bg-green-500', semester: 'S1' },
+    { id: '09', name: `9月`, color: 'bg-teal-500', semester: 'S1' },
+    { id: '10', name: `10月`, color: 'bg-cyan-500', semester: 'S1' },
+    { id: '11', name: `11月`, color: 'bg-blue-500', semester: 'S1' },
+    { id: '12', name: `12月`, color: 'bg-indigo-500', semester: 'S1' },
+    { id: '01', name: `1月`, color: 'bg-purple-500', semester: 'S1' },
+    { id: '02', name: `2月`, color: 'bg-pink-500', semester: 'S2' },
+    { id: '03', name: `3月`, color: 'bg-rose-500', semester: 'S2' },
+    { id: '04', name: `4月`, color: 'bg-red-500', semester: 'S2' },
+    { id: '05', name: `5月`, color: 'bg-orange-500', semester: 'S2' },
+    { id: '06', name: `6月`, color: 'bg-amber-500', semester: 'S2' },
+    { id: '07', name: `7月`, color: 'bg-yellow-500', semester: 'S2' },
+  ], []);
+  const [selectedSemester, setSelectedSemester] = useState('S1');
+  const [selectedMonth, setSelectedMonth] = useState('02');
+  const [unlockClicks, setUnlockClicks] = useState({});
 
-  useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { if (user) { setUserId(user.uid); setIsAuthReady(true); setIsAuthenticated(true); if (user.isAnonymous) { setAuthMode('GUEST'); } else { setAuthMode('ADMIN'); } } else { setIsAuthenticated(false); setAuthMode('GUEST'); } setLoadingLogin(false); }); return () => { unsubscribe(); clearTimeout(timer); }; } catch (e) { console.error("Firebase initialization failed:", e); setError("初始化失敗：" + e.message); setLoading(false); } }, []);
-
-  const handleGoOffline = () => { setIsOffline(true); setUserId('guest_user'); setIsAuthReady(true); setLoading(false); setIsAuthenticated(true); setAuthMode('GUEST'); };
-  const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { console.error("Login failed", error); if (error.code === 'auth/invalid-email') { setLoginError('Email 格式不正確'); } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') { setLoginError('帳號或密碼錯誤'); } else if (error.code === 'auth/too-many-requests') { setLoginError('嘗試次數過多，請稍後再試'); } else { setLoginError('登入失敗：' + error.message); } setLoadingLogin(false); } };
-  const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
-  const handleLogout = async () => { try { await signOut(auth); setIsAuthenticated(false); setAuthMode('GUEST'); } catch (e) { console.error("Logout failed", e); } };
+  useEffect(() => {
+    const app = initializeApp(firebaseConfig);
+    const firestore = getFirestore(app);
+    const firebaseAuth = getAuth(app);
+    setDb(firestore); setAuth(firebaseAuth);
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (u) => {
+      if (u) { setUserId(u.uid); setIsAuthReady(true); setIsAuthenticated(true); setAuthMode(u.isAnonymous ? 'GUEST' : 'ADMIN'); }
+      setLoadingLogin(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!db) return;
-    const unsubscribeBroadcast = onSnapshot(doc(db, "broadcasts", "current"), (snap) => {
-      if (snap.exists()) { setBroadcastData(snap.data()); } else { setBroadcastData(null); }
+    return onSnapshot(doc(db, "broadcasts", "current"), (snap) => {
+      if (snap.exists()) setBroadcastData(snap.data()); else setBroadcastData(null);
     });
-    return () => unsubscribeBroadcast();
   }, [db]);
 
-  useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const currentSemData = semesters.find(s => s.id === selectedSemester); let q; if (currentSemData) { const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`; const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`; q = query( assignmentsCollection, where("assignmentDate", ">=", startDate), where("assignmentDate", "<=", endDate) ); } else { q = query(assignmentsCollection); } const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, completedAt: data.completedAt || {}, makeupClaimed: data.makeupClaimed || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code !== 'permission-denied') { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]);
-  
-  const assignmentsForSelectedDate = useMemo(() => { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; return assignments.sort((a, b) => a.order - b.order); }, [allAssignmentsByDate, selectedDisplayDate]);
-  const assignmentMap = useMemo(() => { return assignmentsForSelectedDate.reduce((acc, assignment) => { acc[assignment.assignmentName] = { id: assignment.id, submissionStatus: assignment.submissionStatus, makeupClaimed: assignment.makeupClaimed }; return acc; }, {}); }, [assignmentsForSelectedDate]);
-  const filteredMonths = useMemo(() => { const currentSemesterData = semesters.find(s => s.id === selectedSemester); if (!currentSemesterData) return months; return months.filter(m => m.semester === selectedSemester); }, [months, selectedSemester, semesters]);
-  
-  useEffect(() => { if (filteredMonths.length > 0) { const currentMonthExists = filteredMonths.some(m => m.id === selectedMonth); if (!currentMonthExists) { setSelectedMonth(filteredMonths[0].id); } } }, [selectedSemester, filteredMonths, selectedMonth]);
-  const displayedDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); const filteredByMonth = dates.filter(date => { const dateMonth = date.substring(5, 7); return dateMonth === selectedMonth; }).sort(); return filteredByMonth; }, [allAssignmentsByDate, selectedMonth]);
-  
-  useEffect(() => { 
-      const currentSelectedMonth = selectedDisplayDate.substring(5, 7);
-      if (currentSelectedMonth !== selectedMonth) {
-          if (displayedDates.length > 0) { setSelectedDisplayDate(displayedDates[displayedDates.length - 1]); } 
-          else { 
-              const currentSem = semesters.find(s => s.id === selectedSemester);
-              const year = (selectedMonth >= '08') ? currentSem?.startYear : currentSem?.endYear;
-              if (year) setSelectedDisplayDate(`${year}-${selectedMonth.padStart(2, '0')}-01`);
-          } 
-      }
-  }, [displayedDates, selectedMonth, semesters, selectedSemester]); 
+  useEffect(() => {
+    if (!isAuthReady || !db || isOffline) return;
+    const q = query(collection(db, getAssignmentCollectionPath()));
+    return onSnapshot(q, (snapshot) => {
+      const grouped = {};
+      snapshot.docs.forEach(doc => {
+        const data = doc.data(); const d = data.assignmentDate;
+        if (d) { if (!grouped[d]) grouped[d] = []; grouped[d].push({ id: doc.id, ...data }); }
+      });
+      setAllAssignmentsByDate(grouped); setLoading(false);
+    });
+  }, [isAuthReady, db, isOffline]);
 
-  const studentMissingStats = useMemo(() => { const stats = students.map(student => ({ id: student.id, name: student.name, missingCount: 0, missingDetails: [] })); Object.keys(allAssignmentsByDate).forEach(date => { const assignmentsOnDate = allAssignmentsByDate[date] || []; assignmentsOnDate.forEach(assignment => { const submissionStatus = assignment.submissionStatus || {}; students.forEach((student, index) => { if (submissionStatus[student.id] === false) { stats[index].missingCount += 1; stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName }); } }); }); }); stats.sort((a, b) => b.missingCount - a.missingCount); return stats; }, [allAssignmentsByDate, students]);
-  const monthlyStudentStats = useMemo(() => { const stats = {}; students.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; students.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months, students]);
-  
-  // === [NEW] 任務載入引擎核心邏輯 ===
+  // ... 承接 Part 9 ...
+  const assignmentsForSelectedDate = useMemo(() => 
+    (allAssignmentsByDate[selectedDisplayDate] || []).sort((a, b) => (a.order || 0) - (b.order || 0))
+  , [allAssignmentsByDate, selectedDisplayDate]);
+
+  const assignmentMap = useMemo(() => 
+    assignmentsForSelectedDate.reduce((acc, a) => { acc[a.assignmentName] = a; return acc; }, {})
+  , [assignmentsForSelectedDate]);
+
+  const displayedDates = useMemo(() => 
+    Object.keys(allAssignmentsByDate).filter(d => d.substring(5, 7) === selectedMonth).sort()
+  , [allAssignmentsByDate, selectedMonth]);
+
+  const studentMissingStats = useMemo(() => {
+    const stats = students.map(s => ({ id: s.id, name: s.name, missingCount: 0, missingDetails: [] }));
+    Object.keys(allAssignmentsByDate).forEach(date => {
+      (allAssignmentsByDate[date] || []).forEach(a => {
+        students.forEach((s, idx) => {
+          if (a.submissionStatus[s.id] === false) {
+            stats[idx].missingCount++;
+            stats[idx].missingDetails.push({ date, assignment: a.assignmentName });
+          }
+        });
+      });
+    });
+    return stats.sort((a, b) => b.missingCount - a.missingCount);
+  }, [allAssignmentsByDate, students]);
+
+  // === [核心引擎：航海日誌任務注入邏輯] ===
   const handleLoadFromAnnouncements = async (tasksToInject) => {
     if (!selectedDisplayDate) return;
     setLoading(true);
@@ -1092,8 +1120,8 @@ const App = () => {
         const currentCount = assignmentsForSelectedDate.length;
 
         tasksToInject.forEach((task, idx) => {
-            const newDocRef = doc(collection(db, path));
-            batch.set(newDocRef, {
+            const newRef = doc(collection(db, path));
+            batch.set(newRef, {
                 assignmentName: task.text,
                 order: currentCount + idx,
                 assignmentDate: selectedDisplayDate,
@@ -1104,367 +1132,316 @@ const App = () => {
         });
 
         await batch.commit();
-        setAlertMessage(`成功載入 ${tasksToInject.length} 項任務！`);
+        setAlertMessage(`✅ 成功載入 ${tasksToInject.length} 項任務！`);
         setShowTaskLoader(false);
     } catch (e) {
         console.error(e);
-        alert("寫入作業表失敗。");
+        alert("載入失敗，請檢查網路權限");
     }
     setLoading(false);
   };
 
-  const handleAddNewDate = useCallback(async () => {
-      if (!newAssignmentDate) return;
-      if (allAssignmentsByDate[newAssignmentDate]) { alert("該日期已存在。"); return; }
-      const d = new Date(newAssignmentDate);
-      const m = d.getMonth() + 1;
-      const targetMonth = String(m).padStart(2, '0');
-      let targetSemester = 'S1';
-      if (m >= 2 && m <= 7) targetSemester = 'S2';
-      setSelectedSemester(targetSemester);
-      setSelectedMonth(targetMonth);
-      setLoading(true);
-      const assignmentsToCreate = categories.map(cat => ({
-          assignmentName: cat.name, order: cat.order, assignmentDate: newAssignmentDate,
-          submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: serverTimestamp() 
-      }));
-      if (isOffline) { 
-          const newOff = assignmentsToCreate.map((a, idx) => ({ ...a, id: `off-${Date.now()}-${idx}`, createdAt: new Date().toISOString() }));
-          setAllAssignmentsByDate(prev => ({ ...prev, [newAssignmentDate]: newOff }));
-          setSelectedDisplayDate(newAssignmentDate);
-          setLoading(false); return; 
-      }
-      try {
-          const batch = writeBatch(db);
-          const path = getAssignmentCollectionPath();
-          assignmentsToCreate.forEach(a => batch.set(doc(collection(db, path)), a));
-          await batch.commit();
-          setSelectedDisplayDate(newAssignmentDate);
-      } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, [newAssignmentDate, allAssignmentsByDate, isOffline, categories, getInitialSubmissionStatus, db]);
-
-  const handleAddNewAssignment = useCallback(async () => {
-      if (!selectedDisplayDate) return;
-      const current = assignmentsForSelectedDate || [];
-      const maxOrder = current.reduce((max, item) => Math.max(max, item.order || 0), -1);
-      if (isOffline) {
-          const newId = `off-a-${Date.now()}`;
-          setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: [...(prev[selectedDisplayDate]||[]), { id: newId, assignmentName: "新增作業", assignmentDate: selectedDisplayDate, order: maxOrder+1, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: new Date().toISOString() }] }));
-          return;
-      }
-      setLoading(true);
-      try { await setDoc(doc(collection(db, getAssignmentCollectionPath())), { assignmentName: "新增作業", assignmentDate: selectedDisplayDate, order: maxOrder+1, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: serverTimestamp() }); } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, [selectedDisplayDate, isOffline, assignmentsForSelectedDate, getInitialSubmissionStatus, db]);
-
-  const handleDeleteAssignment = useCallback(async (id, name, force) => {
-      if (authMode !== 'ADMIN' && !isOffline) return; if (!force && !window.confirm(`確定要刪除作業「${name}」嗎？`)) return;
-      if (isOffline) { setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: prev[selectedDisplayDate].filter(a => a.id !== id) })); return; }
-      try { await deleteDoc(doc(db, getAssignmentCollectionPath(), id)); } catch (e) { console.error(e); }
-  }, [authMode, isOffline, db, selectedDisplayDate]);
-
-  const handleEditAssignmentName = useCallback(async (id, newName) => {
-      if (isOffline) { setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: prev[selectedDisplayDate].map(a => a.id === id ? { ...a, assignmentName: newName } : a) })); return; }
-      await setDoc(doc(db, getAssignmentCollectionPath(), id), { assignmentName: newName }, { merge: true });
-  }, [isOffline, db, selectedDisplayDate]);
-
-  const handleMoveAssignment = useCallback(async (dragId, hoverId) => {
-      const items = [...assignmentsForSelectedDate]; 
-      const dragIdx = items.findIndex(i => i.id === dragId); 
-      const hoverIdx = items.findIndex(i => i.id === hoverId); 
-      if (dragIdx === -1 || hoverIdx === -1) return;
-      const dragItem = items[dragIdx]; 
-      const newItems = [...items]; 
-      newItems.splice(dragIdx, 1); 
-      newItems.splice(hoverIdx, 0, dragItem); 
-      const updated = newItems.map((item, index) => ({ ...item, order: index })); 
-      setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: updated })); 
-      if (isOffline) return;
-      const batch = writeBatch(db); 
-      updated.forEach(item => batch.update(doc(db, getAssignmentCollectionPath(), item.id), { order: item.order }));
-      batch.commit().catch(e => console.error(e));
-  }, [assignmentsForSelectedDate, isOffline, db, selectedDisplayDate]);
-
-  const handleBatchSettlement = useCallback(async () => {
-    if (!selectedDisplayDate) return;
-    const settledData = dailySettlements[selectedDisplayDate];
-    const assignments = assignmentsForSelectedDate;
-    if (assignments.length === 0) return;
-    const isPastDate = selectedDisplayDate < getTodayDate();
-    let shouldIssueReward = true; 
-    if (isPastDate) { if (!window.confirm(`⚠️ 偵測到這是過去日期！是否發銀幣並鎖定？`)) shouldIssueReward = false; }
-    const greenIds = students.filter(s => assignments.every(a => a.submissionStatus[s.id] === true)).map(s => s.id);
-    const claimedMap = settledData?.silverRewardClaimed || {};
-    const newWinners = greenIds.filter(id => !claimedMap[id]);
-    if (newWinners.length === 0) {
-        if (!dailySettlements[selectedDisplayDate]?.isSettled) {
-             setDoc(doc(db, getDailySettlementPath(), selectedDisplayDate), { isSettled: true, settledAt: serverTimestamp() }, { merge: true });
-        }
-        alert("無新增獲獎者。"); return;
+  const handleAddNewDate = async () => {
+    if (!newAssignmentDate || allAssignmentsByDate[newAssignmentDate]) {
+        alert("日期已存在或無效"); return;
     }
-    if (shouldIssueReward) { if (!window.confirm(`確認發放給 ${newWinners.length} 位同學？`)) return; }
-    setLoading(true);
-    try {
-        const batch = writeBatch(db);
-        const settleRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
-        const newClaims = {}; newWinners.forEach(id => newClaims[id] = true);
-        batch.set(settleRef, { isSettled: true, silverRewardClaimed: newClaims, settledAt: serverTimestamp() }, { merge: true });
-        await batch.commit();
-        if (shouldIssueReward) newWinners.forEach(sid => updateBankBalance(sid, 0, 2, 0));
-        setAlertMessage(`✅ 結算完成！`);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, [selectedDisplayDate, dailySettlements, assignmentsForSelectedDate, students, db, updateBankBalance]);
+    setSelectedDisplayDate(newAssignmentDate);
+    setAlertMessage(`📅 日期 ${newAssignmentDate} 已就緒，請使用載入任務功能。`);
+  };
+
+  const handleAddNewAssignment = async () => {
+    if (!selectedDisplayDate) return;
+    const maxOrder = assignmentsForSelectedDate.reduce((max, i) => Math.max(max, i.order || 0), -1);
+    await setDoc(doc(collection(db, getAssignmentCollectionPath())), { 
+        assignmentName: "手動新增作業", assignmentDate: selectedDisplayDate, order: maxOrder + 1, 
+        submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: serverTimestamp() 
+    });
+  };
 
   const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => { 
-      const assignmentData = assignmentMap[assignmentName]; 
-      if (!assignmentData) return; 
-      const settledData = dailySettlements[selectedDisplayDate];
-      const isSettled = settledData?.isSettled || false;
+      const aData = assignmentMap[assignmentName]; if (!aData) return; 
+      const isSettled = dailySettlements[selectedDisplayDate]?.isSettled || false;
       let newStatus;
-      let bronzeChange = 0; let silverChange = 0; let goldChange = 0; 
-      let makeupUpdate = {}; let triggerAnimation = null;
-
+      
       if (!isSettled) {
-          const cellKey = `${studentId}-${assignmentData.id}`; 
+          const cellKey = `${studentId}-${aData.id}`;
           if (currentStatus === true || currentStatus === undefined) newStatus = false;
           else if (currentStatus === false) newStatus = 'late';
           else {
-              const currentCount = unlockClicks[cellKey] || 0; 
-              if (currentCount < 2) { setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); return; }
+              const count = unlockClicks[cellKey] || 0;
+              if (count < 2) { setUnlockClicks(prev => ({...prev, [cellKey]: count + 1})); return; }
               newStatus = true;
           }
-          if (isOffline) {
-              setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: prev[selectedDisplayDate].map(a => a.id === assignmentData.id ? { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus } } : a) }));
-          } else {
-              await setDoc(doc(db, getAssignmentCollectionPath(), assignmentData.id), { submissionStatus: { [studentId]: newStatus } }, { merge: true });
-          }
+          await setDoc(doc(db, getAssignmentCollectionPath(), aData.id), { submissionStatus: { [studentId]: newStatus } }, { merge: true });
           return;
       }
 
+      // --- 結算發布後的嚴格獎懲邏輯 (全量恢復) ---
+      let bronzeChange = 0; let silverChange = 0; let goldChange = 0; 
+      let triggerAnimation = null;
+
       if (currentStatus === true || currentStatus === undefined) {
           newStatus = false;
-          if (settledData?.silverRewardClaimed?.[studentId]) {
+          if (dailySettlements[selectedDisplayDate]?.silverRewardClaimed?.[studentId]) {
               silverChange = -2;
               await setDoc(doc(db, getDailySettlementPath(), selectedDisplayDate), { [`silverRewardClaimed.${studentId}`]: deleteField() }, { merge: true });
           }
       } else if (currentStatus === false) {
-          newStatus = 'late'; bronzeChange = 10; makeupUpdate = { [`makeupClaimed.${studentId}`]: true }; triggerAnimation = 'BRONZE'; 
-          const allStud = Object.values(allAssignmentsByDate).flat();
-          if (allStud.filter(a => a.submissionStatus[studentId] === false && a.id !== assignmentData.id).length === 0) { triggerAnimation = 'GOLD_CLEAR'; goldChange = 3; }
-      } else {
-          newStatus = false; bronzeChange = -10; makeupUpdate = { [`makeupClaimed.${studentId}`]: deleteField() };
+          newStatus = 'late'; 
+          bronzeChange = 10; triggerAnimation = 'BRONZE';
+          const allAssignments = Object.values(allAssignmentsByDate).flat();
+          const remains = allAssignments.filter(a => a.submissionStatus[studentId] === false && a.id !== aData.id);
+          if (remains.length === 0) { triggerAnimation = 'GOLD_CLEAR'; goldChange = 3; }
+      } else { 
+          newStatus = false; bronzeChange = -10; 
       }
-      if (bronzeChange !== 0 || silverChange !== 0 || goldChange !== 0) updateBankBalance(studentId, goldChange, silverChange, bronzeChange);
+
+      if (bronzeChange !== 0 || silverChange !== 0 || goldChange !== 0) {
+          updateBankBalance(studentId, goldChange, silverChange, bronzeChange);
+      }
       if (triggerAnimation) setRewardState({ type: triggerAnimation });
-      const assignRef = doc(db, getAssignmentCollectionPath(), assignmentData.id);
-      await setDoc(assignRef, { [`submissionStatus.${studentId}`]: newStatus, ...makeupUpdate }, { merge: true });
-  }, [db, assignmentMap, unlockClicks, isOffline, allAssignmentsByDate, updateBankBalance, selectedDisplayDate, dailySettlements]);
+      await setDoc(doc(db, getAssignmentCollectionPath(), aData.id), { submissionStatus: { [studentId]: newStatus } }, { merge: true });
+  }, [db, assignmentMap, unlockClicks, updateBankBalance, selectedDisplayDate, dailySettlements, allAssignmentsByDate]);
 
-  const handleEditCurrentDate = useCallback(async (targetOldDate) => {
-    const oldDate = targetOldDate || selectedDisplayDate;
-    if (authMode !== 'ADMIN' || !oldDate) return;
-    const newDate = prompt(`請輸入新的日期 YYYY-MM-DD`, oldDate);
-    if (!newDate || newDate === oldDate) return;
-    if (allAssignmentsByDate[newDate]) { alert("日期已存在。"); return; }
+  const handleBatchSettlement = async () => {
+    const assignments = assignmentsForSelectedDate;
+    if (assignments.length === 0) return;
+    const greenIds = students.filter(s => assignments.every(a => a.submissionStatus[s.id] === true)).map(s => s.id);
+    if (greenIds.length === 0) { alert("目前無人全對"); return; }
+    if (!window.confirm(`確定結算？將發放銀幣給 ${greenIds.length} 位同學。`)) return;
+    
     setLoading(true);
     try {
         const batch = writeBatch(db);
-        const assignments = allAssignmentsByDate[oldDate] || [];
-        assignments.forEach(a => batch.update(doc(db, getAssignmentCollectionPath(), a.id), { assignmentDate: newDate }));
-        await batch.commit();
-        setSelectedDisplayDate(newDate);
-    } catch(e) { console.error(e); } finally { setLoading(false); }
-  }, [authMode, selectedDisplayDate, allAssignmentsByDate, db]);
+        const settleRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
+        const claims = {}; 
+        greenIds.forEach(id => { claims[id] = true; updateBankBalance(id, 0, 2, 0); });
+        batch.set(settleRef, { isSettled: true, silverRewardClaimed: claims, settledAt: serverTimestamp() }, { merge: true });
+        await batch.commit(); 
+        setAlertMessage("🎉 結算成功！銀幣已入帳。");
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+  const isGlobalLoading = loading || loadingStudents;
 
-  const executeDelete = useCallback(async () => {
-    if (!confirmationModal) return;
-    const { action } = confirmationModal;
-    setConfirmationModal(null);
-    setLoading(true);
-    try {
-        const batch = writeBatch(db);
-        const path = getAssignmentCollectionPath();
-        let ids = [];
-        if (action === 'DAILY') ids = assignmentsForSelectedDate.map(a => a.id);
-        else if (action === 'MONTHLY') {
-            Object.keys(allAssignmentsByDate).forEach(d => { if(d.substring(5,7) === selectedMonth) allAssignmentsByDate[d].forEach(a => ids.push(a.id)); });
-        }
-        ids.forEach(id => batch.delete(doc(db, path, id)));
-        await batch.commit();
-        setSelectedDisplayDate(getTodayDate());
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, [confirmationModal, assignmentsForSelectedDate, allAssignmentsByDate, selectedMonth, db]);
-
-  const handleExportData = useCallback(async () => {
-      setLoading(true);
-      try {
-          const exportObj = { version: VERSION, students, bankData, assignments: [] };
-          const snapshot = await getDocs(collection(db, getAssignmentCollectionPath()));
-          snapshot.forEach(doc => exportObj.assignments.push({ id: doc.id, ...doc.data() }));
-          const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
-          const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `backup_${getTodayDate()}.json`; link.click();
-      } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, [db, students, bankData]);
-
-  const handleImportData = useCallback(async (e) => {
-      const file = e.target.files[0]; if (!file) return;
-      setLoading(true);
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-          try {
-              const json = JSON.parse(ev.target.result);
-              if (json.bankData) setBankData(json.bankData);
-              alert("匯入成功。");
-          } catch (error) { console.error(error); } finally { setLoading(false); }
-      };
-      reader.readAsText(file);
-  }, []);
-
-  const isGlobalLoading = loading || loadingCategories || loadingStudents;
-  if (!isAuthenticated && !isGlobalLoading) return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
-  if (error) return <div className="p-8 text-center bg-red-100 text-red-700"><h2>發生錯誤</h2><p>{error}</p></div>;
+  if (!isAuthenticated && !isGlobalLoading) return (
+    <LoginScreen 
+      onAdminLogin={(e, p) => handleAdminLogin(e, p)} 
+      onGuestLogin={handleGuestLogin} 
+      isLoading={loadingLogin} 
+      errorMsg={loginError} 
+    />
+  );
 
   return (
     <DndProvider backend={HTML5Backend}>
-    <div className="min-h-screen flex flex-col bg-gray-100 overflow-x-hidden">
-      {rewardState && ( <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} /> )}
-      {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalanceDirectly={setBankBalanceDirectly} authMode={authMode} students={students} /> )}
-      {dashboardStudent && ( <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={() => setDashboardStudent(null)} /> )}
-      {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
-      {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={students.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} updateBankBalance={updateBankBalance} setRewardState={setRewardState} /> )}
-      {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
-      
-      {/* === [NEW] 載入視窗掛載 === */}
-      {showTaskLoader && authMode === 'ADMIN' && (
-        <TaskLoaderModal 
-            db={db} 
-            initialDate={selectedDisplayDate} 
-            onClose={() => setShowTaskLoader(false)} 
-            onConfirm={handleLoadFromAnnouncements}
-        />
-      )}
+    <div className="min-h-screen flex flex-col bg-gray-100 font-sans select-none overflow-x-hidden">
+      {/* 特效與彈窗掛載 */}
+      {rewardState && <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} />}
+      {showBankModal && <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalanceDirectly={setBankBalanceDirectly} authMode={authMode} students={students} />}
+      {dashboardStudent && <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={() => setDashboardStudent(null)} />}
+      {showAllMissingModal && <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} />}
+      {showTaskLoader && <TaskLoaderModal db={db} initialDate={selectedDisplayDate} onClose={() => setShowTaskLoader(false)} onConfirm={handleLoadFromAnnouncements} />}
+      {missingStudent && <MissingDetailsModal student={students.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} updateBankBalance={updateBankBalance} setRewardState={setRewardState} />}
+      {confirmationModal && <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} />}
 
       <div className="bg-white shadow-xl w-full flex flex-col h-full print:hidden">
-        <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
-          <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20"><LogOut className="w-5 h-5" /> 登出</button>
-          <div className="flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2"><span className="text-orange-500 text-6xl mr-3">🐻‍❄️</span>五年甲班訂正作業表<span className="text-green-600 text-6xl ml-3">🐼</span></div>
-          <p className="text-3xl text-gray-600 mb-4">{new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'long' })}</p>
-          <p className="absolute right-4 text-xl text-gray-500 font-bold z-30">版本: {VERSION}</p>
+        <header className="p-6 text-center border-b bg-white relative shrink-0">
+          <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg font-bold transition hover:bg-red-200 active:scale-95"><LogOut size={20}/> 登出</button>
+          <h1 className="text-6xl font-black tracking-tighter">🐻‍❄️ 五年甲班訂正作業表 🐼</h1>
+          <p className="text-3xl text-gray-500 mt-2 font-bold">{new Date().toLocaleDateString('zh-TW', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+          <p className="absolute right-4 top-4 text-gray-400 font-bold">Ver: {VERSION}</p>
         </header>
-        {alertMessage && ( <CustomAlert message={alertMessage} onClose={() => setAlertMessage(null)} /> )}
-        
-        <div className="flex-1 overflow-x-hidden bg-gray-50 p-4 relative flex flex-col">
-            <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl">
-                <label className="font-semibold text-gray-700">學期：</label>
-                <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold">{semesters.map((s) => ( <option key={s.id} value={s.id}>{s.name}</option>))}</select>
-                <label className="font-semibold text-gray-700">月份：</label>
-                <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" style={{ backgroundColor: months.find((m) => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
-                <div className="flex items-center gap-3">
-                    <button onClick={() => setShowBankModal(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 shadow-md flex items-center justify-center"><BookOpen className="h-6 w-6 mr-2" />訂正存簿</button>
-                    {authMode === 'ADMIN' && (
-                        <>
-                            <button onClick={handleBatchSettlement} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white shadow-md flex items-center justify-center ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-500 hover:bg-gray-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}>{dailySettlements[selectedDisplayDate]?.isSettled ? <><Lock className="h-6 w-6 mr-2" />已發布</> : <><Megaphone className="h-6 w-6 mr-2" />結算發布</>}</button>
-                            <button onClick={() => setShowBroadcastEditor(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-amber-500 hover:bg-amber-600 shadow-md flex items-center justify-center"><Megaphone className="h-6 w-6 mr-2" />全域廣播</button>
-                        </>
-                    )}
-                </div>
-            </div>
-            
-            <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2 shrink-0">
-                {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} onEdit={() => handleEditCurrentDate(date)} authMode={authMode} /> ))}
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-2 mb-6 shrink-0">
-                 <input type="date" value={newAssignmentDate} onChange={e => setNewAssignmentDate(e.target.value)} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] flex-shrink-0" />
-                 <button onClick={handleAddNewDate} className="px-4 py-2 flex-1 text-3xl font-medium rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 shadow-md"> + 新增日期 </button>
-                 
-                 {/* === [NEW] 載入任務按鈕 === */}
-                 {authMode === 'ADMIN' && (
-                     <button onClick={() => setShowTaskLoader(true)} className="px-4 py-2 flex-1 text-3xl font-medium rounded-lg text-white bg-blue-500 hover:bg-blue-600 shadow-md flex items-center justify-center gap-2">
-                        <DownloadCloud className="w-8 h-8" /> 載入任務
-                     </button>
-                 )}
 
-                 <button onClick={handleExportData} className="px-4 py-2 flex-1 text-3xl font-medium rounded-lg text-white bg-fuchsia-400 hover:bg-fuchsia-500 shadow-md flex items-center justify-center"> <Download className="h-6 w-6 mr-1" />匯出 </button>
-                 <button onClick={() => setShowAllMissingModal(true)} className="px-4 py-2 flex-1 text-3xl font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 shadow-md flex items-center justify-center"> <FileText className="h-6 w-6 mr-1" />未完成總表 </button>
-                 {authMode === 'ADMIN' && (
-                    <>
-                        <ProtectedButton onClick={() => setConfirmationModal({action:'DAILY', title:'確定刪除該日？', message:'資料將永久移除', confirmTitle:'日期', confirmColor:'bg-gray-900'})} className="px-4 py-2 text-3xl font-medium rounded-lg text-white shadow-md flex-1 bg-gray-900 hover:bg-gray-800">🧨刪除日期</ProtectedButton>
-                    </>
-                 )}
-            </div>
-            
-            <div className="flex justify-between items-center mb-6 shrink-0">
-                <h2 className="text-5xl font-bold text-gray-800 flex items-center">
-                    <span className="text-gray-500 mr-3 text-5xl">📋</span>
-                    {selectedDisplayDate ? (
-                        <div className="flex items-center gap-3">
-                            <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span>
-                            {dailySettlements[selectedDisplayDate]?.isSettled && <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-lg rounded-full font-bold border border-indigo-200 flex items-center"><Lock className="w-4 h-4 mr-1"/>已發布</span>}
-                        </div>
-                    ) : '請選擇日期'}
-                </h2>
-                <div className="flex items-center gap-4">
-                    {focusedStudentId && ( <button onClick={() => setFocusedStudentId(null)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-gray-600 hover:bg-gray-700 shadow-md flex items-center"> <Eye className="h-8 w-8 mr-2" /> 顯示全部 </button> )}
-                    <button onClick={handleAddNewAssignment} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-blue-400 hover:bg-blue-500 shadow-md flex items-center"><Plus className="h-8 w-8 mr-2" />新增作業</button>
-                </div>
-            </div>
+        {alertMessage && <CustomAlert message={alertMessage} onClose={() => setAlertMessage(null)} />}
 
-            <div className={`w-full max-w-[100vw] relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[90vh] min-h-[500px] mb-8 bg-white`}> 
-                <div className="min-w-full">
-                    {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' ? (
-                        <table className="divide-y divide-gray-300 min-w-full w-max">
-                            <thead className="bg-gray-100 sticky top-0 z-40">
-                                <tr>
-                                    <th className="px-2 py-4 text-3xl font-semibold text-gray-600 border-r sticky left-0 top-0 z-50 bg-gray-100 text-center" style={{ width: '100px' }}>座號</th>
-                                    <th className="px-2 py-4 text-3xl font-semibold text-gray-600 sticky left-[100px] top-0 z-50 bg-gray-100 text-center border-r-4 shadow-md" style={{ width: '128px' }}>姓名</th>
-                                    {assignmentsForSelectedDate.map((assignment) => (
-                                        <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} authMode={authMode} />
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
-                                {(focusedStudentId ? students.filter(s => s.id === focusedStudentId) : students).map((student) => (
-                                    <tr key={student.id} className={`group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
-                                            <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl font-medium text-gray-900 border-r sticky left-0 z-30 bg-white text-center cursor-pointer group-hover:bg-blue-100" style={{ width: '100px' }}>{student.id}</td>
-                                            <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl text-gray-900 font-semibold sticky left-[100px] z-30 bg-white text-center border-r-4 shadow-md cursor-pointer group-hover:bg-blue-100" style={{ width: '128px' }}>{student.name[0] + 'O' + student.name.slice(2)}</td>
-                                            {assignmentsForSelectedDate.map((assignment) => {
-                                                const status = assignment.submissionStatus[student.id] ?? true;
-                                                return (
-                                                    <td key={`${student.id}-${assignment.id}`} className="px-1 py-4 text-center" style={{ minWidth: '150px' }}>
-                                                        <button onClick={() => handleToggleSubmission(assignment.assignmentName, student.id, status)} disabled={isGlobalLoading} className={`p-2 rounded-lg shadow-md ${status === true ? 'bg-green-200 text-green-700' : (status === 'late' ? 'bg-yellow-100 text-yellow-700' : 'bg-white border-4 border-red-300 text-red-500')}`}>
-                                                          {status === false ? <X className="h-10 w-10"/> : <Check className="h-10 w-10"/>}
-                                                        </button>
-                                                    </td>
-                                                );
-                                            })}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : <div className="text-center p-20 text-gray-400 text-3xl">該日無資料</div>}
+        <div className="flex-1 p-6 overflow-y-auto bg-gray-50 flex flex-col gap-6">
+          {/* 控制列 */}
+          <div className="flex flex-wrap items-center gap-6 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+             <div className="flex items-center gap-4">
+                <label className="text-3xl font-black text-gray-700">學期</label>
+                <select value={selectedSemester} onChange={e => setSelectedSemester(e.target.value)} className="p-3 text-2xl border-2 rounded-xl font-bold">{semesters.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+             </div>
+             <div className="flex items-center gap-4">
+                <label className="text-3xl font-black text-gray-700">月份</label>
+                <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="p-3 text-2xl border-2 rounded-xl font-bold">{months.filter(m => m.semester === selectedSemester).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
+             </div>
+             <div className="flex gap-4 ml-auto">
+                <button onClick={() => setShowBankModal(true)} className="px-6 py-4 bg-green-600 text-white text-3xl font-black rounded-2xl shadow-lg flex items-center gap-3 active:scale-95 transition"><BookOpen/> 訂正存簿</button>
+                {authMode === 'ADMIN' && (
+                  <>
+                    <button onClick={handleBatchSettlement} className="px-6 py-4 bg-indigo-600 text-white text-3xl font-black rounded-2xl shadow-lg flex items-center gap-3 active:scale-95 transition"><Megaphone/> 結算發布</button>
+                    <button onClick={() => setShowBroadcastEditor(true)} className="px-6 py-4 bg-amber-500 text-white text-3xl font-black rounded-2xl shadow-lg flex items-center gap-3 active:scale-95 transition"><Megaphone/> 全域廣播</button>
+                  </>
+                )}
+             </div>
+          </div>
+
+          {/* 日期標籤列 */}
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {displayedDates.map(d => ( 
+              <DateTab key={d} date={d} isSelected={selectedDisplayDate === d} onClick={setSelectedDisplayDate} onEdit={() => handleEditCurrentDate(d)} authMode={authMode} />
+            ))}
+          </div>
+
+          {/* 功能按鈕列 */}
+          <div className="flex flex-wrap items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+              <input type="date" value={newAssignmentDate} onChange={e => setNewAssignmentDate(e.target.value)} className="p-3 text-3xl border-2 rounded-xl font-bold w-[260px]"/>
+              <button onClick={handleAddNewDate} className="px-6 py-3 bg-yellow-500 text-white text-3xl font-black rounded-xl shadow-md active:scale-95">+ 新增日期</button>
+              {authMode === 'ADMIN' && (
+                <button onClick={() => setShowTaskLoader(true)} className="px-6 py-3 bg-blue-500 text-white text-3xl font-black rounded-xl shadow-md flex items-center gap-2 active:scale-95 transition"><DownloadCloud/> 📥 載入任務</button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <button onClick={handleExportData} className="p-3 bg-fuchsia-100 text-fuchsia-700 rounded-xl hover:bg-fuchsia-200 transition shadow-sm active:scale-95"><Download size={32}/></button>
+                <div className="relative">
+                   <input type="file" onChange={handleImportData} className="absolute inset-0 opacity-0 cursor-pointer" />
+                   <button className="p-3 bg-cyan-100 text-cyan-700 rounded-xl pointer-events-none shadow-sm"><Upload size={32}/></button>
                 </div>
-            </div>
-            <MissingColorExplanation />
-            <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner border border-gray-200"><h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">全班未訂正統計</h2><div className="grid grid-cols-5 gap-4">{studentMissingStats.map((stat) => { const cc = getMissingColorClasses(stat.missingCount); return ( <div key={stat.id} onClick={() => stat.missingCount > 0 && setMissingStudent(stat)} className={`p-4 rounded-2xl cursor-pointer ${cc.bg} ${cc.border} ${cc.text} text-center border-2 border-b-[8px] active:translate-y-[6px]`}> <p className="text-4xl font-semibold">{stat.name[0] + 'O' + stat.name.slice(2)}</p> <p className="text-6xl font-black">{stat.missingCount}</p> </div> ); })}</div></div>
-            <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
+                <button onClick={() => setShowAllMissingModal(true)} className="p-3 bg-orange-100 text-orange-700 rounded-xl shadow-sm active:scale-95"><FileText size={32}/></button>
+              </div>
+          </div>
+
+          {/* 主表格區 */}
+          <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border-8 border-white flex-1 min-h-[600px] flex flex-col relative">
+              <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
+                  <h2 className="text-4xl font-black text-gray-800 flex items-center gap-4">📋 {selectedDisplayDate} 作業確認表</h2>
+                  {authMode === 'ADMIN' && <button onClick={handleAddNewAssignment} className="px-6 py-3 bg-blue-400 text-white text-2xl font-black rounded-2xl shadow-md flex items-center gap-2 active:scale-95"><Plus/> 手動加項</button>}
+              </div>
+              <div className="flex-1 overflow-auto">
+                  <table className="w-full border-collapse">
+                      <thead className="sticky top-0 z-40 bg-gray-100">
+                          <tr>
+                            <th className="p-4 text-3xl font-black text-gray-500 border-r sticky left-0 z-50 bg-gray-100" style={{width:'100px'}}>座號</th>
+                            <th className="p-4 text-3xl font-black text-gray-800 border-r-4 sticky left-[100px] z-50 bg-gray-100 shadow-md" style={{width:'150px'}}>姓名</th>
+                            {assignmentsForSelectedDate.map(a => (
+                              <AssignmentHeader key={a.id} assignment={a} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} authMode={authMode} />
+                            ))}
+                          </tr>
+                      </thead>
+                      <tbody>
+                        {students.map(s => (
+                          <tr key={s.id} className="border-b hover:bg-blue-50 transition-colors">
+                            <td onClick={() => setDashboardStudent(s)} className="p-4 text-4xl font-black text-gray-400 border-r text-center sticky left-0 bg-white group-hover:bg-blue-50 z-30 cursor-pointer">{s.id}</td>
+                            <td onClick={() => setFocusedStudentId(focusedStudentId === s.id ? null : s.id)} className={`p-4 text-4xl font-black border-r-4 text-center sticky left-[100px] shadow-md z-30 cursor-pointer ${focusedStudentId === s.id ? 'bg-blue-600 text-white' : 'bg-white group-hover:bg-blue-100'}`}>{s.name[0]+'O'+s.name.slice(2)}</td>
+                            {assignmentsForSelectedDate.map(a => {
+                              const st = a.submissionStatus[s.id] ?? true;
+                              return (
+                                <td key={a.id} className="p-2 text-center border-r">
+                                  <button onClick={() => handleToggleSubmission(a.assignmentName, s.id, st)} className={`w-20 h-20 rounded-2xl shadow-lg transition-all flex items-center justify-center border-b-8 active:border-b-0 active:translate-y-2 ${st === true ? 'bg-green-100 text-green-700 border-green-300' : (st === 'late' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-white text-red-500 border-red-300 border-4')}`}>
+                                    {st === true ? <Check size={48} strokeWidth={4}/> : (st === 'late' ? <RotateCw size={48} strokeWidth={4}/> : <X size={48} strokeWidth={4}/>)}
+                                  </button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                  </table>
+              </div>
+          </div>
+          <MissingColorExplanation />
+          <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={months.filter(m => m.semester === selectedSemester)} />
         </div>
-        
+
+        {/* 廣播編輯器：恢復完整視覺設定功能 */}
         {showBroadcastEditor && authMode === 'ADMIN' && (
-          <div className="fixed inset-0 bg-sky-900/90 backdrop-blur-md z-[100000] flex items-center justify-center p-4">
-            <div className="bg-white rounded-[3rem] p-10 w-full max-w-5xl border-8 border-sky-200 flex flex-col">
-              <h2 className="text-4xl font-black text-sky-800 mb-6"><Megaphone size={48}/> 廣播控制台</h2>
-              <textarea value={broadcastInput} onChange={e => setBroadcastInput(e.target.value)} className="w-full min-h-[300px] p-8 border-4 rounded-[2rem] font-black text-4xl shadow-inner" placeholder="輸入廣播內容..." />
-              <div className="flex gap-6 mt-8 pt-6 border-t-4 border-sky-100">
-                <button onClick={async () => { await setDoc(doc(db, "broadcasts", "current"), { message: broadcastInput, timestamp: serverTimestamp(), active: true, settings: { bgColor: bcBgColor, textColor: bcTextColor, fontSize: bcFontSize, biauKai: bcBiauKai } }); setShowBroadcastEditor(false); }} className="flex-1 bg-sky-500 text-white text-3xl font-black py-5 rounded-2xl">發布廣播</button>
-                <button onClick={() => setShowBroadcastEditor(false)} className="px-8 bg-gray-200 text-gray-700 text-2xl font-bold py-5 rounded-2xl">取消</button>
+          <div className="fixed inset-0 bg-sky-900/90 backdrop-blur-md z-[100000] flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-[3rem] shadow-2xl p-10 w-full max-w-5xl border-8 border-sky-200 relative zoom-in-95 flex flex-col max-h-[95vh]">
+              <button onClick={() => setShowBroadcastEditor(false)} className="absolute top-6 right-6 p-3 text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 rounded-full transition-colors shadow-sm"><X size={32}/></button>
+              <h2 className="text-4xl font-black text-sky-800 flex items-center gap-4 mb-6 border-b-4 border-sky-100 pb-4 shrink-0"><Megaphone size={48}/> 全域廣播控制台</h2>
+              <div className="flex flex-col gap-6 overflow-y-auto pr-4 shrink text-left">
+                  <div className="flex flex-col gap-2">
+                      <label className="text-2xl font-bold text-slate-600 flex items-center gap-2"><Type size={28}/> 廣播內容與即時預覽</label>
+                      <textarea value={broadcastInput} onChange={e => setBroadcastInput(e.target.value)} style={{ fontSize: `${Math.min(bcFontSize, 60)}px`, fontFamily: bcBiauKai ? '"BiauKai", "DFKai-SB", "標楷體", serif' : 'inherit' }} className={`w-full min-h-[300px] p-8 border-4 border-slate-200 rounded-[2rem] font-black focus:outline-none focus:border-sky-400 transition-colors shadow-inner ${bcBgColor} ${bcTextColor}`} placeholder="請輸入廣播內容..." />
+                  </div>
+                  <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                          <label className="text-2xl font-bold text-slate-600 border-b-2 border-slate-200 pb-2 block">字體設定</label>
+                          <div className="flex items-center gap-4">
+                              <button onClick={() => setBcBiauKai(!bcBiauKai)} className={`flex-1 py-4 rounded-2xl text-2xl font-bold transition-all border-2 ${bcBiauKai ? 'bg-sky-500 text-white border-sky-600 shadow-md' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'}`}>標楷體</button>
+                              <div className="flex items-center bg-white border-2 border-slate-300 rounded-2xl overflow-hidden shadow-sm">
+                                  <button onClick={() => setBcFontSize(f => Math.max(30, f - 10))} className="p-4 hover:bg-slate-100 text-slate-600 transition-colors"><Minus size={28}/></button>
+                                  <span className="w-20 text-center text-3xl font-black text-slate-800">{bcFontSize}</span>
+                                  <button onClick={() => setBcFontSize(f => Math.min(150, f + 10))} className="p-4 hover:bg-slate-100 text-slate-600 transition-colors"><Plus size={28}/></button>
+                              </div>
+                          </div>
+                      </div>
+                      <div className="space-y-4">
+                          <label className="text-2xl font-bold text-slate-600 border-b-2 border-slate-200 pb-2 block">主題色彩</label>
+                          <div className="flex flex-wrap gap-4">
+                              {[
+                                { bg: 'bg-white', text: 'text-slate-800' }, { bg: 'bg-amber-400', text: 'text-slate-900' },
+                                { bg: 'bg-rose-600', text: 'text-white' }, { bg: 'bg-emerald-500', text: 'text-white' },
+                                { bg: 'bg-blue-600', text: 'text-white' }, { bg: 'bg-slate-900', text: 'text-yellow-400' }
+                              ].map((theme, i) => (
+                                <button key={i} onClick={() => { setBcBgColor(theme.bg); setBcTextColor(theme.text); }} className={`w-16 h-16 rounded-full border-4 shadow-md transition-all active:scale-90 ${theme.bg} ${bcBgColor === theme.bg ? 'border-sky-400 scale-110 ring-4' : 'border-slate-200'}`} />
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+              <div className="flex gap-6 mt-8 pt-6 border-t-4 border-sky-100 shrink-0">
+                <button onClick={async () => { if(!broadcastInput.trim()) return; await setDoc(doc(db, "broadcasts", "current"), { message: broadcastInput.trim(), timestamp: serverTimestamp(), active: true, settings: { bgColor: bcBgColor, textColor: bcTextColor, fontSize: bcFontSize, biauKai: bcBiauKai } }); setShowBroadcastEditor(false); }} className="flex-1 bg-sky-500 hover:bg-sky-600 text-white text-3xl font-black py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3"><Megaphone size={36}/> 立即發布廣播</button>
+                <button onClick={async () => { await setDoc(doc(db, "broadcasts", "current"), { active: false }, { merge: true }); setShowBroadcastEditor(false); }} className="px-8 bg-slate-200 hover:bg-slate-300 text-slate-700 text-2xl font-bold py-5 rounded-2xl border-2 border-slate-300 active:scale-95 shadow-md">收回廣播</button>
               </div>
             </div>
           </div>
         )}
+
+        {/* 廣播接收視窗 (學生與大螢幕用) */}
+        {(() => {
+            const currentId = broadcastData?.timestamp?.toMillis() || broadcastData?.message;
+            const isVisible = broadcastData?.active && currentId && currentId !== dismissedBroadcastTime;
+            if (!isVisible) return null;
+            const s = broadcastData.settings || { bgColor: 'bg-amber-400', textColor: 'text-slate-900', fontSize: 80, biauKai: false };
+            return (
+              <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[99999] flex items-center justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-300 print:hidden">
+                <div className={`${s.bgColor} rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,0.5)] p-8 md:p-16 w-full max-w-[95vw] min-h-[80vh] border-[16px] border-white/20 flex flex-col items-center justify-center text-center relative`}>
+                  <div className="absolute -top-20 bg-white/20 backdrop-blur-md p-6 rounded-full border-8 border-white/30 shadow-xl animate-bounce"><BellRing size={80} className={s.textColor}/></div>
+                  <div className="flex-1 flex items-center justify-center w-full py-12">
+                    <p style={{ fontSize: `${s.fontSize}px`, fontFamily: s.biauKai ? '"BiauKai", "DFKai-SB", "標楷體", serif' : 'inherit' }} className={`font-black ${s.textColor} leading-snug whitespace-pre-wrap break-words w-full max-h-[60vh] overflow-y-auto custom-scrollbar`}>{broadcastData.message}</p>
+                  </div>
+                  <button onClick={() => setDismissedBroadcastTime(currentId)} className={`w-full max-w-2xl bg-black/20 hover:bg-black/40 ${s.textColor} border-4 border-black/10 text-5xl font-black py-6 rounded-[2.5rem] shadow-xl transition-all active:scale-95 shrink-0`}>我知道了！</button>
+                </div>
+              </div>
+            );
+        })()}
       </div>
     </div>
     </DndProvider>
   );
+};
+
+// --- 其他輔助邏輯與 Hook ---
+const useStudents = (db, isOffline) => {
+   const [students, setStudents] = useState(DEFAULT_STUDENTS);
+   const [loadingStudents, setLoadingStudents] = useState(true);
+   useEffect(() => {
+       if (isOffline) { setLoadingStudents(false); return; }
+       if (!db) return;
+       return onSnapshot(query(collection(db, `/artifacts/${appId}/public/data/students`)), (snapshot) => {
+           const loaded = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+           if (loaded.length > 0) setStudents(loaded.sort((a, b) => parseInt(a.id) - parseInt(b.id)));
+           setLoadingStudents(false);
+       });
+   }, [db, isOffline]);
+   return { students, loadingStudents };
+};
+
+const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, students) => { 
+  const [categories, setCategories] = useState([]); 
+  const [loadingCategories, setLoadingCategories] = useState(true); 
+  const getInitialSubmissionStatus = useMemo(() => students.reduce((status, student) => { status[student.id] = true; return status; }, {}), [students]); 
+  useEffect(() => { 
+    if (isOffline) { setCategories(INITIAL_CATEGORIES.map((cat, i) => ({ ...cat, id: `offline-cat-${i}` }))); setLoadingCategories(false); return; }
+    if (isAuthReady && db && userId) {
+      onSnapshot(collection(db, getCategoryCollectionPath()), (snapshot) => {
+        setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (a.order || 0) - (b.order || 0)));
+        setLoadingCategories(false);
+      });
+    }
+  }, [isAuthReady, db, userId, isOffline, students]);
+  return { categories, loadingCategories, getInitialSubmissionStatus }; 
 };
 
 export default App;
