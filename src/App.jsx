@@ -823,7 +823,6 @@ const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, 
         </div> 
     ); 
 };
-const getTodayDate = () => { const d = new Date(); const year = d.getFullYear(); const month = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; };
 
 const MISSING_COLOR_TIERS = [ 
     { min: 1, max: 3, colors: { bg: 'bg-blue-300', border: 'border-blue-500', text: 'text-gray-900', countText: 'text-gray-900' }, label: '1-3項' }, 
@@ -1059,6 +1058,53 @@ const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => {
 };
 
 // --- 其他輔助邏輯與 Hook ---
+const useStudents = (db, isOffline) => {
+   const [students, setStudents] = useState(DEFAULT_STUDENTS);
+   const [loadingStudents, setLoadingStudents] = useState(true);
+   
+   useEffect(() => {
+       if (isOffline) { setLoadingStudents(false); return; }
+       if (!db) return;
+       return onSnapshot(query(collection(db, `/artifacts/${appId}/public/data/students`)), (snapshot) => {
+           const loaded = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+           if (loaded.length > 0) setStudents(loaded.sort((a, b) => parseInt(a.id) - parseInt(b.id)));
+           setLoadingStudents(false);
+       });
+   }, [db, isOffline]);
+   
+   return { students, loadingStudents };
+};
+
+const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, students) => { 
+  const [categories, setCategories] = useState([]); 
+  const [loadingCategories, setLoadingCategories] = useState(true); 
+  const getInitialSubmissionStatus = useMemo(() => students.reduce((status, student) => { status[student.id] = true; return status; }, {}), [students]); 
+  
+  useEffect(() => { 
+    if (isOffline) { 
+        setCategories(INITIAL_CATEGORIES.map((cat, i) => ({ ...cat, id: `offline-cat-${i}` }))); 
+        setLoadingCategories(false); 
+        return; 
+    }
+    if (isAuthReady && db && userId) {
+      return onSnapshot(collection(db, getCategoryCollectionPath()), (snapshot) => {
+        setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (a.order || 0) - (b.order || 0)));
+        setLoadingCategories(false);
+      });
+    }
+  }, [isAuthReady, db, userId, isOffline, students]);
+  
+  return { categories, loadingCategories, getInitialSubmissionStatus }; 
+};
+// --- 輔助邏輯與 Hooks ---
+const getTodayDate = () => { 
+    const d = new Date(); 
+    const year = d.getFullYear(); 
+    const month = String(d.getMonth() + 1).padStart(2, '0'); 
+    const day = String(d.getDate()).padStart(2, '0'); 
+    return `${year}-${month}-${day}`; 
+};
+
 const useStudents = (db, isOffline) => {
    const [students, setStudents] = useState(DEFAULT_STUDENTS);
    const [loadingStudents, setLoadingStudents] = useState(true);
@@ -1613,5 +1659,4 @@ const App = () => {
   );
 };
 
-const getTodayDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 export default App;
