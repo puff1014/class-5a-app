@@ -9,17 +9,16 @@ import {
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { 
-  BookOpen, Download, Upload, X, Check, RefreshCw, WifiOff, LogOut, FileText, AlertCircle, Eye, Shield, User, Key, Edit, Pencil, Star, Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity, BarChart2, Megaphone, Lock, Unlock, RotateCw, Printer, BellRing, Type, Minus, Plus 
+  BookOpen, Download, Upload, X, Check, RefreshCw, WifiOff, LogOut, FileText, AlertCircle, Eye, Shield, User, Key, Edit, Pencil, Star, Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity, BarChart2, Megaphone, Lock, Unlock, RotateCw, Printer, BellRing, Type, Minus, Plus, DownloadCloud
 } from 'lucide-react';
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-// --- 版本資訊 (V20.0.43) ---
-const VERSION = 'v20.0.43 - 全域廣播實裝'; 
+// --- 版本資訊 ---
+const VERSION = 'v20.0.44 - 跨系統任務載入引擎實裝'; 
 const appId = 'class-5a-app'; 
 
-// 🚨 終極資安防禦：已透過 Google Cloud 設定 HTTP 網域白名單，此金鑰現已受實體隔離保護，可安全運行
 const firebaseConfig = {
  apiKey: "AIzaSyArwz6gPeW9lNq_8LOfnKYwZmkRN-Wgtb8",
  authDomain: "class-5a-app.firebaseapp.com",
@@ -36,6 +35,87 @@ const ASSETS = {
   CONFETTI_BG: 'https://i.gifer.com/origin/e2/e29a997a3a304523b087050074697df0_w200.gif'
 };
 
+// === [NEW] 任務載入引擎組件 ===
+const TaskLoaderModal = ({ db, initialDate, onConfirm, onClose }) => {
+    const [targetDate, setTargetDate] = useState(() => {
+        // 預設為前一個工作日
+        const d = new Date(initialDate);
+        const day = d.getDay();
+        const diff = (day === 1) ? 3 : 1; // 如果是週一，退回週五
+        d.setDate(d.getDate() - diff);
+        return d.toISOString().split('T')[0];
+    });
+    const [tasks, setTasks] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    const fetchTasks = async () => {
+        setLoading(true);
+        try {
+            const docRef = doc(db, "announcements", targetDate);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const rawItems = docSnap.data().items || [];
+                const filtered = rawItems
+                    .filter(item => {
+                        const txt = typeof item === 'string' ? item : item.text;
+                        return txt && !txt.startsWith('※') && !txt.startsWith(' ');
+                    })
+                    .map((item, idx) => ({
+                        id: idx,
+                        text: typeof item === 'string' ? item.trim() : item.text.trim(),
+                        selected: true
+                    }));
+                setTasks(filtered);
+                if(filtered.length === 0) alert("該日期無符合條件的任務項目。");
+            } else {
+                alert("找不到該日期的航海日誌資料。");
+                setTasks([]);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("抓取資料失敗。");
+        }
+        setLoading(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100005] p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl flex flex-col border-8 border-blue-100">
+                <div className="p-8 border-b-4 border-blue-50">
+                    <h3 className="text-4xl font-black text-blue-900 mb-6 flex items-center gap-3">📥 載入航海日誌任務</h3>
+                    <div className="flex gap-4 items-center bg-blue-50 p-4 rounded-2xl">
+                        <label className="text-2xl font-bold text-blue-700 whitespace-nowrap">來源日期：</label>
+                        <input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} className="flex-1 p-2 text-2xl rounded-xl border-2 border-blue-200 focus:border-blue-500 outline-none" />
+                        <button onClick={fetchTasks} disabled={loading} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-2xl font-black hover:bg-blue-700 active:scale-95 transition-all">抓取</button>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-8 max-h-[50vh]">
+                    {tasks.length > 0 ? (
+                        <div className="space-y-4">
+                            <p className="text-gray-500 font-bold">請修改精簡標題（勾選代表載入）：</p>
+                            {tasks.map(task => (
+                                <div key={task.id} className="flex items-center gap-4 bg-gray-50 p-3 rounded-xl border-2 border-gray-100">
+                                    <input type="checkbox" checked={task.selected} onChange={e => setTasks(tasks.map(t => t.id === task.id ? {...t, selected: e.target.checked} : t))} className="w-8 h-8 cursor-pointer" />
+                                    <input type="text" value={task.text} onChange={e => setTasks(tasks.map(t => t.id === task.id ? {...t, text: e.target.value} : t))} className="flex-1 p-2 text-2xl font-bold rounded-lg border focus:ring-2 focus:ring-blue-400 outline-none" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 text-gray-400 text-2xl font-bold italic">尚未抓取任務或該日無任務</div>
+                    )}
+                </div>
+
+                <div className="p-8 border-t-4 border-blue-50 flex gap-4">
+                    <button onClick={onClose} className="flex-1 py-4 bg-gray-100 text-gray-500 rounded-2xl text-2xl font-black hover:bg-gray-200 transition-all">取消</button>
+                    <button onClick={() => onConfirm(tasks.filter(t => t.selected && t.text.trim()))} disabled={tasks.length === 0} className="flex-2 py-4 bg-emerald-500 text-white rounded-2xl text-2xl font-black hover:bg-emerald-600 transition-all active:scale-95 shadow-lg disabled:bg-gray-300">確認注入作業表</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- 以下保留原始組件定義 (簡化示意，確保結構正確) ---
 const CoinIcon = ({ type, size = "w-8 h-8", textSize = "text-sm", innerSize = "w-3/5 h-3/5" }) => {
    const baseClasses = `rounded-full border-[4px] flex items-center justify-center shadow-lg ${size} bg-white`;
    if (type === 'GOLD') return (<div className={`${baseClasses} border-yellow-400 text-yellow-500 bg-yellow-50`} title="金幣"><Moon className={`${innerSize} fill-current`} /></div>);
@@ -56,7 +136,6 @@ const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categor
 const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
 
-// --- 圖表元件 ---
 const safeNumber = (val) => { if (typeof val !== 'number') return 0; if (isNaN(val)) return 0; if (!isFinite(val)) return 0; return val; };
 
 const SimpleStackedBarChart = ({ data, height = 300 }) => {
@@ -82,7 +161,6 @@ const CustomizedDot = (props) => { const { cx, cy, value } = props; if (!cx || !
 const CustomTooltip = ({ active, payload, label }) => { if (active && payload && payload.length && payload[0].payload) { const data = payload[0].payload; const details = data.details || { onTime: 0, late: 0, missing: 0 }; const safeValue = safeNumber(data.value); return ( <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-100 min-w-[180px]"> <p className="text-2xl font-bold text-gray-700 mb-2 border-b pb-2 border-gray-200">{label} <span className="text-blue-600 ml-2">({safeValue.toFixed(1)}分)</span></p> <div className="flex flex-col gap-1 text-xl"> <p className="text-green-700 font-bold">🟢 準時：{safeNumber(details.onTime)}</p> <p className="text-yellow-700 font-bold">🟡 補交：{safeNumber(details.late)}</p> <p className="text-red-600 font-bold">🔴 缺交：{safeNumber(details.missing)}</p> </div> </div> ); } return null; };
 const SimpleLineChart = ({ data, height = 300 }) => { if (!data || !Array.isArray(data) || data.length === 0) { return <div className="h-full flex items-center justify-center text-gray-400 text-2xl font-bold">尚無統計數據</div>; } const cleanData = data.map(item => ({ ...item, value: safeNumber(item.value) })); return ( <ResponsiveContainer width="100%" height={height}> <LineChart data={cleanData} margin={{ top: 80, right: 60, left: 20, bottom: 10 }}> <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" /> <XAxis dataKey="label" tick={{ fontSize: 24, fill: '#6B7280', fontWeight: 'bold' }} axisLine={{ stroke: '#9CA3AF' }} tickLine={false} height={60} /> <YAxis domain={[0, 100]} tick={{ fontSize: 20, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={60} /> <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#9CA3AF', strokeWidth: 2, strokeDasharray: '5 5' }} /> <ReferenceLine y={100} stroke="#E5E7EB" strokeDasharray="3 3" label={{ position: 'top', value: '100', fill: '#D1D5DB', fontSize: 20 }} /> <ReferenceLine y={80} stroke="#4ADE80" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '80 (佳)', fill: '#4ADE80', fontSize: 20, fontWeight: 'bold' }} /> <ReferenceLine y={60} stroke="#F87171" strokeDasharray="5 5" label={{ position: 'insideTopRight', value: '60 (及格)', fill: '#F87171', fontSize: 20, fontWeight: 'bold' }} /> <Line type="linear" dataKey="value" stroke="#3B82F6" strokeWidth={6} dot={<CustomizedDot />} activeDot={{ r: 12, strokeWidth: 0 }} animationDuration={1500}> <LabelList dataKey="value" position="top" offset={20} style={{ fontSize: '28px', fontWeight: '900' }} formatter={(val) => safeNumber(val).toFixed(1)} fill="#3B82F6" /> </Line> </LineChart> </ResponsiveContainer> ); };
 
-// --- 自定義評價與等級邏輯 ---
 const getStatusFeedback = (score, emergency) => {
     if (emergency.isEmergency) return { text: "❌ 紅燈警報！缺交太多了，請檢查聯絡簿。", color: "text-red-600", bg: "bg-red-50", border: "border-red-500", isAlert: true };
     const s = parseFloat(score);
@@ -125,7 +203,7 @@ const getOverallBadge = (score) => {
     if (s >= 100) return { animal: "🐲 神龍", comment: "作業全勤無缺，品質完美無瑕。" };
     if (s >= 97) return { animal: "🦁 獅王", comment: "態度極度自律，對自我要求高。" };
     if (s >= 94) return { animal: "🦅 雄鷹", comment: "繳交迅速確實，準確率非常高。" };
-    if (s >= 91) return { animal: "🐆 獵豹", comment: "訂正效率驚人，很少拖泥帶水。" };
+    if (s >= 91) return { animal: "豹 獵豹", comment: "訂正效率驚人，很少拖泥帶水。" };
     if (s >= 88) return { animal: "🐴 駿馬", comment: "保持穩定節奏，作業習慣良好。" };
     if (s >= 85) return { animal: "🐺 戰狼", comment: "能夠自我鞭策，按時完成任務。" };
     if (s >= 82) return { animal: "🦊 靈狐", comment: "繳交穩定，若能多點細心會更棒。" };
@@ -141,7 +219,6 @@ const getOverallBadge = (score) => {
     return { animal: "🌱 種子", comment: "埋入土裡太久了，請讓學習發芽。" };
 };
 
-// --- Dashboard Modal ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
     if (!student) return null;
@@ -338,7 +415,6 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
     );
 };
 
-// --- 學生存簿系統 & 獎勵特效 ---
 const RewardOverlay = ({ type, onClose }) => {
     const soundUrl = type === 'GOLD_CLEAR' ? ASSETS.GOLD_SOUND : ASSETS.BRONZE_SOUND;
     const duration = type === 'GOLD_CLEAR' ? 6000 : 1000;
@@ -359,11 +435,11 @@ const RewardOverlay = ({ type, onClose }) => {
                         完成全部作業！<br/>你真棒 👍
                     </div>
                     <div className="flex items-center gap-6 mt-8 animate-bounce bg-white/20 px-8 py-4 rounded-2xl border border-white/40">
-                       <span className="text-7xl">💰</span>
-                       <div className="flex flex-col items-start">
+                        <span className="text-7xl">💰</span>
+                        <div className="flex flex-col items-start">
                           <span className="text-5xl text-yellow-300 font-black">+3 金幣</span>
                           <span className="text-3xl text-orange-200 font-bold">+10 銅幣</span>
-                       </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -454,7 +530,6 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
     return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; 
 };
 
-// --- [V20.0.43] 學生存簿介面 (修正：滾動時固定姓名欄) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) => { 
@@ -465,7 +540,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
         if (bankA.bronze !== bankB.bronze) return bankB.bronze - bankA.bronze; 
         return parseInt(a.id) - parseInt(b.id); 
     });
-  }, []); 
+  }, [bankData, students]); 
 
   const handleInputChange = (studentId, type, value) => {
     if (authMode !== 'ADMIN') return;
@@ -514,48 +589,31 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X className="w-8 h-8" /></button>
         </div>
 
-        {/* 表格容器加入 overflow-auto */}
         <div className={`flex-1 overflow-auto p-4 bg-orange-50`}>
           <table className="w-full bg-white shadow-sm rounded-lg border border-gray-200 relative border-collapse">
             <thead className="bg-gray-100 sticky top-0 z-[150] shadow-md">
                 <tr className="border-b-2 border-gray-300">
-                  {/* 凍結表頭 */}
                   <th className="p-3 text-2xl w-20 text-center bg-gray-100 sticky left-0 z-[120]">排名</th>
                   <th className="p-3 text-2xl w-24 text-center bg-gray-100 sticky left-[80px] z-[120]">座號</th>
                   <th className="p-3 text-2xl text-left bg-gray-100 sticky left-[176px] z-[120] border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">姓名</th>
-                  
                   <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center">金幣</th>
                   <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
                   <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
-                  <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto">
-                    <span className="text-2xl text-gray-600 block">操作</span>
-                  </th>
+                  <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto"><span className="text-2xl text-gray-600 block">操作</span></th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
                 {sortedStudents.map((student, idx) => {
                   const bal = bankData[student.id] || { gold: 0, silver: 0, bronze: 0 };
                   let rankIcon = idx < 3 ? ["🥇","🥈","🥉"][idx] : idx + 1;
-                  
                   return (
                     <tr key={student.id} className="hover:bg-blue-50 transition duration-150 group">
-                      {/* 凍結表格內容欄位 */}
                       <td className="p-3 text-center text-3xl font-black text-gray-400 sticky left-0 bg-white group-hover:bg-blue-50 z-10">{rankIcon}</td>
                       <td className="p-3 text-center text-2xl font-bold text-gray-600 sticky left-[80px] bg-white group-hover:bg-blue-50 z-10">{student.id}</td>
                       <td className="p-3 text-2xl font-bold text-gray-800 sticky left-[176px] bg-white group-hover:bg-blue-50 z-10 border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">{student.name[0] + 'O' + student.name.slice(2)}</td>
-                      
-                      <td className="p-2 text-center bg-yellow-50/30">
-                        <input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} 
-                          className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" />
-                      </td>
-                      <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100">
-                        <input type="number" value={bal.silver || 0} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} 
-                          className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none hover:bg-white/50 rounded" />
-                      </td>
-                      <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100">
-                        <input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} 
-                          className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" />
-                      </td>
+                      <td className="p-2 text-center bg-yellow-50/30"><input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" /></td>
+                      <td className="p-2 text-center bg-gray-50/30 border-l border-gray-100"><input type="number" value={bal.silver || 0} onChange={(e)=>handleInputChange(student.id, 'silver', e.target.value)} disabled={authMode!=='ADMIN'} className="w-24 text-center text-3xl font-bold text-gray-600 bg-transparent border-b-2 border-transparent focus:border-gray-500 outline-none hover:bg-white/50 rounded" /></td>
+                      <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100"><input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" /></td>
                       <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100">
                           <div className="flex gap-2">
                             <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 text-gray-700 active:scale-95 transition" title="100銅 換 1銀"><RotateCw className="w-7 h-7"/></button>
@@ -585,7 +643,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
     </div>
   );
 };
-// --- 每日結算 Hook 與 輔助介面元件 ---
+
 const useDailySettlements = (db, isAuthReady, isOffline) => {
     const [settlements, setSettlements] = useState({}); 
     useEffect(() => {
@@ -603,7 +661,7 @@ const useDailySettlements = (db, isAuthReady, isOffline) => {
 };
 
 const CustomAlert = ({ message, onClose }) => ( 
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"> 
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4"> 
         <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> 
             <h3 className="text-4xl font-semibold text-gray-800 mb-4">通知</h3> 
             <p className="text-3xl text-gray-600 mb-6 whitespace-pre-wrap">{message}</p> 
@@ -649,11 +707,7 @@ const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
 
 const AllMissingAssignmentsModal = ({ missingStats, onClose }) => { 
     const studentsWithMissing = missingStats.filter(s => s.missingCount > 0); 
-    
-    const handlePrint = () => {
-        window.print();
-    };
-
+    const handlePrint = () => { window.print(); };
     return ( 
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0 print:z-[20000]"> 
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200 print:hidden"> 
@@ -713,32 +767,23 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                 </div> 
             </div> 
 
-            {/* --- [列印專用區] --- */}
             <div className="hidden print:block w-full h-full bg-white text-black p-4">
                 <h1 className="text-4xl font-extrabold text-center mb-6 border-b-4 border-black pb-4">五年甲班 未完成作業待補單</h1>
                 <p className="text-right text-lg font-medium mb-4">列印日期：{new Date().toLocaleDateString('zh-TW')} (共 {studentsWithMissing.length} 人待補)</p>
-
                 <div className="flex flex-col gap-6">
                     {studentsWithMissing.map((student) => (
                         <div key={student.id} className="border-2 border-black rounded-2xl p-4 break-inside-avoid shadow-none">
                             <div className="flex justify-between items-center border-b-2 border-gray-300 pb-2 mb-3">
-                                <span className="text-3xl font-black tracking-widest">
-                                    {student.name[0] + 'O' + student.name.slice(2)} 訂正作業表
-                                </span>
+                                <span className="text-3xl font-black tracking-widest">{student.name[0] + 'O' + student.name.slice(2)} 訂正作業表</span>
                                 <span className="text-xl font-bold text-gray-700">共缺交 {student.missingCount} 項</span>
                             </div>
-
                             <div className="grid grid-cols-3 gap-x-6 gap-y-3">
-                                {[...student.missingDetails]
-                                    .sort((a, b) => a.date.localeCompare(b.date))
-                                    .map((detail, idx) => (
+                                {[...student.missingDetails].sort((a, b) => a.date.localeCompare(b.date)).map((detail, idx) => (
                                     <div key={idx} className="flex items-start text-lg leading-tight">
                                         <div className="w-5 h-5 border-2 border-black mr-2 shrink-0 bg-white mt-0.5"></div>
                                         <div className="flex flex-col">
                                             <span className="font-bold text-black break-words whitespace-normal">{detail.assignment}</span>
-                                            <span className="text-base text-gray-500 font-medium">
-                                                ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
-                                            </span>
+                                            <span className="text-base text-gray-500 font-medium">({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})</span>
                                         </div>
                                     </div>
                                 ))}
@@ -746,11 +791,8 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                         </div>
                     ))}
                 </div>
-                
                 {studentsWithMissing.length === 0 && (
-                    <div className="text-center py-20 text-3xl text-gray-400 font-bold border-2 border-dashed border-gray-300 rounded-xl mt-10">
-                        恭喜！全班作業皆已完成，無欠交紀錄。
-                    </div>
+                    <div className="text-center py-20 text-3xl text-gray-400 font-bold border-2 border-dashed border-gray-300 rounded-xl mt-10">恭喜！全班作業皆已完成，無欠交紀錄。</div>
                 )}
             </div>
         </div> 
@@ -769,7 +811,7 @@ const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, 
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4"> 
             <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-100"> 
                 <h3 className="text-4xl font-bold text-gray-800 mb-4">{title}</h3><p className="text-3xl text-gray-600 mb-6">{message}</p> 
-                <div className="flex justify-between gap-4 mt-6"><button onClick={onCancel} className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg hover:bg-gray-400 transition duration-150 ease-in-out font-medium text-4xl">取消 (保留資料)</button><button onClick={() => { if (isAltPressed) { onConfirm(); } else { alert(`請按住 Alt 鍵，才能確認執行 ${confirmTitle} 操作！`); } }} disabled={!isAltPressed} className={`flex-1 text-white py-3 rounded-lg transition duration-150 ease-in-out font-medium text-4xl ${confirmColor} ${isAltPressed ? 'hover:brightness-110' : 'bg-red-400 cursor-not-allowed'}`}>{confirmTitle}</button></div><p className="mt-3 text-center text-red-500 text-3xl font-semibold opacity-0">請按住 **Alt 鍵** 才能啟用刪除按鈕！</p> 
+                <div className="flex justify-between gap-4 mt-6"><button onClick={onCancel} className="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg hover:bg-gray-400 transition duration-150 ease-in-out font-medium text-4xl">取消 (保留資料)</button><button onClick={() => { if (isAltPressed) { onConfirm(); } else { alert(`請按住 Alt 鍵，才能確認執行 ${confirmTitle} 操作！`); } }} disabled={!isAltPressed} className={`flex-1 text-white py-3 rounded-lg transition duration-150 ease-in-out font-medium text-4xl ${confirmColor} ${isAltPressed ? 'hover:brightness-110' : 'bg-red-400 cursor-not-allowed'}`}>{confirmTitle}</button></div>
             </div> 
         </div> 
     ); 
@@ -786,26 +828,18 @@ const MissingColorExplanation = () => { const legendTiers = MISSING_COLOR_TIERS.
 const MonthlyStudentStats = ({ monthlyStats, months }) => { 
     const studentIds = useMemo(() => Object.keys(monthlyStats).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)), [monthlyStats]); 
     if (studentIds.length === 0) return null; 
-    
-    // 計算月份欄位的寬度百分比，讓表格均分
     const colWidth = 100 / (months.length + 1); 
-
     return (
         <div className="mt-12 p-4 sm:p-6 bg-white rounded-xl shadow-xl border border-gray-200 max-w-full">
             <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">📊</span><span className="text-4xl">每月繳交狀況統計</span></h2>
-            
-            {/* 🌟 關鍵修正：父容器設定 max-h 讓其產生內部卷軸 */}
             <div className="w-full relative border border-gray-300 rounded-lg shadow-lg overflow-auto max-h-[80vh]">
                 <table className="w-full divide-y divide-gray-300 table-fixed border-collapse">
-                    {/* 設定各欄寬度 */}
                     <colgroup>
                         <col style={{ width: `${colWidth}%` }} />
                         {months.map(m => <col key={m.id} style={{ width: `${colWidth}%` }} />)}
                     </colgroup>
-
                     <thead className="bg-gray-100 sticky top-0 z-[60]">
                         <tr>
-                            {/* 🌟 關鍵修正：th 加入 sticky top-0, z-60, 和不透明背景 */}
                             <th className="sticky top-0 left-0 z-[70] px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-700 w-24 border-r border-gray-300 bg-gray-100 shadow-sm">姓名</th>
                             {months.map(month => (
                                 <th key={month.id} className={`sticky top-0 z-[60] px-1 py-4 text-3xl font-semibold uppercase tracking-wider text-white ${month.color} break-words shadow-sm`}>{month.name}</th>
@@ -818,7 +852,6 @@ const MonthlyStudentStats = ({ monthlyStats, months }) => {
                             if (!studentData) return null; 
                             return (
                                 <tr key={studentId} className="hover:bg-gray-50 transition duration-100 group">
-                                    {/* 🌟 關鍵修正：姓名 TD 加入 sticky left-0 和不透明背景 */}
                                     <td className="sticky left-0 z-30 px-2 py-4 text-3xl font-semibold text-gray-900 border-r border-gray-300 text-center whitespace-nowrap bg-white group-hover:bg-gray-50 transition-colors shadow-[2px_0_5px_rgba(0,0,0,0.05)]">{studentData.studentName[0] + 'O' + studentData.studentName.slice(2)}</td>
                                     {months.map(month => { 
                                         const stats = studentData.monthStats[month.id]; 
@@ -899,7 +932,6 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
     }, [selectedItemIds, db, userId, student.id, onClose, setAlertMessage, isOffline, authMode, updateBankBalance, setRewardState]); 
     if (!hasMissingItems) return null; 
     const batchButtonTitle = authMode === 'ADMIN' ? "按住 Control (Ctrl/Cmd) 鍵並點擊以將選定的項目標記為已補交 (遲繳)" : undefined; 
-    
     return ( 
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-2"> 
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full transform transition-all duration-300 scale-100 max-h-[95vh] flex flex-col"> 
@@ -929,7 +961,6 @@ const DateTab = ({ date, isSelected, onClick, onEdit, authMode }) => { const for
 
 const ProtectedButton = ({ onClick, disabled, className, title, children }) => { return ( <button onClick={onClick} disabled={disabled} className={`${className} transition duration-150`} title={title}>{children}</button> ); };
 
-// --- 資料 Hooks 與 App 主邏輯 ---
 const useStudents = (db, isOffline) => {
    const [students, setStudents] = useState(DEFAULT_STUDENTS);
    const [loadingStudents, setLoadingStudents] = useState(true);
@@ -961,7 +992,7 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, stud
    useEffect(() => { if (isOffline) { setCategories(INITIAL_CATEGORIES.map((cat, i) => ({ ...cat, id: `offline-cat-${i}` }))); setLoadingCategories(false); return; } if (isAuthReady && db && userId) { initializeCategories(db, userId); const path = getCategoryCollectionPath(); const unsubscribe = onSnapshot(collection(db, path), (snapshot) => { const loadedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); loadedCategories.sort((a, b) => (a.order || 0) - (b.order || 0)); setCategories(loadedCategories); setLoadingCategories(false); }, (e) => { console.error("Error fetching categories:", e); if (e.code !== 'permission-denied') { setAlertMessage("讀取作業項目清單時發生錯誤。"); } setLoadingCategories(false); }); return () => unsubscribe(); } }, [isAuthReady, db, userId, setAlertMessage, initializeCategories, isOffline]);
    const addCategory = useCallback(async (name) => { const trimmedName = name.trim(); if (!trimmedName) return false; if (categories.some(c => c.name === trimmedName)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return false; } if (isOffline) { const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; setCategories(prev => [...prev, { id: `offline-cat-${Date.now()}`, name: trimmedName, order: newOrder }]); return true; } if (!db || !userId) return false; const newDocRef = doc(collection(db, getCategoryCollectionPath())); const newOrder = categories.length > 0 ? categories[categories.length - 1].order + 1 : 0; try { await setDoc(newDocRef, { name: trimmedName, order: newOrder, createdAt: Timestamp.now() }); return true; } catch (e) { console.error("Error adding category:", e); setAlertMessage("新增科目模板失敗。"); return false; } }, [db, userId, categories, setAlertMessage, isOffline]); const deleteCategory = useCallback(async (categoryId, categoryName) => { if (!window.confirm(`確定要刪除科目模板「${categoryName}」嗎？此操作只會將該科目從「自動新增」清單中移除。`)) return; if (isOffline) { setCategories(prev => prev.filter(c => c.id !== categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除 (離線)。`); return; } if (!db || !userId) return; try { await deleteDoc(doc(db, getCategoryCollectionPath(), categoryId)); setAlertMessage(`科目模板「${categoryName}」已刪除。`); } catch (e) { console.error("Error deleting category:", e); setAlertMessage("刪除科目模板失敗。"); } }, [db, userId, setAlertMessage, isOffline]); const editCategory = useCallback(async (categoryId, currentName, newName) => { const trimmedName = newName.trim(); if (!trimmedName || trimmedName === currentName) return; if (categories.some(c => c.name === trimmedName && c.id !== categoryId)) { setAlertMessage(`科目模板「${trimmedName}」已經存在。`); return; } if (isOffline) { setCategories(prev => prev.map(c => c.id === categoryId ? { ...c, name: trimmedName } : c)); return; } if (!db || !userId) return; try { await setDoc(doc(db, getCategoryCollectionPath(), categoryId), { name: trimmedName }, { merge: true }); setAlertMessage(`科目模板名稱已從「${currentName}」更新為「${trimmedName}」。`); } catch (e) { console.error("Error editing category:", e); setAlertMessage("編輯科目模板失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); const moveCategory = useCallback(async (dragId, hoverId) => { const dragIndex = categories.findIndex(c => c.id === dragId); const hoverIndex = categories.findIndex(c => c.id === hoverId); if (dragIndex === -1 || hoverIndex === -1) return; const dragCategory = categories[dragIndex]; const hoverCategory = categories[hoverIndex]; if (isOffline) { const newCategories = [...categories]; newCategories[dragIndex] = { ...dragCategory, order: hoverCategory.order }; newCategories[hoverIndex] = { ...hoverCategory, order: dragCategory.order }; newCategories.sort((a, b) => a.order - b.order); setCategories(newCategories); return; } if (!db || !userId) return; const batch = writeBatch(db); const path = getCategoryCollectionPath(); batch.set(doc(db, path, dragCategory.id), { order: hoverCategory.order }, { merge: true }); batch.set(doc(db, path, hoverCategory.id), { order: dragCategory.order }, { merge: true }); try { await batch.commit(); } catch (e) { console.error("Error moving category:", e); setAlertMessage("調整項目順序失敗。"); } }, [db, userId, categories, setAlertMessage, isOffline]); return { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus }; };
 
-// --- [主程式] App ---
+// --- App 主程式 ---
 const App = () => {
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
@@ -989,7 +1020,9 @@ const App = () => {
   const [rewardState, setRewardState] = useState(null);
   const [dashboardStudent, setDashboardStudent] = useState(null);
   
-  // 新增：全域廣播相關狀態
+  // 新增：任務載入引擎狀態
+  const [showTaskLoader, setShowTaskLoader] = useState(false);
+
   const [broadcastData, setBroadcastData] = useState(null);
   const [dismissedBroadcastTime, setDismissedBroadcastTime] = useState(null);
   const [showBroadcastEditor, setShowBroadcastEditor] = useState(false);
@@ -1010,41 +1043,35 @@ const App = () => {
   const semesters = [ { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear }, { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }, ];
   const months = useMemo(() => [ { id: '08', name: `8月`, color: 'bg-green-500', semester: 'S1' }, { id: '09', name: `9月`, color: 'bg-teal-500', semester: 'S1' }, { id: '10', name: `10月`, color: 'bg-cyan-500', semester: 'S1' }, { id: '11', name: `11月`, color: 'bg-blue-500', semester: 'S1' }, { id: '12', name: `12月`, color: 'bg-indigo-500', semester: 'S1' }, { id: '01', name: `1月`, color: 'bg-purple-500', semester: 'S1' }, { id: '02', name: `2月`, color: 'bg-pink-500', semester: 'S2' }, { id: '03', name: `3月`, color: 'bg-rose-500', semester: 'S2' }, { id: '04', name: `4月`, color: 'bg-red-500', semester: 'S2' }, { id: '05', name: `5月`, color: 'bg-orange-500', semester: 'S2' }, { id: '06', name: `6月`, color: 'bg-amber-500', semester: 'S2' }, { id: '07', name: `7月`, color: 'bg-yellow-500', semester: 'S2' }, ], []);
 
-  useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); if (!firebaseConfig) { console.error("Firebase configuration is missing."); setError("無法載入 Firebase 設定。請檢查環境配置。"); setLoading(false); return; } try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { if (user) { setUserId(user.uid); setIsAuthReady(true); setIsAuthenticated(true); if (user.isAnonymous) { setAuthMode('GUEST'); } else { setAuthMode('ADMIN'); } } else { setIsAuthenticated(false); setAuthMode('GUEST'); } setLoadingLogin(false); }); return () => { unsubscribe(); clearTimeout(timer); }; } catch (e) { console.error("Firebase initialization failed:", e); setError("初始化失敗：" + e.message); setLoading(false); } }, []);
+  useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { if (user) { setUserId(user.uid); setIsAuthReady(true); setIsAuthenticated(true); if (user.isAnonymous) { setAuthMode('GUEST'); } else { setAuthMode('ADMIN'); } } else { setIsAuthenticated(false); setAuthMode('GUEST'); } setLoadingLogin(false); }); return () => { unsubscribe(); clearTimeout(timer); }; } catch (e) { console.error("Firebase initialization failed:", e); setError("初始化失敗：" + e.message); setLoading(false); } }, []);
 
   const handleGoOffline = () => { setIsOffline(true); setUserId('guest_user'); setIsAuthReady(true); setLoading(false); setIsAuthenticated(true); setAuthMode('GUEST'); };
   const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { console.error("Login failed", error); if (error.code === 'auth/invalid-email') { setLoginError('Email 格式不正確'); } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') { setLoginError('帳號或密碼錯誤'); } else if (error.code === 'auth/too-many-requests') { setLoginError('嘗試次數過多，請稍後再試'); } else { setLoginError('登入失敗：' + error.message); } setLoadingLogin(false); } };
   const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
   const handleLogout = async () => { try { await signOut(auth); setIsAuthenticated(false); setAuthMode('GUEST'); } catch (e) { console.error("Logout failed", e); } };
 
-  // 新增：獨立的全域廣播雷達監聽器
   useEffect(() => {
     if (!db) return;
     const unsubscribeBroadcast = onSnapshot(doc(db, "broadcasts", "current"), (snap) => {
-      if (snap.exists()) {
-        setBroadcastData(snap.data());
-      } else {
-        setBroadcastData(null);
-      }
+      if (snap.exists()) { setBroadcastData(snap.data()); } else { setBroadcastData(null); }
     });
     return () => unsubscribeBroadcast();
   }, [db]);
 
-  useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const currentSemData = semesters.find(s => s.id === selectedSemester); let q; if (currentSemData) { const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`; const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`; q = query( assignmentsCollection, where("assignmentDate", ">=", startDate), where("assignmentDate", "<=", endDate) ); } else { q = query(assignmentsCollection); } const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, completedAt: data.completedAt || {}, makeupClaimed: data.makeupClaimed || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code === 'permission-denied') { console.warn("Permission denied (transient)"); } else { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); setAuthTimeout(true); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]);
+  useEffect(() => { if (isOffline) { setLoading(false); return; } if (!isAuthReady || !db || !userId) return; const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const currentSemData = semesters.find(s => s.id === selectedSemester); let q; if (currentSemData) { const startDate = `${currentSemData.startYear}-${currentSemData.startMonth}-01`; const endDate = `${currentSemData.endYear}-${currentSemData.endMonth}-31`; q = query( assignmentsCollection, where("assignmentDate", ">=", startDate), where("assignmentDate", "<=", endDate) ); } else { q = query(assignmentsCollection); } const unsubscribe = onSnapshot(q, (snapshot) => { const groupedData = {}; snapshot.docs.forEach(doc => { const data = doc.data(); const date = data.assignmentDate; if (date) { if (!groupedData[date]) { groupedData[date] = []; } groupedData[date].push({ id: doc.id, assignmentName: data.assignmentName, order: data.order ?? 999, submissionStatus: data.submissionStatus || {}, completedAt: data.completedAt || {}, makeupClaimed: data.makeupClaimed || {}, createdAt: data.createdAt?.toDate().toISOString() }); } }); setAllAssignmentsByDate(groupedData); if (!loadingCategories) { setLoading(false); } }, (e) => { console.error("Error fetching assignments:", e); if (e.code !== 'permission-denied') { setAlertMessage("讀取資料時發生錯誤，請稍後再試。"); } setLoading(false); }); return () => unsubscribe(); }, [isAuthReady, db, userId, loadingCategories, isOffline, selectedSemester]);
+  
   const assignmentsForSelectedDate = useMemo(() => { const assignments = allAssignmentsByDate[selectedDisplayDate] || []; return assignments.sort((a, b) => a.order - b.order); }, [allAssignmentsByDate, selectedDisplayDate]);
   const assignmentMap = useMemo(() => { return assignmentsForSelectedDate.reduce((acc, assignment) => { acc[assignment.assignmentName] = { id: assignment.id, submissionStatus: assignment.submissionStatus, makeupClaimed: assignment.makeupClaimed }; return acc; }, {}); }, [assignmentsForSelectedDate]);
   const filteredMonths = useMemo(() => { const currentSemesterData = semesters.find(s => s.id === selectedSemester); if (!currentSemesterData) return months; return months.filter(m => m.semester === selectedSemester); }, [months, selectedSemester, semesters]);
-  useEffect(() => { if (filteredMonths.length > 0) { const currentMonthExists = filteredMonths.some(m => m.id === selectedMonth); if (!currentMonthExists) { setSelectedMonth(filteredMonths[0].id); } } }, [selectedSemester, filteredMonths, selectedMonth]);
   
-  const availableDates = useMemo(() => { return Object.keys(allAssignmentsByDate).sort(); }, [allAssignmentsByDate]);
+  useEffect(() => { if (filteredMonths.length > 0) { const currentMonthExists = filteredMonths.some(m => m.id === selectedMonth); if (!currentMonthExists) { setSelectedMonth(filteredMonths[0].id); } } }, [selectedSemester, filteredMonths, selectedMonth]);
   const displayedDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); const filteredByMonth = dates.filter(date => { const dateMonth = date.substring(5, 7); return dateMonth === selectedMonth; }).sort(); return filteredByMonth; }, [allAssignmentsByDate, selectedMonth]);
   
   useEffect(() => { 
       const currentSelectedMonth = selectedDisplayDate.substring(5, 7);
       if (currentSelectedMonth !== selectedMonth) {
-          if (displayedDates.length > 0) { 
-              setSelectedDisplayDate(displayedDates[displayedDates.length - 1]); 
-          } else { 
+          if (displayedDates.length > 0) { setSelectedDisplayDate(displayedDates[displayedDates.length - 1]); } 
+          else { 
               const currentSem = semesters.find(s => s.id === selectedSemester);
               const year = (selectedMonth >= '08') ? currentSem?.startYear : currentSem?.endYear;
               if (year) setSelectedDisplayDate(`${year}-${selectedMonth.padStart(2, '0')}-01`);
@@ -1055,717 +1082,389 @@ const App = () => {
   const studentMissingStats = useMemo(() => { const stats = students.map(student => ({ id: student.id, name: student.name, missingCount: 0, missingDetails: [] })); Object.keys(allAssignmentsByDate).forEach(date => { const assignmentsOnDate = allAssignmentsByDate[date] || []; assignmentsOnDate.forEach(assignment => { const submissionStatus = assignment.submissionStatus || {}; students.forEach((student, index) => { if (submissionStatus[student.id] === false) { stats[index].missingCount += 1; stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName }); } }); }); }); stats.sort((a, b) => b.missingCount - a.missingCount); return stats; }, [allAssignmentsByDate, students]);
   const monthlyStudentStats = useMemo(() => { const stats = {}; students.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; students.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months, students]);
   
-  const handleNewAssignmentDateChange = (e) => { setNewAssignmentDate(e.target.value); };
-  
+  // === [NEW] 任務載入引擎核心邏輯 ===
+  const handleLoadFromAnnouncements = async (tasksToInject) => {
+    if (!selectedDisplayDate) return;
+    setLoading(true);
+    try {
+        const batch = writeBatch(db);
+        const path = getAssignmentCollectionPath();
+        const currentCount = assignmentsForSelectedDate.length;
+
+        tasksToInject.forEach((task, idx) => {
+            const newDocRef = doc(collection(db, path));
+            batch.set(newDocRef, {
+                assignmentName: task.text,
+                order: currentCount + idx,
+                assignmentDate: selectedDisplayDate,
+                submissionStatus: getInitialSubmissionStatus,
+                makeupClaimed: {},
+                createdAt: serverTimestamp()
+            });
+        });
+
+        await batch.commit();
+        setAlertMessage(`成功載入 ${tasksToInject.length} 項任務！`);
+        setShowTaskLoader(false);
+    } catch (e) {
+        console.error(e);
+        alert("寫入作業表失敗。");
+    }
+    setLoading(false);
+  };
+
   const handleAddNewDate = useCallback(async () => {
       if (!newAssignmentDate) return;
-      if (allAssignmentsByDate[newAssignmentDate]) { alert("該日期已存在，請直接在上方選擇。"); return; }
-      
+      if (allAssignmentsByDate[newAssignmentDate]) { alert("該日期已存在。"); return; }
       const d = new Date(newAssignmentDate);
       const m = d.getMonth() + 1;
       const targetMonth = String(m).padStart(2, '0');
       let targetSemester = 'S1';
       if (m >= 2 && m <= 7) targetSemester = 'S2';
-      
       setSelectedSemester(targetSemester);
       setSelectedMonth(targetMonth);
-      
       setLoading(true);
-
       const assignmentsToCreate = categories.map(cat => ({
-          assignmentName: cat.name,
-          order: cat.order,
-          assignmentDate: newAssignmentDate,
-          submissionStatus: getInitialSubmissionStatus,
-          makeupClaimed: {},
-          createdAt: serverTimestamp() 
+          assignmentName: cat.name, order: cat.order, assignmentDate: newAssignmentDate,
+          submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: serverTimestamp() 
       }));
-
       if (isOffline) { 
-          const newOfflineAssignments = assignmentsToCreate.map((a, idx) => ({
-              ...a,
-              id: `offline-auto-${Date.now()}-${idx}`,
-              createdAt: new Date().toISOString()
-          }));
-          setAllAssignmentsByDate(prev => {
-              const prevData = { ...prev };
-              prevData[newAssignmentDate] = newOfflineAssignments;
-              return prevData;
-          });
-          setSelectedDisplayDate(newAssignmentDate); 
-          setAlertMessage(`[離線] 已新增日期 ${newAssignmentDate} 並自動帶入 ${newOfflineAssignments.length} 項預設作業。`); 
-          setLoading(false);
-          return; 
+          const newOff = assignmentsToCreate.map((a, idx) => ({ ...a, id: `off-${Date.now()}-${idx}`, createdAt: new Date().toISOString() }));
+          setAllAssignmentsByDate(prev => ({ ...prev, [newAssignmentDate]: newOff }));
+          setSelectedDisplayDate(newAssignmentDate);
+          setLoading(false); return; 
       }
-
       try {
           const batch = writeBatch(db);
           const path = getAssignmentCollectionPath();
-          assignmentsToCreate.forEach(assignData => {
-              const newDocRef = doc(collection(db, path));
-              batch.set(newDocRef, assignData);
-          });
+          assignmentsToCreate.forEach(a => batch.set(doc(collection(db, path)), a));
           await batch.commit();
-          setSelectedDisplayDate(newAssignmentDate); 
-          setAlertMessage(`已新增日期 ${newAssignmentDate} 並自動帶入 ${assignmentsToCreate.length} 項預設作業。`);
-      } catch (e) {
-          console.error("Error auto-populating assignments:", e);
-          setAlertMessage("新增日期成功，但自動帶入作業失敗，請手動新增。");
           setSelectedDisplayDate(newAssignmentDate);
-      } finally {
-          setLoading(false);
-      }
-  }, [newAssignmentDate, allAssignmentsByDate, isOffline, categories, getInitialSubmissionStatus, db, userId]);
+      } catch (e) { console.error(e); } finally { setLoading(false); }
+  }, [newAssignmentDate, allAssignmentsByDate, isOffline, categories, getInitialSubmissionStatus, db]);
 
   const handleAddNewAssignment = useCallback(async () => {
-      if (!selectedDisplayDate) { alert("請先選擇或新增一個日期。"); return; }
-      
-      const name = "新增作業";
-      const currentAssignments = assignmentsForSelectedDate || [];
-      const maxOrder = currentAssignments.reduce((max, item) => Math.max(max, item.order || 0), -1);
-      const newOrder = maxOrder + 1;
-
-      if (isOffline) { 
-          const newId = `offline-assign-${Date.now()}`; 
-          const newAssign = { id: newId, assignmentName: name, assignmentDate: selectedDisplayDate, order: newOrder, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: new Date().toISOString() }; 
-          setAllAssignmentsByDate(prev => { 
-              const current = prev[selectedDisplayDate] || []; 
-              return { ...prev, [selectedDisplayDate]: [...current, newAssign] }; 
-          }); 
-          return; 
+      if (!selectedDisplayDate) return;
+      const current = assignmentsForSelectedDate || [];
+      const maxOrder = current.reduce((max, item) => Math.max(max, item.order || 0), -1);
+      if (isOffline) {
+          const newId = `off-a-${Date.now()}`;
+          setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: [...(prev[selectedDisplayDate]||[]), { id: newId, assignmentName: "新增作業", assignmentDate: selectedDisplayDate, order: maxOrder+1, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: new Date().toISOString() }] }));
+          return;
       }
-      
-      if (!db || !userId) return; 
       setLoading(true);
-      try { 
-          const collectionRef = collection(db, getAssignmentCollectionPath()); 
-          await setDoc(doc(collectionRef), { 
-              assignmentName: name, 
-              assignmentDate: selectedDisplayDate, 
-              order: newOrder, 
-              submissionStatus: getInitialSubmissionStatus, 
-              makeupClaimed: {}, 
-              createdAt: serverTimestamp() 
-          }); 
-      } catch (e) { 
-          console.error("Error adding assignment:", e); 
-          setAlertMessage("新增作業失敗。"); 
-      } finally { 
-          setLoading(false); 
-      }
-  }, [selectedDisplayDate, isOffline, assignmentsForSelectedDate, getInitialSubmissionStatus, db, userId]);
+      try { await setDoc(doc(collection(db, getAssignmentCollectionPath())), { assignmentName: "新增作業", assignmentDate: selectedDisplayDate, order: maxOrder+1, submissionStatus: getInitialSubmissionStatus, makeupClaimed: {}, createdAt: serverTimestamp() }); } catch (e) { console.error(e); } finally { setLoading(false); }
+  }, [selectedDisplayDate, isOffline, assignmentsForSelectedDate, getInitialSubmissionStatus, db]);
 
   const handleDeleteAssignment = useCallback(async (id, name, force) => {
       if (authMode !== 'ADMIN' && !isOffline) return; if (!force && !window.confirm(`確定要刪除作業「${name}」嗎？`)) return;
       if (isOffline) { setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: prev[selectedDisplayDate].filter(a => a.id !== id) })); return; }
-      try { await deleteDoc(doc(db, getAssignmentCollectionPath(), id)); } catch (e) { console.error("Delete failed:", e); }
+      try { await deleteDoc(doc(db, getAssignmentCollectionPath(), id)); } catch (e) { console.error(e); }
   }, [authMode, isOffline, db, selectedDisplayDate]);
 
   const handleEditAssignmentName = useCallback(async (id, newName) => {
       if (isOffline) { setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: prev[selectedDisplayDate].map(a => a.id === id ? { ...a, assignmentName: newName } : a) })); return; }
-      const docRef = doc(db, getAssignmentCollectionPath(), id); await setDoc(docRef, { assignmentName: newName }, { merge: true });
+      await setDoc(doc(db, getAssignmentCollectionPath(), id), { assignmentName: newName }, { merge: true });
   }, [isOffline, db, selectedDisplayDate]);
 
   const handleMoveAssignment = useCallback(async (dragId, hoverId) => {
       const items = [...assignmentsForSelectedDate]; 
-      const dragIndex = items.findIndex(i => i.id === dragId); 
-      const hoverIndex = items.findIndex(i => i.id === hoverId); 
-      if (dragIndex === -1 || hoverIndex === -1) return;
-      
-      const dragItem = items[dragIndex]; 
-      
+      const dragIdx = items.findIndex(i => i.id === dragId); 
+      const hoverIdx = items.findIndex(i => i.id === hoverId); 
+      if (dragIdx === -1 || hoverIdx === -1) return;
+      const dragItem = items[dragIdx]; 
       const newItems = [...items]; 
-      newItems.splice(dragIndex, 1); 
-      newItems.splice(hoverIndex, 0, dragItem); 
-      
-      const updatedItems = newItems.filter(i => i).map((item, index) => ({ ...item, order: index })); 
-      
-      setAllAssignmentsByDate(prev => ({ 
-          ...prev, 
-          [selectedDisplayDate]: updatedItems 
-      })); 
-      
+      newItems.splice(dragIdx, 1); 
+      newItems.splice(hoverIdx, 0, dragItem); 
+      const updated = newItems.map((item, index) => ({ ...item, order: index })); 
+      setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: updated })); 
       if (isOffline) return;
-      
       const batch = writeBatch(db); 
-      const path = getAssignmentCollectionPath(); 
-      updatedItems.forEach(item => {
-           const docRef = doc(db, path, item.id);
-           batch.update(docRef, { order: item.order });
-      });
-      batch.commit().catch(e => console.error("Reorder failed:", e));
-      
+      updated.forEach(item => batch.update(doc(db, getAssignmentCollectionPath(), item.id), { order: item.order }));
+      batch.commit().catch(e => console.error(e));
   }, [assignmentsForSelectedDate, isOffline, db, selectedDisplayDate]);
 
-  const isDaySettled = useMemo(() => dailySettlements[selectedDisplayDate]?.isSettled || false, [dailySettlements, selectedDisplayDate]);
-  
   const handleBatchSettlement = useCallback(async () => {
     if (!selectedDisplayDate) return;
     const settledData = dailySettlements[selectedDisplayDate];
     const assignments = assignmentsForSelectedDate;
     if (assignments.length === 0) return;
-
-    const todayStr = getTodayDate();
-    const isPastDate = selectedDisplayDate < todayStr;
+    const isPastDate = selectedDisplayDate < getTodayDate();
     let shouldIssueReward = true; 
-
-    if (isPastDate) {
-        if (!window.confirm(`⚠️ 偵測到這是過去的日期 (${selectedDisplayDate})！\n\n請問您要【補發銀幣】給全對的學生嗎？\n\n● 按【確定】= 補發銀幣 + 鎖定日期\n● 按【取消】= 不發銀幣 + 僅鎖定日期 (用於封存舊資料)`)) {
-            shouldIssueReward = false;
-        }
-    }
-
-    const greenStudentIds = [];
-    students.forEach(s => {
-        const isAllGreen = assignments.every(a => {
-            const status = a.submissionStatus[s.id];
-            return status === true; 
-        });
-        if (isAllGreen) greenStudentIds.push(s.id);
-    });
-
+    if (isPastDate) { if (!window.confirm(`⚠️ 偵測到這是過去日期！是否發銀幣並鎖定？`)) shouldIssueReward = false; }
+    const greenIds = students.filter(s => assignments.every(a => a.submissionStatus[s.id] === true)).map(s => s.id);
     const claimedMap = settledData?.silverRewardClaimed || {};
-    const newWinners = greenStudentIds.filter(id => !claimedMap[id]);
-
+    const newWinners = greenIds.filter(id => !claimedMap[id]);
     if (newWinners.length === 0) {
-        alert("所有符合資格的學生都已經處理過了！(無新增獲獎者)");
-        if (!isDaySettled) {
-             const settlementRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
-             setDoc(settlementRef, { isSettled: true, settledAt: serverTimestamp() }, { merge: true });
+        if (!dailySettlements[selectedDisplayDate]?.isSettled) {
+             setDoc(doc(db, getDailySettlementPath(), selectedDisplayDate), { isSettled: true, settledAt: serverTimestamp() }, { merge: true });
         }
-        return;
+        alert("無新增獲獎者。"); return;
     }
-
-    const newWinnerNames = newWinners.map(id => {
-        const s = students.find(stud => stud.id === id);
-        return s ? `${s.id}.${s.name[0]}O${s.name.slice(2)}` : id; 
-    });
-    
-    if (shouldIssueReward) {
-        if (!window.confirm(`【確認發放】\n\n將發放銀幣給以下 ${newWinners.length} 位學生：\n${newWinnerNames.join('、')}`)) return;
-    } else {
-        alert(`【封存模式】\n\n將標記此日期為「已結算」，但 **不會** 發放銀幣給這 ${newWinners.length} 位學生。`);
-    }
-
+    if (shouldIssueReward) { if (!window.confirm(`確認發放給 ${newWinners.length} 位同學？`)) return; }
     setLoading(true);
-
     try {
         const batch = writeBatch(db);
-        const settlementRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
-        const newClaims = {};
-        newWinners.forEach(id => newClaims[id] = true);
-
-        batch.set(settlementRef, { 
-            isSettled: true, 
-            silverRewardClaimed: newClaims, 
-            settledAt: serverTimestamp() 
-        }, { merge: true });
-
+        const settleRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
+        const newClaims = {}; newWinners.forEach(id => newClaims[id] = true);
+        batch.set(settleRef, { isSettled: true, silverRewardClaimed: newClaims, settledAt: serverTimestamp() }, { merge: true });
         await batch.commit();
-        
-        if (shouldIssueReward) {
-            newWinners.forEach(sid => { updateBankBalance(sid, 0, 2, 0); });
-            setAlertMessage(`✅ 結算完成！\n\n恭喜以下 ${newWinners.length} 位同學獲得 +2 銀幣：\n${newWinnerNames.join('、')}`);
-        } else {
-            setAlertMessage(`🔒 封存完成！\n日期已鎖定，未發放任何獎勵。`);
-        }
-        
-    } catch (e) {
-        console.error("Settlement failed:", e);
-        setAlertMessage("結算操作失敗。");
-    } finally {
-        setLoading(false);
-    }
-  }, [selectedDisplayDate, dailySettlements, assignmentsForSelectedDate, students, isOffline, db, updateBankBalance, isDaySettled]);
+        if (shouldIssueReward) newWinners.forEach(sid => updateBankBalance(sid, 0, 2, 0));
+        setAlertMessage(`✅ 結算完成！`);
+    } catch (e) { console.error(e); } finally { setLoading(false); }
+  }, [selectedDisplayDate, dailySettlements, assignmentsForSelectedDate, students, db, updateBankBalance]);
 
   const handleToggleSubmission = useCallback(async (assignmentName, studentId, currentStatus) => { 
       const assignmentData = assignmentMap[assignmentName]; 
       if (!assignmentData) return; 
-      
       const settledData = dailySettlements[selectedDisplayDate];
       const isSettled = settledData?.isSettled || false;
-      const isStrictMode = isSettled === true;
+      let newStatus;
+      let bronzeChange = 0; let silverChange = 0; let goldChange = 0; 
+      let makeupUpdate = {}; let triggerAnimation = null;
 
-      if (!isStrictMode) {
+      if (!isSettled) {
           const cellKey = `${studentId}-${assignmentData.id}`; 
-          let newStatus; 
-          
-          if (currentStatus === true || currentStatus === undefined) { 
-              newStatus = false; 
-              setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
-          } else if (currentStatus === false) { 
-              newStatus = 'late'; 
-              setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
-          } else { 
+          if (currentStatus === true || currentStatus === undefined) newStatus = false;
+          else if (currentStatus === false) newStatus = 'late';
+          else {
               const currentCount = unlockClicks[cellKey] || 0; 
-              if (currentCount < 2) { 
-                  setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); 
-                  return; 
-              } else { 
-                  newStatus = true; 
-                  setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
-              } 
+              if (currentCount < 2) { setUnlockClicks(prev => ({ ...prev, [cellKey]: currentCount + 1 })); return; }
+              newStatus = true;
           }
-          
           if (isOffline) {
-              setAllAssignmentsByDate(prev => { 
-                  const newMap = { ...prev }; 
-                  newMap[selectedDisplayDate] = newMap[selectedDisplayDate].map(a => 
-                      a.id === assignmentData.id ? { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus } } : a
-                  ); return newMap; 
-              });
+              setAllAssignmentsByDate(prev => ({ ...prev, [selectedDisplayDate]: prev[selectedDisplayDate].map(a => a.id === assignmentData.id ? { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus } } : a) }));
           } else {
-              const docRef = doc(db, getAssignmentCollectionPath(), assignmentData.id);
-              await setDoc(docRef, { submissionStatus: { [studentId]: newStatus } }, { merge: true });
+              await setDoc(doc(db, getAssignmentCollectionPath(), assignmentData.id), { submissionStatus: { [studentId]: newStatus } }, { merge: true });
           }
           return;
       }
-
-      let newStatus;
-      let bronzeChange = 0;
-      let silverChange = 0;
-      let goldChange = 0; 
-      let makeupUpdate = {}; 
-      let settlementUpdate = null; 
-      let triggerAnimation = null;
 
       if (currentStatus === true || currentStatus === undefined) {
           newStatus = false;
           if (settledData?.silverRewardClaimed?.[studentId]) {
               silverChange = -2;
-              settlementUpdate = { [`silverRewardClaimed.${studentId}`]: deleteField() }; 
+              await setDoc(doc(db, getDailySettlementPath(), selectedDisplayDate), { [`silverRewardClaimed.${studentId}`]: deleteField() }, { merge: true });
           }
       } else if (currentStatus === false) {
-          newStatus = 'late';
-          bronzeChange = 10; 
-          makeupUpdate = { [`makeupClaimed.${studentId}`]: true };
-          triggerAnimation = 'BRONZE'; 
-          
-          const allStudentAssignments = Object.values(allAssignmentsByDate).flat();
-          const redAssignments = allStudentAssignments.filter(a => 
-              a.submissionStatus[studentId] === false && a.id !== assignmentData.id 
-          );
-          
-          if (redAssignments.length === 0) {
-              triggerAnimation = 'GOLD_CLEAR';
-              goldChange = 3; 
-          }
-
+          newStatus = 'late'; bronzeChange = 10; makeupUpdate = { [`makeupClaimed.${studentId}`]: true }; triggerAnimation = 'BRONZE'; 
+          const allStud = Object.values(allAssignmentsByDate).flat();
+          if (allStud.filter(a => a.submissionStatus[studentId] === false && a.id !== assignmentData.id).length === 0) { triggerAnimation = 'GOLD_CLEAR'; goldChange = 3; }
       } else {
-          newStatus = false;
-          bronzeChange = -10; 
-          makeupUpdate = { [`makeupClaimed.${studentId}`]: deleteField() };
-          const cellKey = `${studentId}-${assignmentData.id}`; 
-          setUnlockClicks(prev => { const next = {...prev}; delete next[cellKey]; return next; }); 
+          newStatus = false; bronzeChange = -10; makeupUpdate = { [`makeupClaimed.${studentId}`]: deleteField() };
       }
+      if (bronzeChange !== 0 || silverChange !== 0 || goldChange !== 0) updateBankBalance(studentId, goldChange, silverChange, bronzeChange);
+      if (triggerAnimation) setRewardState({ type: triggerAnimation });
+      const assignRef = doc(db, getAssignmentCollectionPath(), assignmentData.id);
+      await setDoc(assignRef, { [`submissionStatus.${studentId}`]: newStatus, ...makeupUpdate }, { merge: true });
+  }, [db, assignmentMap, unlockClicks, isOffline, allAssignmentsByDate, updateBankBalance, selectedDisplayDate, dailySettlements]);
 
-      if (bronzeChange !== 0 || silverChange !== 0 || goldChange !== 0) {
-          updateBankBalance(studentId, goldChange, silverChange, bronzeChange);
-      }
-      
-      if (triggerAnimation) { setRewardState({ type: triggerAnimation }); }
+  const handleEditCurrentDate = useCallback(async (targetOldDate) => {
+    const oldDate = targetOldDate || selectedDisplayDate;
+    if (authMode !== 'ADMIN' || !oldDate) return;
+    const newDate = prompt(`請輸入新的日期 YYYY-MM-DD`, oldDate);
+    if (!newDate || newDate === oldDate) return;
+    if (allAssignmentsByDate[newDate]) { alert("日期已存在。"); return; }
+    setLoading(true);
+    try {
+        const batch = writeBatch(db);
+        const assignments = allAssignmentsByDate[oldDate] || [];
+        assignments.forEach(a => batch.update(doc(db, getAssignmentCollectionPath(), a.id), { assignmentDate: newDate }));
+        await batch.commit();
+        setSelectedDisplayDate(newDate);
+    } catch(e) { console.error(e); } finally { setLoading(false); }
+  }, [authMode, selectedDisplayDate, allAssignmentsByDate, db]);
 
-      if (isOffline) {
-          setAllAssignmentsByDate(prev => { 
-              const newMap = { ...prev }; 
-              newMap[selectedDisplayDate] = newMap[selectedDisplayDate].map(a => 
-                  a.id === assignmentData.id ? { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus } } : a
-              ); return newMap; 
-          });
-      } else {
-          const batch = writeBatch(db);
-          const assignRef = doc(db, getAssignmentCollectionPath(), assignmentData.id);
-          if (newStatus !== undefined) {
-              batch.update(assignRef, { [`submissionStatus.${studentId}`]: newStatus, ...makeupUpdate });
-              if (settlementUpdate) {
-                  const settleRef = doc(db, getDailySettlementPath(), selectedDisplayDate);
-                  batch.update(settleRef, settlementUpdate);
-              }
-              await batch.commit();
-          }
-      }
-  }, [db, userId, assignmentMap, unlockClicks, isOffline, allAssignmentsByDate, updateBankBalance, selectedDisplayDate, dailySettlements]);
-  const handleEditCurrentDate = useCallback(async (targetOldDate) => { const oldDate = typeof targetOldDate === 'string' ? targetOldDate : selectedDisplayDate; if (authMode !== 'ADMIN' || !oldDate) return; const newDate = prompt(`請輸入新的日期以取代 ${oldDate} (格式: YYYY-MM-DD)`, oldDate); if (!newDate || newDate === oldDate) return; const datePattern = /^\d{4}-\d{2}-\d{2}$/; if (!datePattern.test(newDate)) { alert("日期格式不正確，請使用 YYYY-MM-DD格式。"); return; } if (allAssignmentsByDate[newDate]) { alert(`日期 ${newDate} 已經存在作業資料，無法直接修改日期至此日。請手動遷移或刪除目標日期資料。`); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; newMap[newDate] = newMap[oldDate].map(a => ({...a, assignmentDate: newDate})); delete newMap[oldDate]; return newMap; }); setSelectedDisplayDate(newDate); setAlertMessage(`[離線] 日期已修改為 ${newDate}`); return; } if (!db || !userId) return; setLoading(true); try { const batch = writeBatch(db); const assignments = allAssignmentsByDate[oldDate] || []; const path = getAssignmentCollectionPath(); if (assignments.length === 0) { setAlertMessage("該日期沒有作業資料可供移動。"); setLoading(false); return; } assignments.forEach(assignment => { const docRef = doc(db, path, assignment.id); batch.update(docRef, { assignmentDate: newDate }); }); await batch.commit(); setSelectedDisplayDate(newDate); setAlertMessage(`日期已成功從 ${oldDate} 修改為 ${newDate}`); } catch(e) { console.error("Error modifying date:", e); setAlertMessage("修改日期失敗，請檢查網路或權限。"); } finally { setLoading(false); } }, [authMode, selectedDisplayDate, allAssignmentsByDate, isOffline, db, userId]);
-  const handleBatchDelete = useCallback(async (assignmentIds, successMessage, failureMessage) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以執行批次刪除。"); return false; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].filter(a => !assignmentIds.includes(a.id)); }); return newMap; }); setAlertMessage(successMessage + " (離線)"); return true; } if (!db || !userId || assignmentIds.length === 0) return false; setLoading(true); try { const batch = writeBatch(db); const path = getAssignmentCollectionPath(); assignmentIds.forEach(id => { if (id) { const docRef = doc(db, path, id); batch.delete(docRef); } }); await batch.commit(); setAlertMessage(successMessage); return true; } catch (e) { console.error("Error during batch delete: ", e); setAlertMessage(failureMessage); return false; } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
-  const handleDeleteStudentGlobalData = useCallback(async (studentId, studentName) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足。"); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => { const newStatus = { ...a.submissionStatus }; delete newStatus[studentId]; return { ...a, submissionStatus: newStatus }; }); }); return newMap; }); setAlertMessage(`[離線] 成功刪除 ${studentName} 的所有訂正紀錄。`); return; } if (!db || !userId) return; if (!window.confirm(`【極度危險】確定要永久刪除學生 ${studentName} (${studentId}) 在所有日期上的所有訂正紀錄嗎？此操作不可逆轉！`)) { return; } setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const snapshot = await getDocs(assignmentCollection); const batch = writeBatch(db); let updateCount = 0; snapshot.docs.forEach(doc => { const docRef = doc.ref; const data = doc.data(); const submissionStatus = data.submissionStatus || {}; if (submissionStatus.hasOwnProperty(studentId)) { const newSubmissionStatus = { ...submissionStatus }; delete newSubmissionStatus[studentId]; batch.set(docRef, { submissionStatus: newSubmissionStatus }, { merge: true }); updateCount++; } }); await batch.commit(); setAlertMessage(`成功刪除 ${studentName} 的所有訂正紀錄 (${updateCount} 筆作業文件受到影響)。`); } catch (e) { console.error("Error deleting student data:", e); setAlertMessage("刪除學生數據失敗，請檢查權限或連線。"); } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
-  const showConfirmation = useCallback((type, data) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足。"); return; } let title, message, confirmTitle, confirmColor; switch(type) { case 'DAILY': title = `🧨 確定刪除 ${selectedDisplayDate} 的所有紀錄嗎？`; message = `此操作將永久移除 ${selectedDisplayDate} 的所有 ${assignmentsForSelectedDate.length} 筆作業紀錄。刪除後不可恢復。`; confirmTitle = '日期'; confirmColor = 'bg-gray-900'; break; case 'MONTHLY': title = `💣 確認刪除 ${data.monthName} 的所有作業紀錄？`; message = `此操作將永久移除 ${data.monthName} 期間所有 ${data.count} 筆作業紀錄。請務必謹慎！`; confirmTitle = '月份'; confirmColor = 'bg-amber-800'; break; case 'SEMESTER': title = `☢️ 極度危險：確認刪除 ${data.semName} 的所有資料？`; message = `此操作將永久移除 ${data.semName} 期間所有 ${data.count} 筆紀錄。這是最高級別的刪除，數據將無法找回！`; confirmTitle = '學期'; confirmColor = 'bg-rose-500'; break; default: return; } setConfirmationModal({ title, message, confirmTitle, confirmColor, action: type, data }); }, [selectedDisplayDate, assignmentsForSelectedDate, authMode, isOffline]);
-  const handleDeleteDateAssignments = useCallback(() => { if (assignmentsForSelectedDate.length === 0) { alert(`日期 ${selectedDisplayDate} 沒有任何作業紀錄可以刪除。`); return; } showConfirmation('DAILY', {}); }, [assignmentsForSelectedDate, selectedDisplayDate, showConfirmation]);
-  const handleDeleteMonthAssignments = useCallback(() => { const monthName = months.find(m => m.id === selectedMonth)?.name || '該月'; const assignmentIdsToDelete = []; Object.keys(allAssignmentsByDate).forEach(date => { const dateMonth = date.substring(5, 7); if (dateMonth === selectedMonth) { (allAssignmentsByDate[date] || []).forEach(assignment => { if (assignment.id) assignmentIdsToDelete.push(assignment.id); }); } }); if (assignmentIdsToDelete.length === 0) { alert(`${monthName} 期間沒有找到作業紀錄可以刪除。`); return; } showConfirmation('MONTHLY', { monthName, count: assignmentIdsToDelete.length }); }, [allAssignmentsByDate, selectedMonth, months, showConfirmation]);
-  const handleDeleteSemesterAssignments = useCallback(() => { const semesterData = semesters.find(s => s.id === selectedSemester); const semName = semesterData ? semesterData.name : '全部'; const assignmentIdsToDelete = []; const allDates = Object.keys(allAssignmentsByDate); allDates.forEach(date => { const dateMonth = parseInt(date.substring(5, 7), 10); const dateYear = parseInt(date.substring(0, 4), 10); let shouldDelete = false; if (semesterData.id === 'S1') { if ((dateYear === semesterData.startYear && dateMonth >= 8 && dateMonth <= 12) || (dateYear === semesterData.endYear && dateMonth === 1)) { shouldDelete = true; } } else if (semesterData.id === 'S2') { if (dateYear === semesterData.endYear && dateMonth >= 2 && dateMonth <= 7) { shouldDelete = true; } } if (shouldDelete) { (allAssignmentsByDate[date] || []).forEach(assignment => { if (assignment.id) assignmentIdsToDelete.push(assignment.id); }); } }); if (assignmentIdsToDelete.length === 0) { alert(`${semName} 期間沒有找到作業紀錄可以刪除。`); return; } showConfirmation('SEMESTER', { semName, count: assignmentIdsToDelete.length }); }, [allAssignmentsByDate, selectedSemester, semesters, showConfirmation]);
-  const executeDelete = useCallback(async () => { if (!confirmationModal) return; const { action, data } = confirmationModal; setConfirmationModal(null); let success = false; switch(action) { case 'DAILY': const assignmentIds = assignmentsForSelectedDate.map(a => a.id).filter(id => id); const name_daily = selectedDisplayDate; const count_daily = assignmentIds.length; success = await handleBatchDelete(assignmentIds, `成功刪除 ${name_daily} 的所有作業紀錄 (${count_daily} 筆)。`, "刪除該日作業失敗，請稍後再試。"); if (success) { const currentDates = availableDates.filter(d => d !== selectedDisplayDate); if (currentDates.length > 0) { setSelectedDisplayDate(currentDates[currentDates.length - 1]); } else { setSelectedDisplayDate(getTodayDate()); } } break; case 'MONTHLY': const monthName = months.find(m => m.id === selectedMonth)?.name || '該月'; const monthAssignmentIds = []; Object.keys(allAssignmentsByDate).forEach(date => { const dateMonth = date.substring(5, 7); if (dateMonth === selectedMonth) { (allAssignmentsByDate[date] || []).forEach(assignment => { if (assignment.id) monthAssignmentIds.push(assignment.id); }); } }); const monthCount = monthAssignmentIds.length; success = await handleBatchDelete(monthAssignmentIds, `成功刪除 ${monthName} 期間的 ${monthCount} 筆作業紀錄。`, "刪除月份作業失敗，請稍後再試。"); if (success) setSelectedDisplayDate(getTodayDate()); break; case 'SEMESTER': const semesterData = semesters.find(s => s.id === selectedSemester); const semName = semesterData ? semesterData.name : '全部'; const semAssignmentIds = []; Object.keys(allAssignmentsByDate).forEach(date => { const dateMonth = parseInt(date.substring(5, 7), 10); const dateYear = parseInt(date.substring(0, 4), 10); if (semesterData.id === 'S1') { if ((dateYear === semesterData.startYear && dateMonth >= 8 && dateMonth <= 12) || (dateYear === semesterData.endYear && dateMonth === 1)) { (allAssignmentsByDate[date] || []).forEach(assignment => { if (assignment.id) semAssignmentIds.push(assignment.id); }); } } else if (semesterData.id === 'S2') { if (dateYear === semesterData.endYear && dateMonth >= 2 && dateMonth <= 7) { (allAssignmentsByDate[date] || []).forEach(assignment => { if (assignment.id) semAssignmentIds.push(assignment.id); }); } } }); const semCount = semAssignmentIds.length; success = await handleBatchDelete(semAssignmentIds, `成功刪除 ${semName} 期間的 ${semCount} 筆作業紀錄。`, "刪除學期作業失敗，請稍後再試。"); if (success) setSelectedDisplayDate(getTodayDate()); break; default: break; } }, [confirmationModal, handleBatchDelete, assignmentsForSelectedDate, selectedDisplayDate, availableDates, allAssignmentsByDate, months, selectedMonth, semesters]);
-  
-  // --- 匯出資料 ---
-  const handleExportData = useCallback(async () => { 
-      if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯出。"); return; } 
-      setLoading(true); 
-      try { 
-          const exportObj = {
-              version: 'v20.0.42',
-              timestamp: new Date().toISOString(),
-              students: students,
-              assignments: [],
-              bankData: bankData,
-              allAssignmentsByDate: isOffline ? allAssignmentsByDate : undefined
-          };
-          if (isOffline) {
-              Object.values(allAssignmentsByDate).forEach(assignments => { exportObj.assignments.push(...assignments); });
-          } else {
-              const path = getAssignmentCollectionPath(); const assignmentsCollection = collection(db, path); const snapshot = await getDocs(assignmentsCollection); 
-              snapshot.forEach(doc => { const data = doc.data(); const createdAt = data.createdAt?.toDate().toISOString() || null; exportObj.assignments.push({ id: doc.id, ...data, createdAt: createdAt }); });
-          }
-          const dataStr = JSON.stringify(exportObj, null, 2); const blob = new Blob([dataStr], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `assignment_data_${getTodayDate()}${isOffline ? '_offline' : ''}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); setAlertMessage(`成功匯出完整備份 (含存簿資料)。`); 
-      } catch (e) { console.error("Export failed:", e); setAlertMessage("匯出資料失敗。"); } finally { setLoading(false); } 
-  }, [db, userId, setAlertMessage, isOffline, allAssignmentsByDate, bankData, students]);
- 
-  // --- 匯入資料 ---
-  const handleImportData = useCallback(async (e) => { 
-      if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以匯入資料。"); return; } 
-      if (!isOffline && (!db || !userId)) { setAlertMessage("請等待應用程式載入並登入後再匯入。"); return; } 
-      const file = e.target.files[0]; if (!file) return; setLoading(true); const reader = new FileReader(); 
-      reader.onload = async (event) => { 
-          try { 
-              const json = JSON.parse(event.target.result); 
-              if (Array.isArray(json)) { 
-                  setAlertMessage("⚠️ 偵測到舊版備份檔。僅能還原作業，無法還原存簿。");
-                  if (isOffline) { 
-                      let importedCount = 0; const newMap = { ...allAssignmentsByDate }; 
-                      json.forEach(item => { 
-                          const date = item.assignmentDate || getTodayDate(); const name = (item.assignmentName || "未命名作業").trim(); 
-                          if (!newMap[date]) newMap[date] = []; 
-                          if (!newMap[date].some(a => a.assignmentName === name)) { 
-                              newMap[date].push({ ...item, id: `offline-import-${Date.now()}-${Math.random()}`, assignmentName: name, assignmentDate: date }); 
-                              importedCount++; 
-                          } 
-                      }); 
-                      setAllAssignmentsByDate(newMap); 
-                  } 
-              } else {
-                  if (json.bankData) setBankData(json.bankData);
-                  if (isOffline && json.allAssignmentsByDate) setAllAssignmentsByDate(json.allAssignmentsByDate);
-                  if(isOffline && json.assignments) {
-                      const newMap = {};
-                      json.assignments.forEach(a => {
-                          if(!newMap[a.assignmentDate]) newMap[a.assignmentDate] = [];
-                          newMap[a.assignmentDate].push(a);
-                      });
-                      setAllAssignmentsByDate(newMap);
-                  }
-                  setAlertMessage("✅ 完整資料還原成功 (含存簿)！");
-              }
-          } catch (error) { console.error("Import failed:", error); setAlertMessage("匯入失敗：檔案解析錯誤或數據格式不正確。"); } finally { setLoading(false); e.target.value = null; } 
-      }; reader.readAsText(file); 
-  }, [db, userId, setAlertMessage, getInitialSubmissionStatus, allAssignmentsByDate, isOffline, authMode]);
+  const executeDelete = useCallback(async () => {
+    if (!confirmationModal) return;
+    const { action } = confirmationModal;
+    setConfirmationModal(null);
+    setLoading(true);
+    try {
+        const batch = writeBatch(db);
+        const path = getAssignmentCollectionPath();
+        let ids = [];
+        if (action === 'DAILY') ids = assignmentsForSelectedDate.map(a => a.id);
+        else if (action === 'MONTHLY') {
+            Object.keys(allAssignmentsByDate).forEach(d => { if(d.substring(5,7) === selectedMonth) allAssignmentsByDate[d].forEach(a => ids.push(a.id)); });
+        }
+        ids.forEach(id => batch.delete(doc(db, path, id)));
+        await batch.commit();
+        setSelectedDisplayDate(getTodayDate());
+    } catch (e) { console.error(e); } finally { setLoading(false); }
+  }, [confirmationModal, assignmentsForSelectedDate, allAssignmentsByDate, selectedMonth, db]);
+
+  const handleExportData = useCallback(async () => {
+      setLoading(true);
+      try {
+          const exportObj = { version: VERSION, students, bankData, assignments: [] };
+          const snapshot = await getDocs(collection(db, getAssignmentCollectionPath()));
+          snapshot.forEach(doc => exportObj.assignments.push({ id: doc.id, ...doc.data() }));
+          const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+          const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `backup_${getTodayDate()}.json`; link.click();
+      } catch (e) { console.error(e); } finally { setLoading(false); }
+  }, [db, students, bankData]);
+
+  const handleImportData = useCallback(async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      setLoading(true);
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+          try {
+              const json = JSON.parse(ev.target.result);
+              if (json.bankData) setBankData(json.bankData);
+              alert("匯入成功。");
+          } catch (error) { console.error(error); } finally { setLoading(false); }
+      };
+      reader.readAsText(file);
+  }, []);
 
   const isGlobalLoading = loading || loadingCategories || loadingStudents;
-  
-  if (isGlobalLoading && !isAuthReady && !isOffline) {
-    return ( 
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
-        <p className="text-3xl text-gray-600 mb-6">正在連線至雲端資料庫...</p>
-        {authTimeout && ( <div className="text-center animate-fade-in"> <p className="text-2xl text-amber-600 mb-4">連線似乎有點慢，或是無法連接到伺服器。</p> <button onClick={handleGoOffline} className="bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 rounded-xl text-3xl font-bold shadow-lg transition transform hover:scale-105 flex items-center gap-3 mx-auto"> <WifiOff className="w-8 h-8" /> 強制進入 (離線/演示模式) </button> </div> )}
-      </div> 
-    );
-  }
- 
-  if (!isAuthenticated && !loading && !loadingCategories) {
-      return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
-  }
- 
-  if (error) {
-    return ( <div className="p-8 text-center bg-red-100 border-l-8 border-red-500 text-red-700"> <h2 className="text-3xl font-bold mb-2">發生錯誤 (Error Occurred)</h2> <p className="text-xl whitespace-pre-line">{error}</p> <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-lg text-xl hover:bg-red-700 transition flex items-center justify-center mx-auto"> <RefreshCw className="w-6 h-6 mr-2" /> 重新整理 </button> </div> );
-  }
+  if (!isAuthenticated && !isGlobalLoading) return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
+  if (error) return <div className="p-8 text-center bg-red-100 text-red-700"><h2>發生錯誤</h2><p>{error}</p></div>;
 
   return (
-   <DndProvider backend={HTML5Backend}>
-   <div className="min-h-screen flex flex-col bg-gray-100 overflow-x-hidden">
-     {/* --- [特效層] 慶祝動畫與銅幣特效 --- */}
-     {rewardState && ( <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} /> )}
-     
-     {/* --- [彈窗層] 各式功能視窗 --- */}
-     {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalanceDirectly={setBankBalanceDirectly} authMode={authMode} students={students} /> )}
-     {dashboardStudent && ( <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={() => setDashboardStudent(null)} /> )}
-     {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
-     
-     {/* 未訂正視窗 */}
-     {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={students.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} updateBankBalance={updateBankBalance} setRewardState={setRewardState} /> )}
-     
-     {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
- 
-     <div className="bg-white shadow-xl w-full flex flex-col h-full print:hidden">
-       <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
-         {isOffline && ( <div className="absolute top-0 left-0 w-full bg-gray-800 text-white text-center py-2 text-xl font-bold tracking-wider z-10"> ⚠️ 目前為離線演示模式 (Guest Mode) </div> )}
-          <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20" title="登出系統"> <LogOut className="w-5 h-5" /> 登出 {authMode === 'ADMIN' ? '(老師)' : '(訪客)'} </button>
- 
-         {/* 🐻‍❄️ 熊貓標題 */}
-         <div className={`flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2 ${isOffline ? 'mt-8' : ''}`}><span className="text-orange-500 text-6xl mr-3">🐻‍❄️</span><span className="text-5xl">五年甲班訂正作業表</span><span className="text-green-600 text-6xl ml-3">🐼</span></div>
-         <p className="text-3xl text-gray-600 mb-4"> {new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'long' })}</p>
-         <p className={`absolute right-4 text-xl text-gray-500 font-bold z-30 transition-all ${authMode === 'ADMIN' ? 'top-20' : 'top-4'}`}> 版本: {VERSION}</p>
-       </header>
-       {alertMessage && ( <CustomAlert message={alertMessage} onClose={() => setAlertMessage(null)} /> )}
-       
-       <div className="flex-1 overflow-x-hidden bg-gray-50 p-4 relative flex flex-col">
-           <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl">
-               <label className="font-semibold text-gray-700">學期：</label>
-               <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading}>{semesters.map((s) => ( <option key={s.id} value={s.id}>{s.name}</option>))}</select>
-               <label className="font-semibold text-gray-700">月份：</label>
-               <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading} style={{ backgroundColor: months.find((m) => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
-               
-               <div className="flex items-center gap-3">
-                   <button onClick={() => setShowBankModal(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md flex items-center justify-center" disabled={isGlobalLoading}> <BookOpen className="h-6 w-6 mr-2" />訂正存簿 </button>
-                   {authMode === 'ADMIN' && (
-                       <>
-                           <button 
-                               onClick={handleBatchSettlement} 
-                               className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-500 hover:bg-gray-600' : 'bg-indigo-600 hover:bg-indigo-700'}`} 
-                               disabled={isGlobalLoading}
-                               title={dailySettlements[selectedDisplayDate]?.isSettled ? "點擊以補發給新完成的學生" : "結算並發放銀幣給全對學生"}
-                           > 
-                               {dailySettlements[selectedDisplayDate]?.isSettled ? <><Lock className="h-6 w-6 mr-2" />已發布(可補發)</> : <><Megaphone className="h-6 w-6 mr-2" />結算發布</>}
-                           </button>
-                           <button 
-                               onClick={() => setShowBroadcastEditor(true)} 
-                               className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md flex items-center justify-center" 
-                               disabled={isGlobalLoading}
-                           > 
-                               <Megaphone className="h-6 w-6 mr-2" />全域廣播 
-                           </button>
-                       </>
-                   )}
-               </div>
-           </div>
-           
-           <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2 shrink-0">
-               {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} onEdit={() => handleEditCurrentDate(date)} authMode={authMode} /> ))}
-           </div>
-           
-           <div className="flex flex-wrap items-center gap-2 mb-6 shrink-0">
-                <input id="newAssignmentDate" type="date" value={newAssignmentDate} onChange={handleNewAssignmentDateChange} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] focus:ring-yellow-500 focus:border-yellow-500 transition flex-shrink-0" required disabled={isGlobalLoading} />
-                 <button onClick={handleAddNewDate} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${isGlobalLoading ? 'bg-yellow-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'}`} disabled={isGlobalLoading || !newAssignmentDate}> + 新增日期 </button>
-                <button onClick={handleExportData} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-fuchsia-400 hover:bg-fuchsia-500 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="將所有紀錄匯出為 JSON 檔案"> <Download className="h-6 w-6 mr-1" />匯出 </button>
-                 <button onClick={() => setShowAllMissingModal(true)} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="檢視全班未完成作業總表"> <FileText className="h-6 w-6 mr-1" />未完成總表 </button>
-               <div className={`${authMode === 'ADMIN' ? 'flex-1 relative' : 'relative'}`}>
-                   <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isGlobalLoading} title="選擇 JSON 檔案匯入紀錄" />
-                   <button onClick={() => document.getElementById('importFile').click()} className={`${authMode === 'ADMIN' ? 'px-4 py-2 w-full' : 'px-5 py-3 w-full'} text-3xl font-medium rounded-lg text-white bg-cyan-500 hover:bg-cyan-600 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading}> <Upload className="h-6 w-6 mr-1" />匯入 </button>
-               </div>
- 
-               {authMode === 'ADMIN' && (
-                   <>
-                       <ProtectedButton onClick={() => handleDeleteDateAssignments()} disabled={isGlobalLoading || assignmentsForSelectedDate.length === 0} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-gray-900 hover:bg-gray-800`} title="刪除該日所有作業 (需按住 Shift)"><span className="text-4xl mr-1">🧨</span>刪除日期</ProtectedButton>
-                       <ProtectedButton onClick={() => handleDeleteMonthAssignments()} disabled={isGlobalLoading} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-amber-800 hover:bg-amber-900`} title={`刪除所選月份`}><span className="text-4xl mr-1">💣</span>刪除月份</ProtectedButton>
-                       <ProtectedButton onClick={() => handleDeleteSemesterAssignments()} disabled={isGlobalLoading} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-rose-500 hover:bg-rose-600`} title={`刪除學期/全部資料`}><span className="text-4xl mr-1">☢️</span>刪除學期</ProtectedButton>
-                   </>
-               )}
-           </div>
-           
+    <DndProvider backend={HTML5Backend}>
+    <div className="min-h-screen flex flex-col bg-gray-100 overflow-x-hidden">
+      {rewardState && ( <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} /> )}
+      {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalanceDirectly={setBankBalanceDirectly} authMode={authMode} students={students} /> )}
+      {dashboardStudent && ( <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={() => setDashboardStudent(null)} /> )}
+      {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
+      {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={students.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} updateBankBalance={updateBankBalance} setRewardState={setRewardState} /> )}
+      {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
+      
+      {/* === [NEW] 載入視窗掛載 === */}
+      {showTaskLoader && authMode === 'ADMIN' && (
+        <TaskLoaderModal 
+            db={db} 
+            initialDate={selectedDisplayDate} 
+            onClose={() => setShowTaskLoader(false)} 
+            onConfirm={handleLoadFromAnnouncements}
+        />
+      )}
+
+      <div className="bg-white shadow-xl w-full flex flex-col h-full print:hidden">
+        <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
+          <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20"><LogOut className="w-5 h-5" /> 登出</button>
+          <div className="flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2"><span className="text-orange-500 text-6xl mr-3">🐻‍❄️</span>五年甲班訂正作業表<span className="text-green-600 text-6xl ml-3">🐼</span></div>
+          <p className="text-3xl text-gray-600 mb-4">{new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'long' })}</p>
+          <p className="absolute right-4 text-xl text-gray-500 font-bold z-30">版本: {VERSION}</p>
+        </header>
+        {alertMessage && ( <CustomAlert message={alertMessage} onClose={() => setAlertMessage(null)} /> )}
+        
+        <div className="flex-1 overflow-x-hidden bg-gray-50 p-4 relative flex flex-col">
+            <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl">
+                <label className="font-semibold text-gray-700">學期：</label>
+                <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold">{semesters.map((s) => ( <option key={s.id} value={s.id}>{s.name}</option>))}</select>
+                <label className="font-semibold text-gray-700">月份：</label>
+                <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" style={{ backgroundColor: months.find((m) => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
+                <div className="flex items-center gap-3">
+                    <button onClick={() => setShowBankModal(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 shadow-md flex items-center justify-center"><BookOpen className="h-6 w-6 mr-2" />訂正存簿</button>
+                    {authMode === 'ADMIN' && (
+                        <>
+                            <button onClick={handleBatchSettlement} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white shadow-md flex items-center justify-center ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-500 hover:bg-gray-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}>{dailySettlements[selectedDisplayDate]?.isSettled ? <><Lock className="h-6 w-6 mr-2" />已發布</> : <><Megaphone className="h-6 w-6 mr-2" />結算發布</>}</button>
+                            <button onClick={() => setShowBroadcastEditor(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-amber-500 hover:bg-amber-600 shadow-md flex items-center justify-center"><Megaphone className="h-6 w-6 mr-2" />全域廣播</button>
+                        </>
+                    )}
+                </div>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2 shrink-0">
+                {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} onEdit={() => handleEditCurrentDate(date)} authMode={authMode} /> ))}
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-2 mb-6 shrink-0">
+                 <input type="date" value={newAssignmentDate} onChange={e => setNewAssignmentDate(e.target.value)} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] flex-shrink-0" />
+                 <button onClick={handleAddNewDate} className="px-4 py-2 flex-1 text-3xl font-medium rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 shadow-md"> + 新增日期 </button>
+                 
+                 {/* === [NEW] 載入任務按鈕 === */}
+                 {authMode === 'ADMIN' && (
+                     <button onClick={() => setShowTaskLoader(true)} className="px-4 py-2 flex-1 text-3xl font-medium rounded-lg text-white bg-blue-500 hover:bg-blue-600 shadow-md flex items-center justify-center gap-2">
+                        <DownloadCloud className="w-8 h-8" /> 載入任務
+                     </button>
+                 )}
+
+                 <button onClick={handleExportData} className="px-4 py-2 flex-1 text-3xl font-medium rounded-lg text-white bg-fuchsia-400 hover:bg-fuchsia-500 shadow-md flex items-center justify-center"> <Download className="h-6 w-6 mr-1" />匯出 </button>
+                 <button onClick={() => setShowAllMissingModal(true)} className="px-4 py-2 flex-1 text-3xl font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 shadow-md flex items-center justify-center"> <FileText className="h-6 w-6 mr-1" />未完成總表 </button>
+                 {authMode === 'ADMIN' && (
+                    <>
+                        <ProtectedButton onClick={() => setConfirmationModal({action:'DAILY', title:'確定刪除該日？', message:'資料將永久移除', confirmTitle:'日期', confirmColor:'bg-gray-900'})} className="px-4 py-2 text-3xl font-medium rounded-lg text-white shadow-md flex-1 bg-gray-900 hover:bg-gray-800">🧨刪除日期</ProtectedButton>
+                    </>
+                 )}
+            </div>
+            
             <div className="flex justify-between items-center mb-6 shrink-0">
-               <h2 className="text-5xl font-bold text-gray-800 flex items-center">
-                   <span className="text-gray-500 mr-3 text-5xl">📋</span>
-                   {selectedDisplayDate ? (
-                       <div className="flex items-center gap-3">
-                           <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span>
-                           {dailySettlements[selectedDisplayDate]?.isSettled && <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-lg rounded-full font-bold border border-indigo-200 flex items-center"><Lock className="w-4 h-4 mr-1"/>已發布</span>}
-                           {authMode === 'ADMIN' && (
-                                <button onClick={() => handleEditCurrentDate(selectedDisplayDate)} className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full text-gray-600 hover:text-gray-800 transition shadow-sm" title="修改此日期" disabled={isGlobalLoading}> <Edit className="w-6 h-6" /> </button>
-                           )}
-                       </div>
-                   ) : '請選擇日期'}
-               </h2>
-               <div className="flex items-center gap-4">
-                   {focusedStudentId && ( <button onClick={() => setFocusedStudentId(null)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-gray-600 hover:bg-gray-700 transition duration-150 shadow-md flex items-center"> <Eye className="h-8 w-8 mr-2" /> 顯示全部學生 </button> )}
-                   <button onClick={handleAddNewAssignment} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center ${isGlobalLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-500'}`} disabled={isGlobalLoading || !selectedDisplayDate}><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>新增作業</button>
-               </div>
-           </div>
- 
-           {assignmentsForSelectedDate.length === 0 && selectedDisplayDate !== '' && ( <div className="text-center p-12 bg-gray-50 rounded-xl shadow-inner"><svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><h3 className="mt-4 text-3xl font-medium text-gray-900">該日無作業紀錄。</h3><p className='text-3xl text-gray-600 mt-2'>請選擇左側的日期標籤，或在上方輸入日期並點擊「新增日期」。</p></div> )}
-           
-           <div className={`w-full max-w-[100vw] relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[90vh] min-h-[500px] mb-8 bg-white`}> 
-               <div className="min-w-full">
-                   {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' && (
+                <h2 className="text-5xl font-bold text-gray-800 flex items-center">
+                    <span className="text-gray-500 mr-3 text-5xl">📋</span>
+                    {selectedDisplayDate ? (
+                        <div className="flex items-center gap-3">
+                            <span className="text-4xl">{new Date(selectedDisplayDate).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })} 作業確認表</span>
+                            {dailySettlements[selectedDisplayDate]?.isSettled && <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-lg rounded-full font-bold border border-indigo-200 flex items-center"><Lock className="w-4 h-4 mr-1"/>已發布</span>}
+                        </div>
+                    ) : '請選擇日期'}
+                </h2>
+                <div className="flex items-center gap-4">
+                    {focusedStudentId && ( <button onClick={() => setFocusedStudentId(null)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-gray-600 hover:bg-gray-700 shadow-md flex items-center"> <Eye className="h-8 w-8 mr-2" /> 顯示全部 </button> )}
+                    <button onClick={handleAddNewAssignment} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-blue-400 hover:bg-blue-500 shadow-md flex items-center"><Plus className="h-8 w-8 mr-2" />新增作業</button>
+                </div>
+            </div>
+
+            <div className={`w-full max-w-[100vw] relative border border-gray-300 rounded-lg shadow-xl overflow-auto h-[90vh] min-h-[500px] mb-8 bg-white`}> 
+                <div className="min-w-full">
+                    {assignmentsForSelectedDate.length > 0 && selectedDisplayDate !== '' ? (
                         <table className="divide-y divide-gray-300 min-w-full w-max">
-                           <thead className="bg-gray-100 sticky top-0 z-40">
-                               <tr>
-                                   <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 border-r border-gray-300 sticky left-0 top-0 z-50 bg-gray-100 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '100px', width: '100px', maxWidth: '100px' }}>座號</th>
-                                   <th className="px-2 py-4 text-3xl font-semibold uppercase tracking-wider text-gray-600 sticky top-0 left-[100px] z-50 bg-gray-100 text-center shadow-[4px_0_10px_-2px_rgba(0,0,0,0.3)] border-r-4 border-gray-300" style={{ minWidth: '128px', width: '128px', maxWidth: '128px' }}>姓名</th>
-                                   {assignmentsForSelectedDate.map((assignment) => (
-                                       <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} authMode={authMode} />
-                                   ))}
-                               </tr>
-                           </thead>
-                           <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
-                               {(focusedStudentId ? students.filter(s => s.id === focusedStudentId) : students).map((student) => (
-                                   <tr key={student.id} className={`group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
-                                           <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl whitespace-normal font-medium text-gray-900 border-r border-gray-300 sticky left-0 z-30 bg-white text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 break-words align-middle transition-colors" title="點擊查看學習歷程" style={{ minWidth: '100px', width: '100px', maxWidth: '100px' }}>
-                                               {student.id}
-                                           </td>
-                                           <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl whitespace-nowrap text-gray-900 font-semibold sticky left-[100px] z-30 bg-white text-center shadow-[4px_0_10px_-2px_rgba(0,0,0,0.3)] border-r-4 border-gray-300 cursor-pointer group-hover:text-blue-600 group-hover:bg-blue-100 align-middle transition-colors" title={focusedStudentId === student.id ? "點擊以顯示全部學生" : "點擊以只顯示此學生"} style={{ minWidth: '128px', width: '128px', maxWidth: '128px' }}>
-                                               {student.name[0] + 'O' + student.name.slice(2)}
-                                           </td>
-                                           {assignmentsForSelectedDate.map((assignment) => {
-                                               const assignmentName = assignment.assignmentName;
-                                               const assignmentData = assignmentMap[assignmentName];
-                                               const status = assignmentData ? assignmentData.submissionStatus[student.id] ?? true : true;
-                                               return (
-                                                   <td key={`${student.id}-${assignment.id}`} className="px-1 py-4 whitespace-nowrap text-center" style={{ minWidth: '150px' }}>
-                                                       <div className="relative inline-block">
-                                                           <button onClick={() => handleToggleSubmission(assignmentName, student.id, status)} disabled={isGlobalLoading} className={`p-2 rounded-lg transition duration-150 shadow-md disabled:cursor-not-allowed relative ${status === true ? 'bg-green-200 text-green-700 hover:bg-green-300' : (status === 'late' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-white border-4 border-red-300 text-red-500 hover:bg-red-50')}`} aria-label={status === true ? '已完成' : (status === 'late' ? '遲繳' : '待完成')}> {status === false ? ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg> )} </button>
-                                                       </div>
-                                                   </td>
-                                               );
-                                           })}
-                                   </tr>
-                               ))}
-                           </tbody>
-                       </table>
-                   )}
-               </div>
-           </div>
-           
-           <MissingColorExplanation />
-           <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner border border-gray-200 shrink-0">
-               <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">⚠️</span><span className="text-4xl">全班未訂正統計</span></h2>
-               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                   {studentMissingStats.map((stat) => {
-                       const colorClasses = getMissingColorClasses(stat.missingCount);
-                       const countText = stat.missingCount;
-                       return ( <div key={stat.id} onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} className={`relative p-4 rounded-2xl cursor-pointer transition-all duration-150 ${colorClasses.bg} ${colorClasses.border} ${colorClasses.text} text-center border-2 border-b-[8px] active:border-b-[2px] active:translate-y-[6px] hover:-translate-y-[2px] hover:shadow-md`}> <p className="text-4xl font-semibold mb-1">{stat.name[0] + 'O' + stat.name.slice(2)}</p> <p className={`text-6xl font-black mt-2 ${colorClasses.countText}`}>{countText}</p> </div> );
-                   })}
-               </div>
-           </div>
-           <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
-       </div>
-       
-       {/* 新增：全域廣播接收視窗 (學生與大螢幕用) */}
-       {(() => {
-           const currentBroadcastId = broadcastData?.timestamp?.toMillis?.() || broadcastData?.message;
-           const isBroadcastVisible = broadcastData?.active && currentBroadcastId && currentBroadcastId !== dismissedBroadcastTime;
-           
-           if (!isBroadcastVisible) return null;
-           
-           const settings = broadcastData.settings || { bgColor: 'bg-amber-400', textColor: 'text-slate-900', fontSize: 80, biauKai: false };
-           
-           return (
-             <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[99999] flex items-center justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-300 print:hidden">
-               <div className={`${settings.bgColor} rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,0.5)] p-8 md:p-16 w-full max-w-[95vw] min-h-[80vh] border-[16px] border-white/20 flex flex-col items-center justify-center text-center relative`}>
-                 <div className="absolute -top-20 bg-white/20 backdrop-blur-md p-6 rounded-full border-8 border-white/30 shadow-xl animate-bounce">
-                   <BellRing size={80} className={settings.textColor}/>
-                 </div>
-                 <div className="flex-1 flex items-center justify-center w-full py-12">
-                   <p 
-                      style={{ 
-                          fontSize: `${settings.fontSize}px`, 
-                          fontFamily: settings.biauKai ? '"BiauKai", "DFKai-SB", "標楷體", serif' : 'inherit' 
-                      }} 
-                      className={`font-black ${settings.textColor} leading-snug whitespace-pre-wrap break-words w-full max-h-[60vh] overflow-y-auto custom-scrollbar`}
-                   >
-                      {broadcastData.message}
-                   </p>
-                 </div>
-                 <button 
-                   onClick={() => setDismissedBroadcastTime(currentBroadcastId)} 
-                   className={`w-full max-w-2xl bg-black/20 hover:bg-black/40 ${settings.textColor} border-4 border-black/10 text-5xl font-black py-6 rounded-[2.5rem] shadow-xl transition-all active:scale-95 shrink-0`}
-                 >
-                   我知道了！
-                 </button>
-               </div>
-             </div>
-           );
-       })()}
-
-       {/* 新增：廣播發布編輯器 (教師用) */}
-       {showBroadcastEditor && authMode === 'ADMIN' && (
-         <div className="fixed inset-0 bg-sky-900/90 backdrop-blur-md z-[100000] flex items-center justify-center p-4 animate-in fade-in print:hidden">
-           <div className="bg-white rounded-[3rem] shadow-2xl p-10 w-full max-w-5xl border-8 border-sky-200 relative zoom-in-95 flex flex-col max-h-[95vh]">
-             <button onClick={() => setShowBroadcastEditor(false)} className="absolute top-6 right-6 p-3 text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 rounded-full transition-colors"><X size={32}/></button>
-             <h2 className="text-4xl font-black text-sky-800 flex items-center gap-4 mb-6 border-b-4 border-sky-100 pb-4 shrink-0"><Megaphone size={48}/> 全域廣播控制台</h2>
-             
-             <div className="flex flex-col gap-6 overflow-y-auto pr-4 custom-scrollbar shrink">
-                 <div className="flex flex-col gap-2">
-                     <label className="text-2xl font-bold text-slate-600 flex items-center gap-2"><Type size={28}/> 廣播內容與即時預覽</label>
-                     <textarea 
-                       value={broadcastInput} 
-                       onChange={e => setBroadcastInput(e.target.value)} 
-                       style={{ 
-                          fontSize: `${Math.min(bcFontSize, 60)}px`,
-                          fontFamily: bcBiauKai ? '"BiauKai", "DFKai-SB", "標楷體", serif' : 'inherit' 
-                       }}
-                       className={`w-full min-h-[300px] p-8 border-4 border-slate-200 rounded-[2rem] font-black focus:outline-none focus:border-sky-400 transition-colors shadow-inner ${bcBgColor} ${bcTextColor}`} 
-                       placeholder="請輸入要廣播給全班的任務或提醒..."
-                     ></textarea>
-                 </div>
-
-                 <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <div className="space-y-4">
-                         <label className="text-2xl font-bold text-slate-600 border-b-2 border-slate-200 pb-2 block">字體設定</label>
-                         <div className="flex items-center gap-4">
-                             <button onClick={() => setBcBiauKai(!bcBiauKai)} className={`flex-1 py-4 rounded-2xl text-2xl font-bold transition-all border-2 ${bcBiauKai ? 'bg-sky-500 text-white border-sky-600 shadow-md' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'}`}>切換標楷體</button>
-                             <div className="flex items-center bg-white border-2 border-slate-300 rounded-2xl overflow-hidden shadow-sm">
-                                 <button onClick={() => setBcFontSize(f => Math.max(30, f - 10))} className="p-4 hover:bg-slate-100 text-slate-600 transition-colors"><Minus size={28}/></button>
-                                 <span className="w-20 text-center text-3xl font-black text-slate-800">{bcFontSize}</span>
-                                 <button onClick={() => setBcFontSize(f => Math.min(150, f + 10))} className="p-4 hover:bg-slate-100 text-slate-600 transition-colors"><Plus size={28}/></button>
-                             </div>
-                         </div>
-                     </div>
-                     <div className="space-y-4">
-                         <label className="text-2xl font-bold text-slate-600 border-b-2 border-slate-200 pb-2 block">戰術色彩主題</label>
-                         <div className="flex flex-wrap gap-4">
-                             {[
-                               { bg: 'bg-white', text: 'text-slate-800' },
-                               { bg: 'bg-amber-400', text: 'text-slate-900' },
-                               { bg: 'bg-rose-600', text: 'text-white' },
-                               { bg: 'bg-emerald-500', text: 'text-white' },
-                               { bg: 'bg-blue-600', text: 'text-white' },
-                               { bg: 'bg-slate-900', text: 'text-yellow-400' }
-                             ].map((theme, i) => (
-                                 <button 
-                                   key={i}
-                                   onClick={() => { setBcBgColor(theme.bg); setBcTextColor(theme.text); }}
-                                   className={`w-16 h-16 rounded-full border-4 shadow-md flex items-center justify-center transition-all active:scale-90 ${theme.bg} ${bcBgColor === theme.bg ? 'border-sky-400 scale-110 ring-4 ring-sky-200' : (theme.bg === 'bg-white' ? 'border-slate-200 hover:border-slate-400 hover:scale-105' : 'border-white hover:border-slate-300 hover:scale-105')}`}
-                                   title="套用主題"
-                                 >
-                                   <span className={`text-2xl font-black ${theme.text}`}>A</span>
-                                 </button>
-                             ))}
-                         </div>
-                     </div>
-                 </div>
-             </div>
-             
-             <div className="flex gap-6 mt-8 pt-6 border-t-4 border-sky-100 shrink-0">
-               <button 
-                 onClick={async () => {
-                   if(!broadcastInput.trim()) return;
-                   await setDoc(doc(db, "broadcasts", "current"), { 
-                       message: broadcastInput.trim(), 
-                       timestamp: serverTimestamp(), 
-                       active: true,
-                       settings: { bgColor: bcBgColor, textColor: bcTextColor, fontSize: bcFontSize, biauKai: bcBiauKai }
-                   });
-                   setShowBroadcastEditor(false);
-                 }} 
-                 className="flex-1 bg-sky-500 hover:bg-sky-600 text-white text-3xl font-black py-5 rounded-2xl shadow-xl transition-transform active:scale-95 flex items-center justify-center gap-3"
-               >
-                 <Megaphone size={36}/> 立即發布全班廣播
-               </button>
-               <button 
-                 onClick={async () => {
-                   await setDoc(doc(db, "broadcasts", "current"), { active: false }, { merge: true });
-                   setShowBroadcastEditor(false);
-                   setBroadcastInput("");
-                 }} 
-                 className="px-8 bg-slate-200 hover:bg-slate-300 text-slate-700 text-2xl font-bold py-5 rounded-2xl transition-all border-2 border-slate-300 active:scale-95"
-               >
-                 收回並清除
-               </button>
-             </div>
-           </div>
-         </div>
-       )}
-
-     </div>
-   </div>
-   </DndProvider>
+                            <thead className="bg-gray-100 sticky top-0 z-40">
+                                <tr>
+                                    <th className="px-2 py-4 text-3xl font-semibold text-gray-600 border-r sticky left-0 top-0 z-50 bg-gray-100 text-center" style={{ width: '100px' }}>座號</th>
+                                    <th className="px-2 py-4 text-3xl font-semibold text-gray-600 sticky left-[100px] top-0 z-50 bg-gray-100 text-center border-r-4 shadow-md" style={{ width: '128px' }}>姓名</th>
+                                    {assignmentsForSelectedDate.map((assignment) => (
+                                        <AssignmentHeader key={assignment.id} assignment={assignment} isGlobalLoading={isGlobalLoading} handleDeleteAssignment={handleDeleteAssignment} handleEditSave={handleEditAssignmentName} handleMoveAssignment={handleMoveAssignment} setEditingAssignmentId={setEditingAssignmentId} setEditingAssignmentName={setEditingAssignmentName} editingAssignmentId={editingAssignmentId} editingAssignmentName={editingAssignmentName} authMode={authMode} />
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className={`divide-y divide-gray-200 ${focusedStudentId ? 'bg-blue-50' : 'bg-white'}`}>
+                                {(focusedStudentId ? students.filter(s => s.id === focusedStudentId) : students).map((student) => (
+                                    <tr key={student.id} className={`group ${focusedStudentId ? 'bg-blue-100' : 'hover:bg-blue-50'}`}>
+                                            <td onClick={() => setDashboardStudent(student)} className="px-2 py-4 text-3xl font-medium text-gray-900 border-r sticky left-0 z-30 bg-white text-center cursor-pointer group-hover:bg-blue-100" style={{ width: '100px' }}>{student.id}</td>
+                                            <td onClick={() => setFocusedStudentId(focusedStudentId === student.id ? null : student.id)} className="px-2 py-4 text-3xl text-gray-900 font-semibold sticky left-[100px] z-30 bg-white text-center border-r-4 shadow-md cursor-pointer group-hover:bg-blue-100" style={{ width: '128px' }}>{student.name[0] + 'O' + student.name.slice(2)}</td>
+                                            {assignmentsForSelectedDate.map((assignment) => {
+                                                const status = assignment.submissionStatus[student.id] ?? true;
+                                                return (
+                                                    <td key={`${student.id}-${assignment.id}`} className="px-1 py-4 text-center" style={{ minWidth: '150px' }}>
+                                                        <button onClick={() => handleToggleSubmission(assignment.assignmentName, student.id, status)} disabled={isGlobalLoading} className={`p-2 rounded-lg shadow-md ${status === true ? 'bg-green-200 text-green-700' : (status === 'late' ? 'bg-yellow-100 text-yellow-700' : 'bg-white border-4 border-red-300 text-red-500')}`}>
+                                                          {status === false ? <X className="h-10 w-10"/> : <Check className="h-10 w-10"/>}
+                                                        </button>
+                                                    </td>
+                                                );
+                                            })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : <div className="text-center p-20 text-gray-400 text-3xl">該日無資料</div>}
+                </div>
+            </div>
+            <MissingColorExplanation />
+            <div className="mt-12 p-6 bg-gray-50 rounded-xl shadow-inner border border-gray-200"><h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center">全班未訂正統計</h2><div className="grid grid-cols-5 gap-4">{studentMissingStats.map((stat) => { const cc = getMissingColorClasses(stat.missingCount); return ( <div key={stat.id} onClick={() => stat.missingCount > 0 && setMissingStudent(stat)} className={`p-4 rounded-2xl cursor-pointer ${cc.bg} ${cc.border} ${cc.text} text-center border-2 border-b-[8px] active:translate-y-[6px]`}> <p className="text-4xl font-semibold">{stat.name[0] + 'O' + stat.name.slice(2)}</p> <p className="text-6xl font-black">{stat.missingCount}</p> </div> ); })}</div></div>
+            <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
+        </div>
+        
+        {showBroadcastEditor && authMode === 'ADMIN' && (
+          <div className="fixed inset-0 bg-sky-900/90 backdrop-blur-md z-[100000] flex items-center justify-center p-4">
+            <div className="bg-white rounded-[3rem] p-10 w-full max-w-5xl border-8 border-sky-200 flex flex-col">
+              <h2 className="text-4xl font-black text-sky-800 mb-6"><Megaphone size={48}/> 廣播控制台</h2>
+              <textarea value={broadcastInput} onChange={e => setBroadcastInput(e.target.value)} className="w-full min-h-[300px] p-8 border-4 rounded-[2rem] font-black text-4xl shadow-inner" placeholder="輸入廣播內容..." />
+              <div className="flex gap-6 mt-8 pt-6 border-t-4 border-sky-100">
+                <button onClick={async () => { await setDoc(doc(db, "broadcasts", "current"), { message: broadcastInput, timestamp: serverTimestamp(), active: true, settings: { bgColor: bcBgColor, textColor: bcTextColor, fontSize: bcFontSize, biauKai: bcBiauKai } }); setShowBroadcastEditor(false); }} className="flex-1 bg-sky-500 text-white text-3xl font-black py-5 rounded-2xl">發布廣播</button>
+                <button onClick={() => setShowBroadcastEditor(false)} className="px-8 bg-gray-200 text-gray-700 text-2xl font-bold py-5 rounded-2xl">取消</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+    </DndProvider>
   );
 };
- 
+
 export default App;
