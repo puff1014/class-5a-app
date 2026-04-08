@@ -719,98 +719,133 @@ const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
   ); 
 };
 
-const AllMissingAssignmentsModal = ({ missingStats, onClose }) => { 
-    const studentsWithMissing = missingStats.filter(s => s.missingCount > 0); 
-    
-    const handlePrint = () => {
-        window.print();
-    };
+// --- [升級版] 全班未完成作業總表 (支援日期區間篩選) ---
+const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose }) => {
+    // 設定初始日期範圍：預設從本月 1 號到今天
+    const now = new Date();
+    const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const [startDate, setStartDate] = useState(firstDay);
+    const [endDate, setEndDate] = useState(getTodayDate());
 
-    return ( 
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0 print:z-[20000]"> 
-            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[90vh] flex flex-col border border-gray-200 print:hidden"> 
+    // 根據日期區間重新計算缺交統計
+    const filteredStats = useMemo(() => {
+        const stats = students.map(s => ({ id: s.id, name: s.name, missingCount: 0, missingDetails: [] }));
+        
+        Object.keys(allAssignmentsByDate)
+            .filter(date => {
+                if (!startDate && !endDate) return true;
+                if (startDate && date < startDate) return false;
+                if (endDate && date > endDate) return false;
+                return true;
+            })
+            .forEach(date => {
+                const assignmentsOnDate = allAssignmentsByDate[date] || [];
+                assignmentsOnDate.forEach(assignment => {
+                    const submissionStatus = assignment.submissionStatus || {};
+                    students.forEach((student, index) => {
+                        if (submissionStatus[student.id] === false) {
+                            stats[index].missingCount += 1;
+                            stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName });
+                        }
+                    });
+                });
+            });
+        
+        return stats.filter(s => s.missingCount > 0).sort((a, b) => b.missingCount - a.missingCount);
+    }, [allAssignmentsByDate, students, startDate, endDate]);
+
+    const handlePrint = () => { window.print(); };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0 print:z-[20000]">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-6xl h-[90vh] flex flex-col border border-gray-200 print:hidden">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h3 className="text-4xl font-bold text-gray-800 flex items-center">
-                        <AlertCircle className="w-10 h-10 text-red-500 mr-3" />全班未完成作業總表
-                    </h3>
+                    <div className="flex flex-col gap-1">
+                        <h3 className="text-4xl font-bold text-gray-800 flex items-center">
+                            <AlertCircle className="w-10 h-10 text-red-500 mr-3" />未完成作業總表
+                        </h3>
+                        <p className="text-gray-500 text-xl font-bold ml-13">目前顯示區間：{startDate || '不限'} 至 {endDate || '今天'}</p>
+                    </div>
                     <div className="flex gap-3">
                         <button onClick={handlePrint} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xl font-bold transition shadow-sm">
-                            <Printer className="w-6 h-6"/> 列印總表
+                            <Printer className="w-6 h-6"/> 列印此區間
                         </button>
-                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100">
                             <X className="w-8 h-8" />
                         </button>
                     </div>
-                </div> 
-                <div className="flex-1 overflow-auto"> 
-                    {studentsWithMissing.length === 0 ? (
+                </div>
+
+                {/* 日期篩選工具列 */}
+                <div className="bg-blue-50 p-4 rounded-xl mb-6 flex items-center gap-6 border border-blue-100">
+                    <div className="flex items-center gap-3">
+                        <label className="text-2xl font-black text-blue-800">從：</label>
+                        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="p-2 text-2xl border-2 border-blue-200 rounded-lg font-bold focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <label className="text-2xl font-black text-blue-800">到：</label>
+                        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="p-2 text-2xl border-2 border-blue-200 rounded-lg font-bold focus:ring-blue-500 outline-none" />
+                    </div>
+                    <button onClick={() => { setStartDate(''); setEndDate(getTodayDate()); }} className="text-xl font-bold text-blue-600 hover:underline">重設區間</button>
+                </div>
+
+                <div className="flex-1 overflow-auto">
+                    {filteredStats.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-gray-400">
                             <Check className="w-24 h-24 mb-4 text-green-400" />
-                            <p className="text-4xl font-bold text-green-600">太棒了！目前全班皆已完成所有作業。</p>
+                            <p className="text-4xl font-bold text-green-600">此區間內全班皆已完成所有作業！</p>
                         </div>
-                    ) : ( 
-                        <table className="min-w-full divide-y divide-gray-300"> 
+                    ) : (
+                        <table className="min-w-full divide-y divide-gray-300">
                             <thead className="bg-gray-100 sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-24 text-center border-r border-gray-300">座號</th>
-                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">姓名</th>
-                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider w-32 text-center border-r border-gray-300">缺交數</th>
-                                    <th className="px-6 py-4 text-2xl font-bold text-gray-700 uppercase tracking-wider text-left">未完成項目明細 (依作業名稱排序)</th>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 w-24 text-center border-r border-gray-300">座號</th>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 w-32 text-center border-r border-gray-300">姓名</th>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 w-32 text-center border-r border-gray-300">缺交數</th>
+                                    <th className="px-6 py-4 text-2xl font-bold text-gray-700 text-left">未完成項目明細</th>
                                 </tr>
-                            </thead> 
+                            </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {studentsWithMissing.map((student) => (
+                                {filteredStats.map((student) => (
                                     <tr key={student.id} className="hover:bg-red-50 transition duration-100">
-                                        <td className="px-4 py-4 text-2xl text-gray-900 font-medium text-center border-r border-gray-200">{student.id}</td>
+                                        <td className="px-4 py-4 text-2xl text-gray-900 text-center border-r border-gray-200">{student.id}</td>
                                         <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td>
                                         <td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td>
                                         <td className="px-6 py-4 text-xl text-gray-700">
-                                            <ul className="list-disc list-inside space-y-1">
-                                                {[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW')).map((detail, idx) => (
-                                                    <li key={idx} className="flex items-start">
-                                                        <span className="text-red-600 font-bold text-xl mr-2">{detail.assignment}</span>
-                                                        <span className="font-mono font-medium text-gray-400 text-lg">[{new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})}]</span>
+                                            <ul className="grid grid-cols-3 gap-x-4 list-disc list-inside">
+                                                {student.missingDetails.map((detail, idx) => (
+                                                    <li key={idx} className="flex items-center mb-1">
+                                                        <span className="text-red-600 font-bold mr-2">{detail.assignment}</span>
+                                                        <span className="text-gray-400 text-lg">({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})</span>
                                                     </li>
                                                 ))}
                                             </ul>
                                         </td>
                                     </tr>
                                 ))}
-                            </tbody> 
-                        </table> 
-                    )} 
-                </div> 
-                <div className="mt-4 pt-4 border-t border-gray-200 text-right">
-                    <button onClick={onClose} className="bg-gray-800 text-white py-3 px-8 rounded-xl hover:bg-gray-900 transition text-2xl font-bold">關閉視窗</button>
-                </div> 
-            </div> 
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </div>
 
-            {/* --- [列印專用區] --- */}
+            {/* --- 列印專用區：會根據篩選結果顯示 --- */}
             <div className="hidden print:block w-full h-full bg-white text-black p-4">
-                <h1 className="text-4xl font-extrabold text-center mb-6 border-b-4 border-black pb-4">五年甲班 未完成作業待補單</h1>
-                <p className="text-right text-lg font-medium mb-4">列印日期：{new Date().toLocaleDateString('zh-TW')} (共 {studentsWithMissing.length} 人待補)</p>
-
+                <h1 className="text-4xl font-extrabold text-center mb-4 border-b-4 border-black pb-4">五年甲班 未完成作業待補單 ({startDate || '不限'} ~ {endDate})</h1>
                 <div className="flex flex-col gap-6">
-                    {studentsWithMissing.map((student) => (
+                    {filteredStats.map((student) => (
                         <div key={student.id} className="border-2 border-black rounded-2xl p-4 break-inside-avoid shadow-none">
                             <div className="flex justify-between items-center border-b-2 border-gray-300 pb-2 mb-3">
-                                <span className="text-3xl font-black tracking-widest">
-                                    {student.name[0] + 'O' + student.name.slice(2)} 訂正作業表
-                                </span>
-                                <span className="text-xl font-bold text-gray-700">共缺交 {student.missingCount} 項</span>
+                                <span className="text-3xl font-black">{student.name[0] + 'O' + student.name.slice(2)} 待補作業清單</span>
+                                <span className="text-xl font-bold">共缺交 {student.missingCount} 項</span>
                             </div>
-
                             <div className="grid grid-cols-3 gap-x-6 gap-y-3">
-                                {[...student.missingDetails]
-                                    .sort((a, b) => a.date.localeCompare(b.date))
-                                    .map((detail, idx) => (
+                                {student.missingDetails.map((detail, idx) => (
                                     <div key={idx} className="flex items-start text-lg leading-tight">
-                                        <div className="w-5 h-5 border-2 border-black mr-2 shrink-0 bg-white mt-0.5"></div>
+                                        <div className="w-5 h-5 border-2 border-black mr-2 bg-white mt-0.5"></div>
                                         <div className="flex flex-col">
-                                            <span className="font-bold text-black break-words whitespace-normal">{detail.assignment}</span>
-                                            <span className="text-base text-gray-500 font-medium">
-                                                ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
-                                            </span>
+                                            <span className="font-bold">{detail.assignment}</span>
+                                            <span className="text-base text-gray-500">({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})</span>
                                         </div>
                                     </div>
                                 ))}
@@ -818,15 +853,9 @@ const AllMissingAssignmentsModal = ({ missingStats, onClose }) => {
                         </div>
                     ))}
                 </div>
-                
-                {studentsWithMissing.length === 0 && (
-                    <div className="text-center py-20 text-3xl text-gray-400 font-bold border-2 border-dashed border-gray-300 rounded-xl mt-10">
-                        恭喜！全班作業皆已完成，無欠交紀錄。
-                    </div>
-                )}
             </div>
-        </div> 
-    ); 
+        </div>
+    );
 };
 
 const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, confirmColor }) => { 
@@ -1594,7 +1623,14 @@ const [showBankModal, setShowBankModal] = useState(false);
         onClose={() => { executeCreateAssignments(syncData.targetDate, categories.map(c => c.name)); setSyncData(null); }}
       />
     )}     
-     {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
+   {/* 修改後的第 1626 行：傳入原始資料讓視窗可以根據日期重新計算 */}
+      {showAllMissingModal && ( 
+        <AllMissingAssignmentsModal 
+          students={students}
+          allAssignmentsByDate={allAssignmentsByDate} 
+          onClose={() => setShowAllMissingModal(false)} 
+        /> 
+      )}
  
      <div className="bg-white shadow-xl w-full flex flex-col h-full print:hidden">
        <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
@@ -1642,12 +1678,11 @@ const [showBankModal, setShowBankModal] = useState(false);
            <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2 shrink-0">
                {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} onEdit={() => handleEditCurrentDate(date)} authMode={authMode} /> ))}
            </div>
-           
-{/* --- [優化排版] 按鈕工具列：飽和色彩 + 撐滿寬度 --- */}
+           {/* --- 第二區：按鈕工具列（翡翠綠同步 + 滿版寬度撐開） --- */}
           <div className="flex flex-wrap items-center justify-between w-full gap-4 mb-6 shrink-0 bg-white/80 p-5 rounded-[2.5rem] border border-gray-200 shadow-md">
                 
-                {/* 第一組：日期選擇 (左側) */}
-                <div className="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-inner border border-gray-200 min-w-[360px]">
+                {/* 1. 日期選擇區 (靠左) */}
+                <div className="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-inner border border-gray-200 shrink-0">
                   <input 
                     id="newAssignmentDate" 
                     type="date" 
@@ -1657,15 +1692,15 @@ const [showBankModal, setShowBankModal] = useState(false);
                   />
                   <button 
                     onClick={handleAddNewDate} 
-                    className="px-6 py-2 bg-yellow-500 text-white rounded-xl text-2xl font-black hover:bg-yellow-600 transition-all active:scale-95 shadow-md"
+                    className="px-6 py-3 bg-yellow-500 text-white rounded-xl text-2xl font-black hover:bg-yellow-600 transition-all active:scale-95 shadow-md whitespace-nowrap"
                     disabled={isGlobalLoading || !newAssignmentDate}
                   > 
                     + 新增日期 
                   </button>
                 </div>
 
-                {/* 第二組：主要操作 (中間，使用飽和色) */}
-                <div className="flex flex-wrap items-center gap-3 flex-1 justify-center">
+                {/* 2. 主要功能區 (中間：自動平分寬度撐滿) */}
+                <div className="flex flex-1 items-center gap-3 min-w-[600px]">
                   {authMode === 'ADMIN' && (
                     <button 
                       onClick={async () => {
@@ -1673,34 +1708,40 @@ const [showBankModal, setShowBankModal] = useState(false);
                         if(res) setSyncData({ targetDate: selectedDisplayDate, ...res });
                         else alert("找不到前一天的日誌紀錄。");
                       }} 
-                      className="px-6 py-3 bg-blue-600 text-white rounded-xl text-2xl font-black flex items-center gap-2 hover:bg-blue-700 transition-all shadow-md active:scale-95"
+                      className="flex-1 px-4 py-4 bg-emerald-600 text-white rounded-xl text-2xl font-black flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all shadow-md active:scale-95"
                     >
                       <DownloadCloud className="w-8 h-8"/> 同步任務
                     </button>
                   )}
-                  <button onClick={handleExportData} className="px-6 py-3 bg-fuchsia-600 text-white rounded-xl text-2xl font-black flex items-center gap-2 hover:bg-fuchsia-700 transition-all shadow-md active:scale-95">
+                  
+                  {/* 匯出與未完成總表：訪客可以看，所以不包 authMode */}
+                  <button onClick={handleExportData} className="flex-1 px-4 py-4 bg-fuchsia-600 text-white rounded-xl text-2xl font-black flex items-center justify-center gap-2 hover:bg-fuchsia-700 transition-all shadow-md active:scale-95">
                     <Download className="w-6 h-6" />匯出
                   </button>
-                  <button onClick={() => setShowAllMissingModal(true)} className="px-6 py-3 bg-orange-500 text-white rounded-xl text-2xl font-black flex items-center gap-2 hover:bg-orange-600 transition-all shadow-md active:scale-95">
+                  <button onClick={() => setShowAllMissingModal(true)} className="flex-1 px-4 py-4 bg-orange-500 text-white rounded-xl text-2xl font-black flex items-center justify-center gap-2 hover:bg-orange-600 transition-all shadow-md active:scale-95">
                     <FileText className="w-6 h-6" />未完成總表
                   </button>
-                  <div className="relative">
-                      <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isGlobalLoading} />
-                      <button onClick={() => document.getElementById('importFile').click()} className="px-6 py-3 bg-cyan-600 text-white rounded-xl text-2xl font-black flex items-center gap-2 hover:bg-cyan-700 transition-all shadow-md active:scale-95">
-                        <Upload className="w-6 h-6" />匯入
-                      </button>
-                  </div>
+
+                  {/* [修改重點] 匯入功能：現在只有老師登入時才會出現 */}
+                  {authMode === 'ADMIN' && (
+                    <div className="flex-1 relative">
+                        <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isGlobalLoading} />
+                        <button onClick={() => document.getElementById('importFile').click()} className="w-full px-4 py-4 bg-cyan-600 text-white rounded-xl text-2xl font-black flex items-center justify-center gap-2 hover:bg-cyan-700 transition-all shadow-md active:scale-95">
+                          <Upload className="w-6 h-6" />匯入
+                        </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* 第三組：管理動作 (右側) */}
+                {/* 3. 刪除管理區 (靠右固定) */}
                 {authMode === 'ADMIN' && (
-                    <div className="flex items-center gap-2 justify-end">
-                        <ProtectedButton onClick={() => handleDeleteDateAssignments()} className="px-5 py-3 text-2xl font-bold bg-gray-900 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-black transition-all active:scale-95 border-b-4 border-gray-700">🧨 刪除日期</ProtectedButton>
-                        <ProtectedButton onClick={() => handleDeleteMonthAssignments()} className="px-5 py-3 text-2xl font-bold bg-amber-800 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-amber-900 transition-all active:scale-95 border-b-4 border-amber-950">💣 刪除月份</ProtectedButton>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <ProtectedButton onClick={() => handleDeleteDateAssignments()} className="px-5 py-3 text-2xl font-bold bg-gray-900 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-black transition-all active:scale-95 border-b-4 border-gray-700">🧨 刪除日</ProtectedButton>
+                        <ProtectedButton onClick={() => handleDeleteMonthAssignments()} className="px-5 py-3 text-2xl font-bold bg-amber-800 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-amber-900 transition-all active:scale-95 border-b-4 border-amber-950">💣 刪除月</ProtectedButton>
                         <ProtectedButton onClick={() => handleDeleteSemesterAssignments()} className="px-5 py-3 text-2xl font-bold bg-rose-600 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-rose-700 transition-all active:scale-95 border-b-4 border-rose-800">☢️ 刪除學期</ProtectedButton>
                     </div>
                 )}
-          </div> 
+          </div>
             <div className="flex justify-between items-center mb-6 shrink-0">
                <h2 className="text-5xl font-bold text-gray-800 flex items-center">
                    <span className="text-gray-500 mr-3 text-5xl">📋</span>
