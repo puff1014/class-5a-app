@@ -1744,8 +1744,8 @@ const [showBankModal, setShowBankModal] = useState(false);
                 {/* 3. 刪除管理區 (靠右固定) */}
                 {authMode === 'ADMIN' && (
                     <div className="flex items-center gap-2 shrink-0">
-                        <ProtectedButton onClick={() => handleDeleteDateAssignments()} className="px-5 py-3 text-2xl font-bold bg-gray-900 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-black transition-all active:scale-95 border-b-4 border-gray-700">🧨 刪除日</ProtectedButton>
-                        <ProtectedButton onClick={() => handleDeleteMonthAssignments()} className="px-5 py-3 text-2xl font-bold bg-amber-800 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-amber-900 transition-all active:scale-95 border-b-4 border-amber-950">💣 刪除月</ProtectedButton>
+                        <ProtectedButton onClick={() => handleDeleteDateAssignments()} className="px-5 py-3 text-2xl font-bold bg-gray-900 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-black transition-all active:scale-95 border-b-4 border-gray-700">🧨 刪除日期</ProtectedButton>
+                        <ProtectedButton onClick={() => handleDeleteMonthAssignments()} className="px-5 py-3 text-2xl font-bold bg-amber-800 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-amber-900 transition-all active:scale-95 border-b-4 border-amber-950">💣 刪除月份</ProtectedButton>
                         <ProtectedButton onClick={() => handleDeleteSemesterAssignments()} className="px-5 py-3 text-2xl font-bold bg-rose-600 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-rose-700 transition-all active:scale-95 border-b-4 border-rose-800">☢️ 刪除學期</ProtectedButton>
                     </div>
                 )}
