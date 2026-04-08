@@ -1627,13 +1627,13 @@ const [showBankModal, setShowBankModal] = useState(false);
                            > 
                                {dailySettlements[selectedDisplayDate]?.isSettled ? <><Lock className="h-6 w-6 mr-2" />已發布(可補發)</> : <><Megaphone className="h-6 w-6 mr-2" />結算發布</>}
                            </button>
-                           <button 
-                               onClick={() => setShowBroadcastEditor(true)} 
-                               className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-violet-600 hover:bg-violet-700 transition duration-150 shadow-md flex items-center justify-center" 
-                               disabled={isGlobalLoading}
-                           > 
-                               <Megaphone className="h-6 w-6 mr-2" />全域廣播 
-                           </button>
+                <button 
+                  onClick={() => setShowBroadcastEditor(true)} 
+                  className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-purple-700 hover:bg-purple-800 transition duration-150 shadow-md flex items-center justify-center" 
+                  disabled={isGlobalLoading}
+                > 
+                  <Megaphone className="h-6 w-6 mr-2" />全域廣播 
+                </button>
                        </>
                    )}
                </div>
@@ -1643,31 +1643,29 @@ const [showBankModal, setShowBankModal] = useState(false);
                {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} onEdit={() => handleEditCurrentDate(date)} authMode={authMode} /> ))}
            </div>
            
-           {/* --- [優化排版] 按鈕工具列 (分組顯示避免擁擠) --- */}
-          <div className="flex flex-wrap items-center gap-3 mb-6 shrink-0 bg-white/50 p-4 rounded-[2rem] border border-gray-200 shadow-sm">
-                {/* 第一組：日期選擇與新增 */}
-                <div className="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-gray-200">
+{/* --- [優化排版] 按鈕工具列：飽和色彩 + 撐滿寬度 --- */}
+          <div className="flex flex-wrap items-center justify-between w-full gap-4 mb-6 shrink-0 bg-white/80 p-5 rounded-[2.5rem] border border-gray-200 shadow-md">
+                
+                {/* 第一組：日期選擇 (左側) */}
+                <div className="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-inner border border-gray-200 min-w-[360px]">
                   <input 
                     id="newAssignmentDate" 
                     type="date" 
                     value={newAssignmentDate} 
                     onChange={handleNewAssignmentDateChange} 
-                    className="p-2 text-3xl border-none font-semibold w-[230px] focus:ring-0 outline-none" 
+                    className="p-2 text-3xl border-none font-bold w-[230px] focus:ring-0 outline-none text-gray-700" 
                   />
                   <button 
                     onClick={handleAddNewDate} 
-                    className="px-6 py-2 bg-yellow-500 text-white rounded-lg text-2xl font-black hover:bg-yellow-600 transition-all active:scale-95 shadow-sm"
+                    className="px-6 py-2 bg-yellow-500 text-white rounded-xl text-2xl font-black hover:bg-yellow-600 transition-all active:scale-95 shadow-md"
                     disabled={isGlobalLoading || !newAssignmentDate}
                   > 
                     + 新增日期 
                   </button>
                 </div>
 
-                {/* 垂直分隔線 (僅電腦版顯示) */}
-                <div className="h-10 w-[2px] bg-gray-300 mx-1 hidden md:block"></div>
-
-                {/* 第二組：同步、匯出、匯入、未完成總表 */}
-                <div className="flex flex-wrap items-center gap-2">
+                {/* 第二組：主要操作 (中間，使用飽和色) */}
+                <div className="flex flex-wrap items-center gap-3 flex-1 justify-center">
                   {authMode === 'ADMIN' && (
                     <button 
                       onClick={async () => {
@@ -1675,37 +1673,34 @@ const [showBankModal, setShowBankModal] = useState(false);
                         if(res) setSyncData({ targetDate: selectedDisplayDate, ...res });
                         else alert("找不到前一天的日誌紀錄。");
                       }} 
-                      className="px-5 py-2 bg-sky-100 text-sky-700 border-2 border-sky-200 rounded-lg text-2xl font-black flex items-center gap-2 hover:bg-sky-200 transition-all shadow-sm active:scale-95"
+                      className="px-6 py-3 bg-blue-600 text-white rounded-xl text-2xl font-black flex items-center gap-2 hover:bg-blue-700 transition-all shadow-md active:scale-95"
                     >
                       <DownloadCloud className="w-8 h-8"/> 同步任務
                     </button>
                   )}
-                  <button onClick={handleExportData} className="px-5 py-2 bg-fuchsia-100 text-fuchsia-700 border-2 border-fuchsia-200 rounded-lg text-2xl font-black flex items-center gap-2 hover:bg-fuchsia-200 transition-all shadow-sm active:scale-95">
+                  <button onClick={handleExportData} className="px-6 py-3 bg-fuchsia-600 text-white rounded-xl text-2xl font-black flex items-center gap-2 hover:bg-fuchsia-700 transition-all shadow-md active:scale-95">
                     <Download className="w-6 h-6" />匯出
                   </button>
-                  <button onClick={() => setShowAllMissingModal(true)} className="px-5 py-2 bg-orange-500 text-white rounded-lg text-2xl font-black flex items-center gap-2 hover:bg-orange-600 transition-all shadow-sm active:scale-95">
+                  <button onClick={() => setShowAllMissingModal(true)} className="px-6 py-3 bg-orange-500 text-white rounded-xl text-2xl font-black flex items-center gap-2 hover:bg-orange-600 transition-all shadow-md active:scale-95">
                     <FileText className="w-6 h-6" />未完成總表
                   </button>
                   <div className="relative">
                       <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isGlobalLoading} />
-                      <button onClick={() => document.getElementById('importFile').click()} className="px-5 py-2 bg-cyan-100 text-cyan-700 border-2 border-cyan-200 rounded-lg text-2xl font-black flex items-center gap-2 hover:bg-cyan-200 transition-all shadow-sm active:scale-95">
+                      <button onClick={() => document.getElementById('importFile').click()} className="px-6 py-3 bg-cyan-600 text-white rounded-xl text-2xl font-black flex items-center gap-2 hover:bg-cyan-700 transition-all shadow-md active:scale-95">
                         <Upload className="w-6 h-6" />匯入
                       </button>
                   </div>
                 </div>
 
-                <div className="h-10 w-[2px] bg-gray-300 mx-1 hidden md:block"></div>
-
-                {/* 第三組：危險區 (刪除按鈕) */}
+                {/* 第三組：管理動作 (右側) */}
                 {authMode === 'ADMIN' && (
-                    <div className="flex items-center gap-2">
-                        <ProtectedButton onClick={() => handleDeleteDateAssignments()} className="px-4 py-2 text-2xl font-bold bg-gray-900 text-white rounded-lg flex items-center gap-1 shadow-sm hover:bg-black transition-all active:scale-95">🧨 刪除日</ProtectedButton>
-                        <ProtectedButton onClick={() => handleDeleteMonthAssignments()} className="px-4 py-2 text-2xl font-bold bg-amber-800 text-white rounded-lg flex items-center gap-1 shadow-sm hover:bg-amber-900 transition-all active:scale-95">💣 刪除月</ProtectedButton>
-                        <ProtectedButton onClick={() => handleDeleteSemesterAssignments()} className="px-4 py-2 text-2xl font-bold bg-rose-500 text-white rounded-lg flex items-center gap-1 shadow-sm hover:bg-rose-600 transition-all active:scale-95">☢️ 刪除學期</ProtectedButton>
+                    <div className="flex items-center gap-2 justify-end">
+                        <ProtectedButton onClick={() => handleDeleteDateAssignments()} className="px-5 py-3 text-2xl font-bold bg-gray-900 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-black transition-all active:scale-95 border-b-4 border-gray-700">🧨 刪除日期</ProtectedButton>
+                        <ProtectedButton onClick={() => handleDeleteMonthAssignments()} className="px-5 py-3 text-2xl font-bold bg-amber-800 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-amber-900 transition-all active:scale-95 border-b-4 border-amber-950">💣 刪除月份</ProtectedButton>
+                        <ProtectedButton onClick={() => handleDeleteSemesterAssignments()} className="px-5 py-3 text-2xl font-bold bg-rose-600 text-white rounded-xl flex items-center gap-1 shadow-lg hover:bg-rose-700 transition-all active:scale-95 border-b-4 border-rose-800">☢️ 刪除學期</ProtectedButton>
                     </div>
                 )}
-          </div>
-           
+          </div> 
             <div className="flex justify-between items-center mb-6 shrink-0">
                <h2 className="text-5xl font-bold text-gray-800 flex items-center">
                    <span className="text-gray-500 mr-3 text-5xl">📋</span>
