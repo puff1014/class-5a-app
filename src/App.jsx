@@ -10,7 +10,7 @@ import { useDrag, useDrop, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { 
   BookOpen, Download, Upload, X, Check, RefreshCw, WifiOff, LogOut, FileText, AlertCircle, Eye, Shield, User, Key, Edit, Pencil, Star, Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity, BarChart2, Megaphone, Lock, Unlock, RotateCw, Printer, BellRing, Type, Minus, Plus 
-, Ship, DownloadCloud} from 'lucide-react';
+, Ship, DownloadCloud,ChevronLeft //} from 'lucide-react';
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
@@ -141,16 +141,35 @@ const getOverallBadge = (score) => {
     return { animal: "🌱 種子", comment: "埋入土裡太久了，請讓學習發芽。" };
 };
 // --- [新增元件] 任務同步勾選視窗 ---
+// --- [優化元件] 任務同步勾選視窗 (加入排序功能) ---
 const SyncTasksModal = ({ candidates, sourceDate, onConfirm, onClose }) => {
   const [items, setItems] = useState(candidates.map(c => ({ name: c, selected: true })));
+
   const toggleItem = (idx) => {
     const newItems = [...items];
     newItems[idx].selected = !newItems[idx].selected;
     setItems(newItems);
   };
+
   const handleNameChange = (idx, newName) => {
     const newItems = [...items];
     newItems[idx].name = newName;
+    setItems(newItems);
+  };
+
+  // 新增：上移邏輯
+  const moveUp = (idx) => {
+    if (idx === 0) return;
+    const newItems = [...items];
+    [newItems[idx - 1], newItems[idx]] = [newItems[idx], newItems[idx - 1]];
+    setItems(newItems);
+  };
+
+  // 新增：下移邏輯
+  const moveDown = (idx) => {
+    if (idx === items.length - 1) return;
+    const newItems = [...items];
+    [newItems[idx + 1], newItems[idx]] = [newItems[idx], newItems[idx + 1]];
     setItems(newItems);
   };
 
@@ -158,22 +177,37 @@ const SyncTasksModal = ({ candidates, sourceDate, onConfirm, onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[110000] p-4 backdrop-blur-sm">
       <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 w-full max-w-2xl border-8 border-amber-400 animate-in zoom-in duration-300">
         <h3 className="text-4xl font-black text-gray-800 mb-6 flex items-center gap-3">
-          <Ship className="w-10 h-10 text-blue-600" /> 同步航海任務
+          <Ship className="w-10 h-10 text-blue-600" /> 同步任務清單
         </h3>
         <p className="text-xl text-blue-600 mb-4 font-bold bg-blue-50 p-3 rounded-xl border border-blue-200">
-          偵測到前一上課日 ({sourceDate}) 的日誌紀錄。
+          偵測到前一上課日 ({sourceDate}) 的任務紀錄。
         </p>
-        <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar mb-8">
+        
+        <div className="space-y-3 max-h-[45vh] overflow-y-auto pr-2 custom-scrollbar mb-8">
           {items.map((item, idx) => (
-            <div key={idx} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border-2 border-gray-100 hover:border-blue-200 transition-all">
-              <input type="checkbox" checked={item.selected} onChange={() => toggleItem(idx)} className="w-10 h-10 accent-blue-600 cursor-pointer" />
-              <input type="text" value={item.name} onChange={(e) => handleNameChange(idx, e.target.value)} className={`flex-1 text-2xl font-bold bg-transparent outline-none border-b-2 ${item.selected ? 'border-blue-300 text-gray-800' : 'border-transparent text-gray-400'}`} disabled={!item.selected} />
+            <div key={idx} className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border-2 border-gray-100 hover:border-blue-200 transition-all group">
+              <input type="checkbox" checked={item.selected} onChange={() => toggleItem(idx)} className="w-10 h-10 accent-blue-600 cursor-pointer shrink-0" />
+              
+              <input 
+                type="text" 
+                value={item.name} 
+                onChange={(e) => handleNameChange(idx, e.target.value)} 
+                className={`flex-1 text-2xl font-bold bg-transparent outline-none border-b-2 ${item.selected ? 'border-blue-300 text-gray-800' : 'border-transparent text-gray-400'}`} 
+                disabled={!item.selected} 
+              />
+
+              {/* 排序按鈕組 */}
+              <div className="flex flex-col gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => moveUp(idx)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="上移"><ChevronLeft className="w-6 h-6 rotate-90" /></button>
+                <button onClick={() => moveDown(idx)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="下移"><ChevronLeft className="w-6 h-6 -rotate-90" /></button>
+              </div>
             </div>
           ))}
         </div>
+
         <div className="flex gap-4">
-          <button onClick={onClose} className="flex-1 py-4 bg-gray-200 text-gray-600 rounded-2xl text-2xl font-black hover:bg-gray-300 transition-all">取消匯入</button>
-          <button onClick={() => onConfirm(items.filter(i => i.selected && i.name.trim()))} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-2xl font-black shadow-lg hover:bg-blue-700 active:scale-95 transition-all">確認匯入 ({items.filter(i => i.selected).length} 項)</button>
+          <button onClick={onClose} className="flex-1 py-4 bg-gray-200 text-gray-600 rounded-2xl text-2xl font-black hover:bg-gray-300 transition-all">取消並手動</button>
+          <button onClick={() => onConfirm(items.filter(i => i.selected && i.name.trim()))} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-2xl font-black shadow-lg hover:bg-blue-700 active:scale-95 transition-all"> 確認匯入 ({items.filter(i => i.selected).length} 項) </button>
         </div>
       </div>
     </div>
@@ -1595,7 +1629,7 @@ const [showBankModal, setShowBankModal] = useState(false);
                            </button>
                            <button 
                                onClick={() => setShowBroadcastEditor(true)} 
-                               className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md flex items-center justify-center" 
+                               className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-violet-600 hover:bg-violet-700 transition duration-150 shadow-md flex items-center justify-center" 
                                disabled={isGlobalLoading}
                            > 
                                <Megaphone className="h-6 w-6 mr-2" />全域廣播 
@@ -1609,37 +1643,68 @@ const [showBankModal, setShowBankModal] = useState(false);
                {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} onEdit={() => handleEditCurrentDate(date)} authMode={authMode} /> ))}
            </div>
            
-           <div className="flex flex-wrap items-center gap-2 mb-6 shrink-0">
-                <input id="newAssignmentDate" type="date" value={newAssignmentDate} onChange={handleNewAssignmentDateChange} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] focus:ring-yellow-500 focus:border-yellow-500 transition flex-shrink-0" required disabled={isGlobalLoading} />
-                 <button onClick={handleAddNewDate} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${isGlobalLoading ? 'bg-yellow-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'}`} disabled={isGlobalLoading || !newAssignmentDate}> + 新增日期</button>
-             {/* [新增] 手動同步按鈕 */}
-                {authMode === 'ADMIN' && (
+           {/* --- [優化排版] 按鈕工具列 (分組顯示避免擁擠) --- */}
+          <div className="flex flex-wrap items-center gap-3 mb-6 shrink-0 bg-white/50 p-4 rounded-[2rem] border border-gray-200 shadow-sm">
+                {/* 第一組：日期選擇與新增 */}
+                <div className="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-gray-200">
+                  <input 
+                    id="newAssignmentDate" 
+                    type="date" 
+                    value={newAssignmentDate} 
+                    onChange={handleNewAssignmentDateChange} 
+                    className="p-2 text-3xl border-none font-semibold w-[230px] focus:ring-0 outline-none" 
+                  />
                   <button 
-                    onClick={async () => {
-                      const res = await syncFromVoyageLog(selectedDisplayDate);
-                      if(res) setSyncData({ targetDate: selectedDisplayDate, ...res });
-                      else alert("找不到前一天的日誌紀錄。");
-                    }} 
-                    className="px-5 py-2 bg-blue-500 text-white rounded-lg text-3xl font-bold flex items-center gap-2 hover:bg-blue-600 shadow-md transition-all active:scale-95"
-                  >
-                    <DownloadCloud className="w-8 h-8"/> 同步航海任務
+                    onClick={handleAddNewDate} 
+                    className="px-6 py-2 bg-yellow-500 text-white rounded-lg text-2xl font-black hover:bg-yellow-600 transition-all active:scale-95 shadow-sm"
+                    disabled={isGlobalLoading || !newAssignmentDate}
+                  > 
+                    + 新增日期 
                   </button>
+                </div>
+
+                {/* 垂直分隔線 (僅電腦版顯示) */}
+                <div className="h-10 w-[2px] bg-gray-300 mx-1 hidden md:block"></div>
+
+                {/* 第二組：同步、匯出、匯入、未完成總表 */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {authMode === 'ADMIN' && (
+                    <button 
+                      onClick={async () => {
+                        const res = await syncFromVoyageLog(selectedDisplayDate);
+                        if(res) setSyncData({ targetDate: selectedDisplayDate, ...res });
+                        else alert("找不到前一天的日誌紀錄。");
+                      }} 
+                      className="px-5 py-2 bg-sky-100 text-sky-700 border-2 border-sky-200 rounded-lg text-2xl font-black flex items-center gap-2 hover:bg-sky-200 transition-all shadow-sm active:scale-95"
+                    >
+                      <DownloadCloud className="w-8 h-8"/> 同步任務
+                    </button>
+                  )}
+                  <button onClick={handleExportData} className="px-5 py-2 bg-fuchsia-100 text-fuchsia-700 border-2 border-fuchsia-200 rounded-lg text-2xl font-black flex items-center gap-2 hover:bg-fuchsia-200 transition-all shadow-sm active:scale-95">
+                    <Download className="w-6 h-6" />匯出
+                  </button>
+                  <button onClick={() => setShowAllMissingModal(true)} className="px-5 py-2 bg-orange-500 text-white rounded-lg text-2xl font-black flex items-center gap-2 hover:bg-orange-600 transition-all shadow-sm active:scale-95">
+                    <FileText className="w-6 h-6" />未完成總表
+                  </button>
+                  <div className="relative">
+                      <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isGlobalLoading} />
+                      <button onClick={() => document.getElementById('importFile').click()} className="px-5 py-2 bg-cyan-100 text-cyan-700 border-2 border-cyan-200 rounded-lg text-2xl font-black flex items-center gap-2 hover:bg-cyan-200 transition-all shadow-sm active:scale-95">
+                        <Upload className="w-6 h-6" />匯入
+                      </button>
+                  </div>
+                </div>
+
+                <div className="h-10 w-[2px] bg-gray-300 mx-1 hidden md:block"></div>
+
+                {/* 第三組：危險區 (刪除按鈕) */}
+                {authMode === 'ADMIN' && (
+                    <div className="flex items-center gap-2">
+                        <ProtectedButton onClick={() => handleDeleteDateAssignments()} className="px-4 py-2 text-2xl font-bold bg-gray-900 text-white rounded-lg flex items-center gap-1 shadow-sm hover:bg-black transition-all active:scale-95">🧨 刪除日</ProtectedButton>
+                        <ProtectedButton onClick={() => handleDeleteMonthAssignments()} className="px-4 py-2 text-2xl font-bold bg-amber-800 text-white rounded-lg flex items-center gap-1 shadow-sm hover:bg-amber-900 transition-all active:scale-95">💣 刪除月</ProtectedButton>
+                        <ProtectedButton onClick={() => handleDeleteSemesterAssignments()} className="px-4 py-2 text-2xl font-bold bg-rose-500 text-white rounded-lg flex items-center gap-1 shadow-sm hover:bg-rose-600 transition-all active:scale-95">☢️ 刪除學期</ProtectedButton>
+                    </div>
                 )}
-                <button onClick={handleExportData} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-fuchsia-400 hover:bg-fuchsia-500 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="將所有紀錄匯出為 JSON 檔案"> <Download className="h-6 w-6 mr-1" />匯出 </button>
-                 <button onClick={() => setShowAllMissingModal(true)} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="檢視全班未完成作業總表"> <FileText className="h-6 w-6 mr-1" />未完成總表 </button>
-               <div className={`${authMode === 'ADMIN' ? 'flex-1 relative' : 'relative'}`}>
-                   <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isGlobalLoading} title="選擇 JSON 檔案匯入紀錄" />
-                   <button onClick={() => document.getElementById('importFile').click()} className={`${authMode === 'ADMIN' ? 'px-4 py-2 w-full' : 'px-5 py-3 w-full'} text-3xl font-medium rounded-lg text-white bg-cyan-500 hover:bg-cyan-600 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading}> <Upload className="h-6 w-6 mr-1" />匯入 </button>
-               </div>
- 
-               {authMode === 'ADMIN' && (
-                   <>
-                       <ProtectedButton onClick={() => handleDeleteDateAssignments()} disabled={isGlobalLoading || assignmentsForSelectedDate.length === 0} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-gray-900 hover:bg-gray-800`} title="刪除該日所有作業 (需按住 Shift)"><span className="text-4xl mr-1">🧨</span>刪除日期</ProtectedButton>
-                       <ProtectedButton onClick={() => handleDeleteMonthAssignments()} disabled={isGlobalLoading} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-amber-800 hover:bg-amber-900`} title={`刪除所選月份`}><span className="text-4xl mr-1">💣</span>刪除月份</ProtectedButton>
-                       <ProtectedButton onClick={() => handleDeleteSemesterAssignments()} disabled={isGlobalLoading} className={`px-4 py-2 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center flex-1 bg-rose-500 hover:bg-rose-600`} title={`刪除學期/全部資料`}><span className="text-4xl mr-1">☢️</span>刪除學期</ProtectedButton>
-                   </>
-               )}
-           </div>
+          </div>
            
             <div className="flex justify-between items-center mb-6 shrink-0">
                <h2 className="text-5xl font-bold text-gray-800 flex items-center">
