@@ -4,19 +4,19 @@ import {
   getAuth, signInAnonymously, signInWithEmailAndPassword, signOut, onAuthStateChanged 
 } from 'firebase/auth';
 import { 
- getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, query, Timestamp, getDocs, writeBatch, serverTimestamp, where, deleteField, getDoc
+ getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, query, Timestamp, getDocs, writeBatch, serverTimestamp, where, deleteField, getDoc,orderBy, limit //
 } from 'firebase/firestore';
 import { useDrag, useDrop, DndProvider } from 'react-dnd'; 
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { 
   BookOpen, Download, Upload, X, Check, RefreshCw, WifiOff, LogOut, FileText, AlertCircle, Eye, Shield, User, Key, Edit, Pencil, Star, Coins, Eraser, Moon, PlusCircle, TrendingUp, Activity, BarChart2, Megaphone, Lock, Unlock, RotateCw, Printer, BellRing, Type, Minus, Plus 
-} from 'lucide-react';
+, Ship, DownloadCloud} from 'lucide-react';
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-// --- 版本資訊 (V20.0.43) ---
-const VERSION = 'v20.0.43 - 全域廣播實裝'; 
+// --- 版本資訊 (V21) ---
+const VERSION = 'v21 - 整合航海日誌'; 
 const appId = 'class-5a-app'; 
 
 // 🚨 終極資安防禦：已透過 Google Cloud 設定 HTTP 網域白名單，此金鑰現已受實體隔離保護，可安全運行
@@ -140,7 +140,45 @@ const getOverallBadge = (score) => {
     if (s >= 10) return { animal: "🐢 烏龜", comment: "只要肯開始，總會完成，慢也沒關係。" };
     return { animal: "🌱 種子", comment: "埋入土裡太久了，請讓學習發芽。" };
 };
+// --- [新增元件] 任務同步勾選視窗 ---
+const SyncTasksModal = ({ candidates, sourceDate, onConfirm, onClose }) => {
+  const [items, setItems] = useState(candidates.map(c => ({ name: c, selected: true })));
+  const toggleItem = (idx) => {
+    const newItems = [...items];
+    newItems[idx].selected = !newItems[idx].selected;
+    setItems(newItems);
+  };
+  const handleNameChange = (idx, newName) => {
+    const newItems = [...items];
+    newItems[idx].name = newName;
+    setItems(newItems);
+  };
 
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[110000] p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 w-full max-w-2xl border-8 border-amber-400 animate-in zoom-in duration-300">
+        <h3 className="text-4xl font-black text-gray-800 mb-6 flex items-center gap-3">
+          <Ship className="w-10 h-10 text-blue-600" /> 同步航海任務
+        </h3>
+        <p className="text-xl text-blue-600 mb-4 font-bold bg-blue-50 p-3 rounded-xl border border-blue-200">
+          偵測到前一上課日 ({sourceDate}) 的日誌紀錄。
+        </p>
+        <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar mb-8">
+          {items.map((item, idx) => (
+            <div key={idx} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border-2 border-gray-100 hover:border-blue-200 transition-all">
+              <input type="checkbox" checked={item.selected} onChange={() => toggleItem(idx)} className="w-10 h-10 accent-blue-600 cursor-pointer" />
+              <input type="text" value={item.name} onChange={(e) => handleNameChange(idx, e.target.value)} className={`flex-1 text-2xl font-bold bg-transparent outline-none border-b-2 ${item.selected ? 'border-blue-300 text-gray-800' : 'border-transparent text-gray-400'}`} disabled={!item.selected} />
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-4">
+          <button onClick={onClose} className="flex-1 py-4 bg-gray-200 text-gray-600 rounded-2xl text-2xl font-black hover:bg-gray-300 transition-all">取消匯入</button>
+          <button onClick={() => onConfirm(items.filter(i => i.selected && i.name.trim()))} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-2xl font-black shadow-lg hover:bg-blue-700 active:scale-95 transition-all">確認匯入 ({items.filter(i => i.selected).length} 項)</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 // --- Dashboard Modal ---
 const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalance, semesterId }) => {
     const [viewMode, setViewMode] = useState('STATUS'); 
@@ -985,10 +1023,10 @@ const App = () => {
   const [loadingLogin, setLoadingLogin] = useState(false);
   const [showAllMissingModal, setShowAllMissingModal] = useState(false);
   const [focusedStudentId, setFocusedStudentId] = useState(null);
-  const [showBankModal, setShowBankModal] = useState(false);
+const [showBankModal, setShowBankModal] = useState(false);
   const [rewardState, setRewardState] = useState(null);
   const [dashboardStudent, setDashboardStudent] = useState(null);
-  
+  const [syncData, setSyncData] = useState(null); // [新增] 用於存放待同步的日誌任務數據
   // 新增：全域廣播相關狀態
   const [broadcastData, setBroadcastData] = useState(null);
   const [dismissedBroadcastTime, setDismissedBroadcastTime] = useState(null);
@@ -1003,6 +1041,67 @@ const App = () => {
   const { bankData, updateBankBalance, setBankBalanceDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students);
   const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
   const { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline, students);
+  // --- [新增] 任務同步核心邏輯：抓取前一個上課日的航海日誌 ---
+  const syncFromVoyageLog = useCallback(async (targetDate) => {
+    if (!db || isOffline) return null;
+    try {
+      const q = query(
+        collection(db, "announcements"),
+        where("date", "<", targetDate),
+        orderBy("date", "desc"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) return null;
+
+      const logData = snap.docs[0].data();
+      const rawItems = logData.items || [];
+
+      const candidates = rawItems
+        .map(item => typeof item === 'string' ? item : (item.text || ""))
+        .filter(text => {
+          const t = text.trim();
+          return t !== "" && !t.startsWith('※') && !t.startsWith(' ');
+        });
+
+      return candidates.length > 0 ? { date: snap.docs[0].id, candidates } : null;
+    } catch (e) {
+      console.error("同步失敗:", e);
+      return null;
+    }
+  }, [db, isOffline]);
+
+  // --- [新增] 執行寫入作業的通用邏輯 ---
+  const executeCreateAssignments = useCallback(async (date, assignmentNames) => {
+    setLoading(true);
+    const dObj = new Date(date);
+    const mStr = String(dObj.getMonth() + 1).padStart(2, '0');
+    setSelectedSemester(mStr >= '02' && mStr <= '07' ? 'S2' : 'S1');
+    setSelectedMonth(mStr);
+
+    const assignmentsToCreate = assignmentNames.map((name, idx) => ({
+      assignmentName: name,
+      order: idx,
+      assignmentDate: date,
+      submissionStatus: getInitialSubmissionStatus, 
+      makeupClaimed: {},
+      createdAt: serverTimestamp()
+    }));
+
+    if (isOffline) {
+      const newItems = assignmentsToCreate.map((a, i) => ({ ...a, id: `offline-${Date.now()}-${i}`, createdAt: new Date().toISOString() }));
+      setAllAssignmentsByDate(prev => ({ ...prev, [date]: newItems }));
+    } else {
+      const batch = writeBatch(db);
+      const path = getAssignmentCollectionPath();
+      assignmentsToCreate.forEach(data => {
+        batch.set(doc(collection(db, path)), data);
+      });
+      await batch.commit();
+    }
+    setSelectedDisplayDate(date);
+    setLoading(false);
+  }, [db, isOffline, getInitialSubmissionStatus]);
 
   const { defaultSemester, defaultMonth } = useMemo(() => { const today = new Date(); const m = today.getMonth() + 1; const monthStr = String(m).padStart(2, '0'); let sem = 'S1'; if (m >= 2 && m <= 7) { sem = 'S2'; } return { defaultSemester: sem, defaultMonth: monthStr }; }, []);
   const [selectedSemester, setSelectedSemester] = useState(defaultSemester); const [selectedMonth, setSelectedMonth] = useState(defaultMonth); const [unlockClicks, setUnlockClicks] = useState({});
@@ -1057,65 +1156,28 @@ const App = () => {
   
   const handleNewAssignmentDateChange = (e) => { setNewAssignmentDate(e.target.value); };
   
+// --- [已優化] 修改後的新增日期邏輯：優先偵測航海日誌 ---
   const handleAddNewDate = useCallback(async () => {
-      if (!newAssignmentDate) return;
-      if (allAssignmentsByDate[newAssignmentDate]) { alert("該日期已存在，請直接在上方選擇。"); return; }
-      
-      const d = new Date(newAssignmentDate);
-      const m = d.getMonth() + 1;
-      const targetMonth = String(m).padStart(2, '0');
-      let targetSemester = 'S1';
-      if (m >= 2 && m <= 7) targetSemester = 'S2';
-      
-      setSelectedSemester(targetSemester);
-      setSelectedMonth(targetMonth);
-      
-      setLoading(true);
+    if (!newAssignmentDate) return;
+    if (allAssignmentsByDate[newAssignmentDate]) { 
+      alert("該日期已存在，請直接在標籤中選擇。"); 
+      return; 
+    }
+    
+    setLoading(true);
+    // 嘗試抓取日誌
+    const syncResult = await syncFromVoyageLog(newAssignmentDate);
+    setLoading(false);
 
-      const assignmentsToCreate = categories.map(cat => ({
-          assignmentName: cat.name,
-          order: cat.order,
-          assignmentDate: newAssignmentDate,
-          submissionStatus: getInitialSubmissionStatus,
-          makeupClaimed: {},
-          createdAt: serverTimestamp() 
-      }));
-
-      if (isOffline) { 
-          const newOfflineAssignments = assignmentsToCreate.map((a, idx) => ({
-              ...a,
-              id: `offline-auto-${Date.now()}-${idx}`,
-              createdAt: new Date().toISOString()
-          }));
-          setAllAssignmentsByDate(prev => {
-              const prevData = { ...prev };
-              prevData[newAssignmentDate] = newOfflineAssignments;
-              return prevData;
-          });
-          setSelectedDisplayDate(newAssignmentDate); 
-          setAlertMessage(`[離線] 已新增日期 ${newAssignmentDate} 並自動帶入 ${newOfflineAssignments.length} 項預設作業。`); 
-          setLoading(false);
-          return; 
-      }
-
-      try {
-          const batch = writeBatch(db);
-          const path = getAssignmentCollectionPath();
-          assignmentsToCreate.forEach(assignData => {
-              const newDocRef = doc(collection(db, path));
-              batch.set(newDocRef, assignData);
-          });
-          await batch.commit();
-          setSelectedDisplayDate(newAssignmentDate); 
-          setAlertMessage(`已新增日期 ${newAssignmentDate} 並自動帶入 ${assignmentsToCreate.length} 項預設作業。`);
-      } catch (e) {
-          console.error("Error auto-populating assignments:", e);
-          setAlertMessage("新增日期成功，但自動帶入作業失敗，請手動新增。");
-          setSelectedDisplayDate(newAssignmentDate);
-      } finally {
-          setLoading(false);
-      }
-  }, [newAssignmentDate, allAssignmentsByDate, isOffline, categories, getInitialSubmissionStatus, db, userId]);
+    if (syncResult) {
+      // 偵測到日誌，開啟勾選視窗
+      setSyncData({ targetDate: newAssignmentDate, ...syncResult });
+    } else {
+      // 找不到日誌，直接套用原本的「科目模板」名稱
+      await executeCreateAssignments(newAssignmentDate, categories.map(c => c.name));
+      setAlertMessage(`找不到前日日誌，已自動套用預設科目模板。`);
+    }
+  }, [newAssignmentDate, allAssignmentsByDate, syncFromVoyageLog, categories, executeCreateAssignments]);
 
   const handleAddNewAssignment = useCallback(async () => {
       if (!selectedDisplayDate) { alert("請先選擇或新增一個日期。"); return; }
@@ -1489,7 +1551,15 @@ const App = () => {
      
      {/* 未訂正視窗 */}
      {missingStudent && missingStudent.missingCount > 0 && ( <MissingDetailsModal student={students.find(s => s.id === missingStudent.id)} missingStats={studentMissingStats} onClose={() => setMissingStudent(null)} handleDeleteStudentGlobalData={handleDeleteStudentGlobalData} db={db} userId={userId} allAssignmentsByDate={allAssignmentsByDate} setAlertMessage={setAlertMessage} isOffline={isOffline} authMode={authMode} updateBankBalance={updateBankBalance} setRewardState={setRewardState} /> )}
-     
+{/* [新增] 同步任務彈窗 */}
+    {syncData && (
+      <SyncTasksModal 
+        candidates={syncData.candidates} 
+        sourceDate={syncData.date}
+        onConfirm={(items) => { executeCreateAssignments(syncData.targetDate, items.map(i => i.name)); setSyncData(null); }}
+        onClose={() => { executeCreateAssignments(syncData.targetDate, categories.map(c => c.name)); setSyncData(null); }}
+      />
+    )}     
      {showAllMissingModal && ( <AllMissingAssignmentsModal missingStats={studentMissingStats} onClose={() => setShowAllMissingModal(false)} /> )}
  
      <div className="bg-white shadow-xl w-full flex flex-col h-full print:hidden">
@@ -1541,7 +1611,20 @@ const App = () => {
            
            <div className="flex flex-wrap items-center gap-2 mb-6 shrink-0">
                 <input id="newAssignmentDate" type="date" value={newAssignmentDate} onChange={handleNewAssignmentDateChange} className="p-2 text-3xl border border-gray-300 rounded-lg font-semibold w-[230px] focus:ring-yellow-500 focus:border-yellow-500 transition flex-shrink-0" required disabled={isGlobalLoading} />
-                 <button onClick={handleAddNewDate} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${isGlobalLoading ? 'bg-yellow-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'}`} disabled={isGlobalLoading || !newAssignmentDate}> + 新增日期 </button>
+                 <button onClick={handleAddNewDate} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${isGlobalLoading ? 'bg-yellow-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'}`} disabled={isGlobalLoading || !newAssignmentDate}> + 新增日期</button>
+             {/* [新增] 手動同步按鈕 */}
+                {authMode === 'ADMIN' && (
+                  <button 
+                    onClick={async () => {
+                      const res = await syncFromVoyageLog(selectedDisplayDate);
+                      if(res) setSyncData({ targetDate: selectedDisplayDate, ...res });
+                      else alert("找不到前一天的日誌紀錄。");
+                    }} 
+                    className="px-5 py-2 bg-blue-500 text-white rounded-lg text-3xl font-bold flex items-center gap-2 hover:bg-blue-600 shadow-md transition-all active:scale-95"
+                  >
+                    <DownloadCloud className="w-8 h-8"/> 同步航海任務
+                  </button>
+                )}
                 <button onClick={handleExportData} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-fuchsia-400 hover:bg-fuchsia-500 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="將所有紀錄匯出為 JSON 檔案"> <Download className="h-6 w-6 mr-1" />匯出 </button>
                  <button onClick={() => setShowAllMissingModal(true)} className={`${authMode === 'ADMIN' ? 'px-4 py-2 flex-1' : 'px-5 py-3'} text-3xl font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 transition duration-150 shadow-md flex items-center justify-center`} disabled={isGlobalLoading} title="檢視全班未完成作業總表"> <FileText className="h-6 w-6 mr-1" />未完成總表 </button>
                <div className={`${authMode === 'ADMIN' ? 'flex-1 relative' : 'relative'}`}>
