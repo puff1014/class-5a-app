@@ -1699,8 +1699,9 @@ const [showBankModal, setShowBankModal] = useState(false);
                   </button>
                 </div>
 
-                {/* 2. 主要功能區 (中間：自動平分寬度撐滿) */}
-                <div className="flex flex-1 items-center gap-3 min-w-[600px]">
+                {/* 2. 主要功能區 (優化版：翡翠綠同步 + 寬度上限 + 訪客權限防護) */}
+                <div className="flex flex-1 items-center gap-3 justify-center min-w-[600px]">
+                  {/* 同步任務：僅限老師，翡翠綠色 */}
                   {authMode === 'ADMIN' && (
                     <button 
                       onClick={async () => {
@@ -1708,23 +1709,30 @@ const [showBankModal, setShowBankModal] = useState(false);
                         if(res) setSyncData({ targetDate: selectedDisplayDate, ...res });
                         else alert("找不到前一天的日誌紀錄。");
                       }} 
-                      className="flex-1 px-4 py-4 bg-emerald-600 text-white rounded-xl text-2xl font-black flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all shadow-md active:scale-95"
+                      className="flex-1 max-w-[250px] px-4 py-4 bg-emerald-600 text-white rounded-xl text-2xl font-black flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all shadow-md active:scale-95"
                     >
                       <DownloadCloud className="w-8 h-8"/> 同步任務
                     </button>
                   )}
                   
-                  {/* 匯出與未完成總表：訪客可以看，所以不包 authMode */}
-                  <button onClick={handleExportData} className="flex-1 px-4 py-4 bg-fuchsia-600 text-white rounded-xl text-2xl font-black flex items-center justify-center gap-2 hover:bg-fuchsia-700 transition-all shadow-md active:scale-95">
+                  {/* 匯出與總表：所有人可看，寬度限制為 250px */}
+                  <button 
+                    onClick={handleExportData} 
+                    className="flex-1 max-w-[250px] px-4 py-4 bg-fuchsia-600 text-white rounded-xl text-2xl font-black flex items-center justify-center gap-2 hover:bg-fuchsia-700 transition-all shadow-md active:scale-95"
+                  >
                     <Download className="w-6 h-6" />匯出
                   </button>
-                  <button onClick={() => setShowAllMissingModal(true)} className="flex-1 px-4 py-4 bg-orange-500 text-white rounded-xl text-2xl font-black flex items-center justify-center gap-2 hover:bg-orange-600 transition-all shadow-md active:scale-95">
+
+                  <button 
+                    onClick={() => setShowAllMissingModal(true)} 
+                    className="flex-1 max-w-[250px] px-4 py-4 bg-orange-500 text-white rounded-xl text-2xl font-black flex items-center justify-center gap-2 hover:bg-orange-600 transition-all shadow-md active:scale-95"
+                  >
                     <FileText className="w-6 h-6" />未完成總表
                   </button>
 
-                  {/* [修改重點] 匯入功能：現在只有老師登入時才會出現 */}
+                  {/* 匯入功能：僅限老師出現 */}
                   {authMode === 'ADMIN' && (
-                    <div className="flex-1 relative">
+                    <div className="flex-1 max-w-[250px] relative">
                         <input type="file" id="importFile" accept="application/json" onChange={handleImportData} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isGlobalLoading} />
                         <button onClick={() => document.getElementById('importFile').click()} className="w-full px-4 py-4 bg-cyan-600 text-white rounded-xl text-2xl font-black flex items-center justify-center gap-2 hover:bg-cyan-700 transition-all shadow-md active:scale-95">
                           <Upload className="w-6 h-6" />匯入
