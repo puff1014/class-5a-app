@@ -721,41 +721,55 @@ const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
 
 // --- [升級版] 全班未完成作業總表 (支援日期區間篩選) ---
 const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose }) => {
-    // 設定初始日期範圍：預設從本月 1 號到今天
     const now = new Date();
     const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     const [startDate, setStartDate] = useState(firstDay);
     const [endDate, setEndDate] = useState(getTodayDate());
 
-    // 根據日期區間重新計算缺交統計
-    const filteredStats = useMemo(() => {
+    // --- [核心新增] 用於存放「要列印的作業鍵值」 ---
+    const [selectedItemKeys, setSelectedItemKeys] = useState(new Set());
+
+    // 1. 先計算出日期區間內所有缺交的資料
+    const allMissingData = useMemo(() => {
         const stats = students.map(s => ({ id: s.id, name: s.name, missingCount: 0, missingDetails: [] }));
-        
         Object.keys(allAssignmentsByDate)
-            .filter(date => {
-                if (!startDate && !endDate) return true;
-                if (startDate && date < startDate) return false;
-                if (endDate && date > endDate) return false;
-                return true;
-            })
+            .filter(date => (!startDate || date >= startDate) && (!endDate || date <= endDate))
             .forEach(date => {
-                const assignmentsOnDate = allAssignmentsByDate[date] || [];
-                assignmentsOnDate.forEach(assignment => {
-                    const submissionStatus = assignment.submissionStatus || {};
-                    students.forEach((student, index) => {
-                        if (submissionStatus[student.id] === false) {
-                            stats[index].missingCount += 1;
-                            stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName });
-                        }
-                    });
+                (allAssignmentsByDate[date] || []).forEach(assignment => {
+                    if (assignment.submissionStatus) {
+                        students.forEach((student, index) => {
+                            if (assignment.submissionStatus[student.id] === false) {
+                                stats[index].missingCount += 1;
+                                stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName });
+                            }
+                        });
+                    }
                 });
             });
-        
         return stats.filter(s => s.missingCount > 0).sort((a, b) => b.missingCount - a.missingCount);
     }, [allAssignmentsByDate, students, startDate, endDate]);
 
-    const handlePrint = () => { window.print(); };
+    // 2. 當日期區間改變時，預設「全選」所有抓到的作業
+    useEffect(() => {
+        const newKeys = new Set();
+        allMissingData.forEach(s => {
+            s.missingDetails.forEach(d => {
+                // 唯一鍵值：學生ID-日期-作業名稱
+                newKeys.add(`${s.id}-${d.date}-${d.assignment}`);
+            });
+        });
+        setSelectedItemKeys(newKeys);
+    }, [allMissingData]);
 
+    // 3. 切換勾選狀態的工具 (點一下就踢掉，再點一下就補回)
+    const toggleItem = (key) => {
+        const next = new Set(selectedItemKeys);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        setSelectedItemKeys(next);
+    };
+
+    const handlePrint = () => { window.print(); };
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0 print:z-[20000]">
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-6xl h-[90vh] flex flex-col border border-gray-200 print:hidden">
@@ -790,7 +804,7 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose })
                 </div>
 
                 <div className="flex-1 overflow-auto">
-                    {filteredStats.length === 0 ? (
+                    {allMissingData.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-gray-400">
                             <Check className="w-24 h-24 mb-4 text-green-400" />
                             <p className="text-4xl font-bold text-green-600">此區間內全班皆已完成所有作業！</p>
@@ -806,20 +820,42 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose })
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredStats.map((student) => (
+                                {allMissingData.map((student) => (
                                     <tr key={student.id} className="hover:bg-red-50 transition duration-100">
                                         <td className="px-4 py-4 text-2xl text-gray-900 text-center border-r border-gray-200">{student.id}</td>
                                         <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td>
                                         <td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td>
                                         <td className="px-6 py-4 text-xl text-gray-700">
                                             <ul className="grid grid-cols-3 gap-x-4 list-disc list-inside">
-                                                {[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date)).map((detail, idx) => (
-                                                    <li key={idx} className="flex items-center mb-1">
-                                                        <span className="text-red-600 font-bold mr-2">{detail.assignment}</span>
-                                                        <span className="text-gray-400 text-lg">({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
+    {[...student.missingDetails]
+        .sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date))
+        .map((detail, idx) => {
+            // 💡 建立每筆作業的唯一 Key： 學生ID-日期-作業名稱
+            const itemKey = `${student.id}-${detail.date}-${detail.assignment}`;
+            const isChecked = selectedItemKeys.has(itemKey);
+            
+            return (
+                <li 
+                    key={idx} 
+                    className={`flex items-center mb-1 cursor-pointer p-1 rounded transition-all ${isChecked ? 'bg-white' : 'opacity-30 bg-gray-100'}`} 
+                    onClick={() => toggleItem(itemKey)}
+                >
+                    <input 
+                        type="checkbox" 
+                        checked={isChecked} 
+                        readOnly 
+                        className="w-6 h-6 mr-2 cursor-pointer accent-blue-600"
+                    />
+                    <span className={`text-red-600 font-bold mr-2 ${!isChecked ? 'line-through' : ''}`}>
+                        {detail.assignment}
+                    </span>
+                    <span className="text-gray-400 text-lg">
+                        ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
+                    </span>
+                </li>
+            );
+        })}
+</ul>
                                         </td>
                                     </tr>
                                 ))}
@@ -830,28 +866,51 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose })
             </div>
 
             {/* --- 列印專用區：會根據篩選結果顯示 --- */}
+            {/* --- [新版] 列印專用區：僅顯示勾選的作業並標註日期區間 --- */}
             <div className="hidden print:block w-full h-full bg-white text-black p-4">
-                <h1 className="text-4xl font-extrabold text-center mb-4 border-b-4 border-black pb-4">五年甲班 未完成作業待補單 ({startDate || '不限'} ~ {endDate})</h1>
-                <div className="flex flex-col gap-6">
-                    {filteredStats.map((student) => (
-                        <div key={student.id} className="border-2 border-black rounded-2xl p-4 break-inside-avoid shadow-none">
-                            <div className="flex justify-between items-center border-b-2 border-gray-300 pb-2 mb-3">
-                                <span className="text-3xl font-black">{student.name[0] + 'O' + student.name.slice(2)} 待補作業清單</span>
-                                <span className="text-xl font-bold">共缺交 {student.missingCount} 項</span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-x-6 gap-y-3">
-                                {[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date)).map((detail, idx) => (
-                                    <div key={idx} className="flex items-start text-lg leading-tight">
-                                        <div className="w-5 h-5 border-2 border-black mr-2 bg-white mt-0.5"></div>
-                                        <div className="flex flex-col">
-                                            <span className="font-bold">{detail.assignment}</span>
-                                            <span className="text-base text-gray-500">({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})</span>
-                                        </div>
+                <h1 className="text-4xl font-extrabold text-center mb-6 border-b-4 border-black pb-4">
+                    五年甲班 訂正作業待補單 ({startDate?.replace(/-/g, '/')} ~ {endDate?.replace(/-/g, '/')})
+                </h1>
+                
+                <div className="flex flex-col gap-8">
+                    {allMissingData.map((student) => {
+                        // 💡 核心過濾：只篩選出「畫面上還有勾選」的項目
+                        const itemsToPrint = student.missingDetails.filter(d => 
+                            selectedItemKeys.has(`${student.id}-${d.date}-${d.assignment}`)
+                        ).sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date));
+
+                        // 如果該學生所有作業都沒被勾選，則直接跳過，不印他的單子
+                        if (itemsToPrint.length === 0) return null;
+
+                        return (
+                            <div key={student.id} className="border-2 border-black rounded-2xl p-5 break-inside-avoid shadow-none">
+                                <div className="flex justify-between items-end border-b-2 border-gray-400 pb-2 mb-4">
+                                    <div>
+                                        <span className="text-4xl font-black">{student.name[0] + 'O' + student.name.slice(2)} 待補作業清單</span>
+                                        <span className="ml-4 text-xl font-bold text-gray-500">
+                                            (統計區間：{startDate?.replace(/-/g, '/')} - {endDate?.replace(/-/g, '/')})
+                                        </span>
                                     </div>
-                                ))}
+                                    <span className="text-2xl font-bold text-black">待補：{itemsToPrint.length} 項</span>
+                                </div>
+                                
+                                <div className="grid grid-cols-3 gap-x-8 gap-y-4">
+                                    {itemsToPrint.map((detail, idx) => (
+                                        <div key={idx} className="flex items-start text-xl leading-tight">
+                                            {/* 列印出的方框 */}
+                                            <div className="w-6 h-6 border-2 border-black mr-2 bg-white mt-1 shrink-0"></div>
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-black">{detail.assignment}</span>
+                                                <span className="text-lg text-gray-600 font-medium">
+                                                    ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>
