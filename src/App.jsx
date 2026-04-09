@@ -884,16 +884,24 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose })
 
                         return (
                             <div key={student.id} className="border-2 border-black rounded-2xl p-5 break-inside-avoid shadow-none">
-                                <div className="flex justify-between items-end border-b-2 border-gray-400 pb-2 mb-4">
-                                    <div>
-                                        <span className="text-4xl font-black">{student.name[0] + 'O' + student.name.slice(2)} 待補作業清單</span>
-                                        <span className="ml-4 text-xl font-bold text-gray-500">
-                                            (統計區間：{startDate?.replace(/-/g, '/')} - {endDate?.replace(/-/g, '/')})
+                                <div className="flex flex-col border-b-2 border-gray-400 pb-3 mb-4">
+                                    {/* 第一行：左邊姓名，右邊項數 */}
+                                    <div className="flex justify-between items-center w-full">
+                                        <span className="text-4xl font-black">
+                                            {student.name[0] + 'O' + student.name.slice(2)} 待補作業清單
+                                        </span>
+                                        <span className="text-3xl font-bold text-black">
+                                            共 {itemsToPrint.length} 項
                                         </span>
                                     </div>
-                                    <span className="text-2xl font-bold text-black">待補：{itemsToPrint.length} 項</span>
-                                </div>
-                                
+
+                                    {/* 第二行：統計日期 (獨立一行且靠左) */}
+                                    <div className="mt-2 text-left">
+                                        <span className="text-xl font-bold text-gray-500">
+                                            (統計日期：{startDate?.replace(/-/g, '/')} - {endDate?.replace(/-/g, '/')})
+                                        </span>
+                                    </div>
+                                </div>                                
                                 <div className="grid grid-cols-3 gap-x-8 gap-y-4">
                                     {itemsToPrint.map((detail, idx) => (
                                         <div key={idx} className="flex items-start text-xl leading-tight">
