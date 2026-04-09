@@ -813,7 +813,7 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose })
                                         <td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td>
                                         <td className="px-6 py-4 text-xl text-gray-700">
                                             <ul className="grid grid-cols-3 gap-x-4 list-disc list-inside">
-                                                {student.missingDetails.map((detail, idx) => (
+                                                {[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date)).map((detail, idx) => (
                                                     <li key={idx} className="flex items-center mb-1">
                                                         <span className="text-red-600 font-bold mr-2">{detail.assignment}</span>
                                                         <span className="text-gray-400 text-lg">({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})</span>
@@ -840,7 +840,7 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose })
                                 <span className="text-xl font-bold">共缺交 {student.missingCount} 項</span>
                             </div>
                             <div className="grid grid-cols-3 gap-x-6 gap-y-3">
-                                {student.missingDetails.map((detail, idx) => (
+                                {[...student.missingDetails].sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date)).map((detail, idx) => (
                                     <div key={idx} className="flex items-start text-lg leading-tight">
                                         <div className="w-5 h-5 border-2 border-black mr-2 bg-white mt-0.5"></div>
                                         <div className="flex flex-col">
@@ -963,7 +963,7 @@ const MissingDetailsModal = ({ student, missingStats, onClose, handleDeleteStude
                     items.push({ date: date, assignmentName: assignment.assignmentName, assignmentId: assignment.id }); 
                 } 
             }); 
-        }); return items.sort((a, b) => a.date.localeCompare(b.date)); 
+        }); return items.sort((a, b) => a.assignmentName.localeCompare(b.assignmentName, 'zh-TW') || a.date.localeCompare(b.date));
     }, [allAssignmentsByDate, student.id]); 
     const numColumns = 4; 
     const columns = useMemo(() => { 
