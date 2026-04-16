@@ -1133,7 +1133,7 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, stud
 const App = () => {
   // 💡 設定分段日期 (例如第一次段考結束日)
   // 在此日期「之後」的算新進度，在此日期「之前(含)」的算舊累計
-  const [cutOffDate, setCutOffDate] = useState('2026-04-15');
+  const [cutOffDate, setCutOffDate] = useState('2026-04-14');
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
