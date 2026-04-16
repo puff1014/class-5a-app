@@ -1131,6 +1131,9 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, stud
 
 // --- [主程式] App ---
 const App = () => {
+  // 💡 設定分段日期 (例如第一次段考結束日)
+  // 在此日期「之後」的算新進度，在此日期「之前(含)」的算舊累計
+  const [cutOffDate, setCutOffDate] = useState('2026-04-15');
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
@@ -1281,7 +1284,38 @@ const [showBankModal, setShowBankModal] = useState(false);
       }
   }, [displayedDates, selectedMonth, semesters, selectedSemester]); 
 
-  const studentMissingStats = useMemo(() => { const stats = students.map(student => ({ id: student.id, name: student.name, missingCount: 0, missingDetails: [] })); Object.keys(allAssignmentsByDate).forEach(date => { const assignmentsOnDate = allAssignmentsByDate[date] || []; assignmentsOnDate.forEach(assignment => { const submissionStatus = assignment.submissionStatus || {}; students.forEach((student, index) => { if (submissionStatus[student.id] === false) { stats[index].missingCount += 1; stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName }); } }); }); }); stats.sort((a, b) => b.missingCount - a.missingCount); return stats; }, [allAssignmentsByDate, students]);
+  const studentMissingStats = useMemo(() => {
+    const stats = students.map(student => ({ 
+      id: student.id, 
+      name: student.name, 
+      currentMissingCount: 0, // 段考後的
+      legacyMissingCount: 0,  // 段考前的
+      missingCount: 0,        // 總數 (保留此欄位以相容舊有的點擊功能)
+      missingDetails: [] 
+    }));
+
+    Object.keys(allAssignmentsByDate).forEach(date => {
+      const assignmentsOnDate = allAssignmentsByDate[date] || [];
+      assignmentsOnDate.forEach(assignment => {
+        const submissionStatus = assignment.submissionStatus || {};
+        students.forEach((student, index) => {
+          if (submissionStatus[student.id] === false) {
+            // 💡 根據日期判斷是「目前的」還是「前期遺留」
+            if (date > cutOffDate) {
+              stats[index].currentMissingCount += 1;
+            } else {
+              stats[index].legacyMissingCount += 1;
+            }
+            // 同時記錄總數與明細
+            stats[index].missingCount += 1;
+            stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName });
+          }
+        });
+      });
+    });
+    // 優先以「新進度 (current)」欠最多的排前面
+    return stats.sort((a, b) => b.currentMissingCount - a.currentMissingCount);
+  }, [allAssignmentsByDate, students, cutOffDate]);
   const monthlyStudentStats = useMemo(() => { const stats = {}; students.forEach(student => { stats[student.id] = { studentName: student.name, monthStats: {} }; months.forEach(month => { stats[student.id].monthStats[month.id] = { daysCompleted: 0, daysLate: 0, daysMissing: 0, totalDays: 0 }; }); }); Object.keys(allAssignmentsByDate).forEach(date => { const monthId = date.substring(5, 7); const assignmentsOnDate = allAssignmentsByDate[date] || []; if (assignmentsOnDate.length === 0) return; students.forEach(student => { if (stats[student.id].monthStats[monthId]) { let worstStatusOfDay = 'true'; for (const assignment of assignmentsOnDate) { const status = assignment.submissionStatus[student.id]; if (status === false) { worstStatusOfDay = 'false'; break; } if (status === 'late') { worstStatusOfDay = 'late'; } } stats[student.id].monthStats[monthId].totalDays++; if (worstStatusOfDay === 'false') { stats[student.id].monthStats[monthId].daysMissing++; } else if (worstStatusOfDay === 'late') { stats[student.id].monthStats[monthId].daysLate++; } else { stats[student.id].monthStats[monthId].daysCompleted++; } } }); }); return stats; }, [allAssignmentsByDate, months, students]);
   
   const handleNewAssignmentDateChange = (e) => { setNewAssignmentDate(e.target.value); };
@@ -1885,10 +1919,39 @@ const [showBankModal, setShowBankModal] = useState(false);
                <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">⚠️</span><span className="text-4xl">全班未訂正統計</span></h2>
                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                    {studentMissingStats.map((stat) => {
-                       const colorClasses = getMissingColorClasses(stat.missingCount);
-                       const countText = stat.missingCount;
-                       return ( <div key={stat.id} onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} className={`relative p-4 rounded-2xl cursor-pointer transition-all duration-150 ${colorClasses.bg} ${colorClasses.border} ${colorClasses.text} text-center border-2 border-b-[8px] active:border-b-[2px] active:translate-y-[6px] hover:-translate-y-[2px] hover:shadow-md`}> <p className="text-4xl font-semibold mb-1">{stat.name[0] + 'O' + stat.name.slice(2)}</p> <p className={`text-6xl font-black mt-2 ${colorClasses.countText}`}>{countText}</p> </div> );
-                   })}
+                        // 💡 關鍵變動：卡片顏色由「新進度 (段考後)」決定
+                        // 如果段考後表現好，卡片就會變回白色，給予信心
+                        const colorClasses = getMissingColorClasses(stat.currentMissingCount);
+                        
+                        return (
+                            <div 
+                                key={stat.id} 
+                                onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} 
+                                className={`relative p-4 rounded-2xl cursor-pointer transition-all duration-150 ${colorClasses.bg} ${colorClasses.border} ${colorClasses.text} text-center border-2 border-b-[8px] active:border-b-[2px] active:translate-y-[6px] hover:-translate-y-[2px] hover:shadow-md`}
+                            >
+                                {/* 學生姓名 */}
+                                <p className="text-4xl font-black mb-1">
+                                    {stat.name[0] + 'O' + stat.name.slice(2)}
+                                </p>
+                                
+                                <div className="flex flex-col items-center">
+                                    {/* 主顯示：大大的「新進度」數字 */}
+                                    <p className={`text-7xl font-black mt-1 ${colorClasses.countText}`}>
+                                        {stat.currentMissingCount}
+                                    </p>
+                                    
+                                    {/* 次顯示：小字標註「前期遺留」 */}
+                                    {stat.legacyMissingCount > 0 && (
+                                        <div className="mt-2 px-3 py-1 bg-black/10 rounded-full border border-black/5 shadow-inner">
+                                            <p className="text-xl font-bold opacity-90">
+                                                前期遺留: {stat.legacyMissingCount}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
                </div>
            </div>
            <MonthlyStudentStats monthlyStats={monthlyStudentStats} months={filteredMonths} />
