@@ -1300,7 +1300,7 @@ const [showBankModal, setShowBankModal] = useState(false);
         const submissionStatus = assignment.submissionStatus || {};
         students.forEach((student, index) => {
           if (submissionStatus[student.id] === false) {
-            // 💡 根據日期判斷是「目前的」還是「前期遺留」
+            // 💡 根據日期判斷是「目前的」還是「前次累計」
             if (date > cutOffDate) {
               stats[index].currentMissingCount += 1;
             } else {
@@ -1940,11 +1940,11 @@ const [showBankModal, setShowBankModal] = useState(false);
                                         {stat.currentMissingCount}
                                     </p>
                                     
-                                    {/* 次顯示：小字標註「前期遺留」 */}
+                                    {/* 次顯示：小字標註「前次累計」 */}
                                     {stat.legacyMissingCount > 0 && (
                                         <div className="mt-2 px-3 py-1 bg-black/10 rounded-full border border-black/5 shadow-inner">
                                             <p className="text-xl font-bold opacity-90">
-                                                前期遺留: {stat.legacyMissingCount}
+                                                前次累計: {stat.legacyMissingCount}
                                             </p>
                                         </div>
                                     )}
