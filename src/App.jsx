@@ -1965,11 +1965,12 @@ const [showBankModal, setShowBankModal] = useState(false);
            
            if (!isBroadcastVisible) return null;
            
-           const settings = broadcastData.settings || { bgColor: 'bg-amber-400', textColor: 'text-slate-900', fontSize: 80, biauKai: false };
+           const settings = broadcastData.settings || { bgColor: 'bg-amber-400', textColor: 'text-slate-900', fontSize: 80, biauKai: false, textAlign: 'text-center' };
            
            return (
              <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[99999] flex items-center justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-300 print:hidden">
-               <div className={`${settings.bgColor} rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,0.5)] p-8 md:p-16 w-full max-w-[95vw] min-h-[80vh] border-[16px] border-white/20 flex flex-col items-center justify-center text-center relative`}>
+               {/* 💡 移除這裡原本的 text-center，改用動態設定 */}
+               <div className={`${settings.bgColor} rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,0.5)] p-8 md:p-16 w-full max-w-[95vw] min-h-[80vh] border-[16px] border-white/20 flex flex-col items-center justify-center relative`}>
                  <div className="absolute -top-20 bg-white/20 backdrop-blur-md p-6 rounded-full border-8 border-white/30 shadow-xl animate-bounce">
                    <BellRing size={80} className={settings.textColor}/>
                  </div>
@@ -1979,7 +1980,9 @@ const [showBankModal, setShowBankModal] = useState(false);
                           fontSize: `${settings.fontSize}px`, 
                           fontFamily: settings.biauKai ? '"BiauKai", "DFKai-SB", "標楷體", serif' : 'inherit' 
                       }} 
-                      className={`font-black ${settings.textColor} leading-snug whitespace-pre-wrap break-words w-full max-h-[60vh] overflow-y-auto custom-scrollbar`}
+                      {/* 💡 這裡加上 ${settings.textAlign || 'text-center'} */}
+                      className={`font-black ${settings.textColor} ${settings.textAlign || 'text-center'} leading-snug whitespace-pre-wrap break-words w-full max-h-[60vh] overflow-y-auto custom-scrollbar`}
+                   >
                    >
                       {broadcastData.message}
                    </p>
