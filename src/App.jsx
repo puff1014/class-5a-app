@@ -1965,38 +1965,39 @@ const [showBankModal, setShowBankModal] = useState(false);
            
            if (!isBroadcastVisible) return null;
            
+           // 1. 讀取設定，並加入 textAlign 預設值
            const settings = broadcastData.settings || { bgColor: 'bg-amber-400', textColor: 'text-slate-900', fontSize: 80, biauKai: false, textAlign: 'text-center' };
            
            return (
              <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[99999] flex items-center justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-300 print:hidden">
-               {/* 💡 移除這裡原本的 text-center，改用動態設定 */}
-               <div className={`${settings.bgColor} rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,0.5)] p-8 md:p-16 w-full max-w-[95vw] min-h-[80vh] border-[16px] border-white/20 flex flex-col items-center justify-center relative`}>
-                 <div className="absolute -top-20 bg-white/20 backdrop-blur-md p-6 rounded-full border-8 border-white/30 shadow-xl animate-bounce">
+               {/* 2. 修正：容器對齊邏輯，確保靠左時內容不會被強行鎖在中間 */}
+               <div className={`${settings.bgColor} rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,0.5)] p-8 md:p-16 w-full max-w-[95vw] min-h-[80vh] border-[16px] border-white/20 flex flex-col justify-center relative ${settings.textAlign === 'text-left' ? 'items-start' : settings.textAlign === 'text-right' ? 'items-end' : 'items-center'}`}>
+                 
+                 <div className="absolute -top-20 bg-white/20 backdrop-blur-md p-6 rounded-full border-8 border-white/30 shadow-xl animate-bounce left-1/2 -translate-x-1/2">
                    <BellRing size={80} className={settings.textColor}/>
                  </div>
+
                  <div className="flex-1 flex items-center justify-center w-full py-12">
                    <p 
                       style={{ 
                           fontSize: `${settings.fontSize}px`, 
                           fontFamily: settings.biauKai ? '"BiauKai", "DFKai-SB", "標楷體", serif' : 'inherit' 
                       }} 
-                      {/* 💡 這裡加上 ${settings.textAlign || 'text-center'} */}
                       className={`font-black ${settings.textColor} ${settings.textAlign || 'text-center'} leading-snug whitespace-pre-wrap break-words w-full max-h-[60vh] overflow-y-auto custom-scrollbar`}
-                   >
                    >
                       {broadcastData.message}
                    </p>
                  </div>
+
                  <button 
                    onClick={() => setDismissedBroadcastTime(currentBroadcastId)} 
-                   className={`w-full max-w-2xl bg-black/20 hover:bg-black/40 ${settings.textColor} border-4 border-black/10 text-5xl font-black py-6 rounded-[2.5rem] shadow-xl transition-all active:scale-95 shrink-0`}
+                   className={`w-full max-w-2xl bg-black/20 hover:bg-black/40 ${settings.textColor} border-4 border-black/10 text-5xl font-black py-6 rounded-[2.5rem] shadow-xl transition-all active:scale-95 shrink-0 self-center`}
                  >
                    我知道了！
                  </button>
                </div>
              </div>
            );
-       })()}
 
        {/* 新增：廣播發布編輯器 (教師用) */}
        {showBroadcastEditor && authMode === 'ADMIN' && (
