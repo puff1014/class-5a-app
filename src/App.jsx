@@ -1242,20 +1242,15 @@ const [showBankModal, setShowBankModal] = useState(false);
   // 當切換學年度或學期時，自動更新預設選中的月份
   useEffect(() => {
     if (selectedSemester === 'S1') {
-      setSelectedMonth(`${startYear}-08`);
-    } else {
-      setSelectedMonth(`${endYear}-02`);
-    }
-  }, [selectedAcademicYear, selectedSemester, startYear, endYear]);
-  // --- 學年度與學期設定 (支援五年級與六年級切換) ---
+// --- 學年度與學期設定 (支援五年級與六年級切換) ---
   const ACADEMIC_YEARS = {
     '115': { label: '115 學年度 (六年級)', startYear: 2026, endYear: 2027 },
     '114': { label: '114 學年度 (五年級)', startYear: 2025, endYear: 2026 }
   };
 
-  const [selectedAcademicYear, setSelectedAcademicYear] = useState('115'); // 預設為最新的六年級
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState('115');
   const academicYear = selectedAcademicYear;
-  const currentYearConfig = ACADEMIC_YEARS[selectedAcademicYear];
+  const currentYearConfig = ACADEMIC_YEARS[selectedAcademicYear] || ACADEMIC_YEARS['115'];
   const startYear = currentYearConfig.startYear;
   const endYear = currentYearConfig.endYear;
 
@@ -1263,6 +1258,15 @@ const [showBankModal, setShowBankModal] = useState(false);
     { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear },
     { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }
   ];
+
+  // 當切換學年度或學期時，自動更新預設選中的月份
+  useEffect(() => {
+    if (selectedSemester === 'S1') {
+      setSelectedMonth('08');
+    } else {
+      setSelectedMonth('02');
+    }
+  }, [selectedAcademicYear, selectedSemester]);
   const months = useMemo(() => [ { id: '08', name: `8月`, color: 'bg-green-500', semester: 'S1' }, { id: '09', name: `9月`, color: 'bg-teal-500', semester: 'S1' }, { id: '10', name: `10月`, color: 'bg-cyan-500', semester: 'S1' }, { id: '11', name: `11月`, color: 'bg-blue-500', semester: 'S1' }, { id: '12', name: `12月`, color: 'bg-indigo-500', semester: 'S1' }, { id: '01', name: `1月`, color: 'bg-purple-500', semester: 'S1' }, { id: '02', name: `2月`, color: 'bg-pink-500', semester: 'S2' }, { id: '03', name: `3月`, color: 'bg-rose-500', semester: 'S2' }, { id: '04', name: `4月`, color: 'bg-red-500', semester: 'S2' }, { id: '05', name: `5月`, color: 'bg-orange-500', semester: 'S2' }, { id: '06', name: `6月`, color: 'bg-amber-500', semester: 'S2' }, { id: '07', name: `7月`, color: 'bg-yellow-500', semester: 'S2' }, ], []);
 
   useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); if (!firebaseConfig) { console.error("Firebase configuration is missing."); setError("無法載入 Firebase 設定。請檢查環境配置。"); setLoading(false); return; } try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { if (user) { setUserId(user.uid); setIsAuthReady(true); setIsAuthenticated(true); if (user.isAnonymous) { setAuthMode('GUEST'); } else { setAuthMode('ADMIN'); } } else { setIsAuthenticated(false); setAuthMode('GUEST'); } setLoadingLogin(false); }); return () => { unsubscribe(); clearTimeout(timer); }; } catch (e) { console.error("Firebase initialization failed:", e); setError("初始化失敗：" + e.message); setLoading(false); } }, []);
