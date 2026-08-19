@@ -53,7 +53,7 @@ const ItemTypes = { ASSIGNMENT: 'assignment' };
 
 const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assignments`;
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
-const getBankCollectionPath = (year = selectedAcademicYear) => {
+const getBankCollectionPath = (year) => {
   if (year === '114') {
     return `/artifacts/${appId}/public/data/student_bank`;
   }
@@ -471,7 +471,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
             return;
         }
         if (!isAuthReady || !db) return;
-        const q = query(collection(db, getBankCollectionPath()));
+        const q = query(collection(db, getBankCollectionPath(selectedAcademicYear)));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const data = {};
             snapshot.forEach(doc => { data[doc.id] = doc.data(); });
@@ -497,7 +497,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
         }
 
         if (!db) return;
-        const docRef = doc(db, getBankCollectionPath(), studentId);
+        const docRef = doc(db, getBankCollectionPath(selectedAcademicYear), studentId);
         try {
             const docSnap = await getDoc(docRef);
             let current = { gold: 0, silver: 0, bronze: 0 };
@@ -523,7 +523,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
             return;
         }
         if (!db) return;
-        const docRef = doc(db, getBankCollectionPath(), studentId);
+        const docRef = doc(db, getBankCollectionPath(selectedAcademicYear), studentId);
         await setDoc(docRef, { [type]: value }, { merge: true });
     }, [db, isOffline]);
 
