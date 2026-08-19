@@ -15,8 +15,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-// --- 版本資訊 (V21) ---
-const VERSION = 'v21 - 整合航海日誌'; 
+// --- 版本資訊 (V22) ---
+const VERSION = 'v22 - 擴充115學年'; 
 const appId = 'class-5a-app'; 
 
 // 🚨 終極資安防禦：已透過 Google Cloud 設定 HTTP 網域白名單，此金鑰現已受實體隔離保護，可安全運行
@@ -53,12 +53,7 @@ const ItemTypes = { ASSIGNMENT: 'assignment' };
 
 const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assignments`;
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
-const getBankCollectionPath = (year) => {
-  if (year === '114') {
-    return `/artifacts/${appId}/public/data/student_bank`;
-  }
-  return `/artifacts/${appId}/public/data/student_bank/years/${year || '115'}`;
-};
+const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
 const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
 
 // --- 圖表元件 ---
@@ -459,77 +454,109 @@ const RewardOverlay = ({ type, onClose }) => {
         </div>
     );
 };
-
 const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYear = '115') => {
-    const [bankData, setBankData] = useState({});
+  const [bankData, setBankData] = useState({});
 
-    useEffect(() => {
-        if (isOffline) {
-            const initialData = {};
-            students.forEach(s => initialData[s.id] = { gold: 0, silver: 0 });
-            setBankData(initialData);
-            return;
+  useEffect(() => {
+    if (isOffline) {
+      const initialData = {};
+      students.forEach(s => initialData[s.id] = { gold: 0, silver: 0, bronze: 0 });
+      setBankData(initialData);
+      return;
+    }
+    if (!isAuthReady || !db) return;
+
+    const q = query(collection(db, getBankCollectionPath()));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = {};
+      snapshot.forEach(doc => {
+        const raw = doc.data();
+        if (selectedAcademicYear === '114' && !raw.years) {
+          data[doc.id] = {
+            gold: raw.gold || 0,
+            silver: raw.silver || 0,
+            bronze: raw.bronze || 0
+          };
+        } else {
+          const yearData = raw.years?.[selectedAcademicYear] || { gold: 0, silver: 0, bronze: 0 };
+          data[doc.id] = yearData;
         }
-        if (!isAuthReady || !db) return;
-        const q = query(collection(db, getBankCollectionPath(selectedAcademicYear)));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data = {};
-            snapshot.forEach(doc => { data[doc.id] = doc.data(); });
-            setBankData(data);
-        });
-        return () => unsubscribe();
-    }, [isAuthReady, db, isOffline, students, selectedAcademicYear]);
+      });
+      setBankData(data);
+    });
 
-    const updateBankBalance = useCallback(async (studentId, goldChange, silverChange, bronzeChange) => {
-        if (isOffline) {
-            setBankData(prev => {
-                const current = prev[studentId] || { gold: 0, silver: 0, bronze: 0 };
-                return {
-                    ...prev,
-                    [studentId]: {
-                        gold: Math.max(0, (current.gold || 0) + goldChange),
-                        silver: Math.max(0, (current.silver || 0) + silverChange),
-                        bronze: Math.max(0, (current.bronze || 0) + bronzeChange)
-                    }
-                };
-            });
-            return;
+    return () => unsubscribe();
+  }, [isAuthReady, db, isOffline, students, selectedAcademicYear]);
+
+  const updateBankBalance = useCallback(async (studentId, goldChange, silverChange, bronzeChange) => {
+    if (isOffline) {
+      setBankData(prev => {
+        const current = prev[studentId] || { gold: 0, silver: 0, bronze: 0 };
+        return {
+          ...prev,
+          [studentId]: {
+            gold: Math.max(0, (current.gold || 0) + goldChange),
+            silver: Math.max(0, (current.silver || 0) + silverChange),
+            bronze: Math.max(0, (current.bronze || 0) + bronzeChange)
+          }
+        };
+      });
+      return;
+    }
+
+    if (!db) return;
+    const docRef = doc(db, getBankCollectionPath(), studentId);
+    try {
+      const docSnap = await getDoc(docRef);
+      const raw = docSnap.exists() ? docSnap.data() : {};
+      const current = raw.years?.[selectedAcademicYear] || (selectedAcademicYear === '114' ? raw : {}) || { gold: 0, silver: 0, bronze: 0 };
+
+      const newYearData = {
+        gold: Math.max(0, (current.gold || 0) + goldChange),
+        silver: Math.max(0, (current.silver || 0) + silverChange),
+        bronze: Math.max(0, (current.bronze || 0) + bronzeChange),
+        updatedAt: serverTimestamp()
+      };
+
+      await setDoc(docRef, {
+        years: {
+          ...(raw.years || {}),
+          [selectedAcademicYear]: newYearData
         }
+      }, { merge: true });
+    } catch (e) {
+      console.error("Update bank balance failed:", e);
+    }
+  }, [db, isOffline, selectedAcademicYear]);
 
-        if (!db) return;
-        const docRef = doc(db, getBankCollectionPath(selectedAcademicYear), studentId);
-        try {
-            const docSnap = await getDoc(docRef);
-            let current = { gold: 0, silver: 0, bronze: 0 };
-            if (docSnap.exists()) current = docSnap.data();
+  const setBankBalancedDirectly = useCallback(async (studentId, type, value) => {
+    if (isOffline) {
+      setBankData(prev => ({
+        ...prev,
+        [studentId]: { ...prev[studentId], [type]: value }
+      }));
+      return;
+    }
 
-            await setDoc(docRef, {
-                gold: Math.max(0, (current.gold || 0) + goldChange),
-                silver: Math.max(0, (current.silver || 0) + silverChange),
-                bronze: Math.max(0, (current.bronze || 0) + bronzeChange),
-                updatedAt: serverTimestamp()
-            }, { merge: true });
-        } catch (e) {
-            console.error("Update bank balance failed:", e);
+    if (!db) return;
+    const docRef = doc(db, getBankCollectionPath(), studentId);
+    const docSnap = await getDoc(docRef);
+    const raw = docSnap.exists() ? docSnap.data() : {};
+    const current = raw.years?.[selectedAcademicYear] || (selectedAcademicYear === '114' ? raw : {}) || { gold: 0, silver: 0, bronze: 0 };
+
+    await setDoc(docRef, {
+      years: {
+        ...(raw.years || {}),
+        [selectedAcademicYear]: {
+          ...current,
+          [type]: value
         }
-    }, [db, isOffline]);
+      }
+    }, { merge: true });
+  }, [db, isOffline, selectedAcademicYear]);
 
-    const setBankBalanceDirectly = useCallback(async (studentId, type, value) => {
-        if (isOffline) {
-            setBankData(prev => ({
-                ...prev,
-                [studentId]: { ...prev[studentId], [type]: value }
-            }));
-            return;
-        }
-        if (!db) return;
-        const docRef = doc(db, getBankCollectionPath(selectedAcademicYear), studentId);
-        await setDoc(docRef, { [type]: value }, { merge: true });
-    }, [db, isOffline]);
-
-    return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData }; 
+  return { bankData, updateBankBalance, setBankBalancedDirectly, setBankData };
 };
-
 // --- [V20.0.43] 學生存簿介面 (修正：滾動時固定姓名欄) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
   const sortedStudents = useMemo(() => {
