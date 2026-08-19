@@ -53,7 +53,12 @@ const ItemTypes = { ASSIGNMENT: 'assignment' };
 
 const getAssignmentCollectionPath = () => `/artifacts/${appId}/public/data/assignments`;
 const getCategoryCollectionPath = () => `/artifacts/${appId}/public/data/categories`;
-const getBankCollectionPath = () => `/artifacts/${appId}/public/data/student_bank`;
+const getBankCollectionPath = (year = selectedAcademicYear) => {
+  if (year === '114') {
+    return `/artifacts/${appId}/public/data/student_bank`;
+  }
+  return `/artifacts/${appId}/public/data/student_bank_${year || '115'}`;
+};
 const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
 
 // --- 圖表元件 ---
@@ -455,7 +460,7 @@ const RewardOverlay = ({ type, onClose }) => {
     );
 };
 
-const useStudentBank = (db, isAuthReady, isOffline, students) => {
+const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYear = '115') => {
     const [bankData, setBankData] = useState({});
 
     useEffect(() => {
@@ -473,7 +478,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students) => {
             setBankData(data);
         });
         return () => unsubscribe();
-    }, [isAuthReady, db, isOffline, students]);
+    }, [isAuthReady, db, isOffline, students, selectedAcademicYear]);
 
     const updateBankBalance = useCallback(async (studentId, goldChange, silverChange, bronzeChange) => {
         if (isOffline) {
@@ -1171,7 +1176,7 @@ const [showBankModal, setShowBankModal] = useState(false);
   const [bcBiauKai, setBcBiauKai] = useState(false);
   
   const { students, loadingStudents } = useStudents(db, isOffline);
-  const { bankData, updateBankBalance, setBankBalanceDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students);
+  const { bankData, ... } = useStudentBank(db, isAuthReady, isOffline, students, selectedAcademicYear);
   const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
   const { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline, students);
   // --- [新增] 任務同步核心邏輯：抓取前一個上課日的航海日誌 ---
