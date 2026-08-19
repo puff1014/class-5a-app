@@ -279,8 +279,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
         const avgTrendScore = safeNumber(safeDiv(totalTrendPoints, totalItems));
         const overallScore = safeNumber((avgHealthScore + avgTrendScore) / 2).toFixed(1);
         
-        const isEmergency = maxDelayDays >= 3 || currentMissingCount >= 3;
-
+        const isEmergency = (selectedAcademicYear === '115' ? maxDelayDays >= 3 : false) || currentMissingCount >= 3;
         return { 
             healthData: healthChart, 
             trendData: trendChart, 
