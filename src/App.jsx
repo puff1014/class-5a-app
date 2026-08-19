@@ -751,7 +751,7 @@ const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
 };
 
 // --- [升級版] 全班未完成作業總表 (支援日期區間篩選) ---
-const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose }) => {
+const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, selectedAcademicYear }) => {
     const now = new Date();
     const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     const [startDate, setStartDate] = useState(firstDay);
@@ -1784,6 +1784,7 @@ const [showBankModal, setShowBankModal] = useState(false);
           students={students}
           allAssignmentsByDate={allAssignmentsByDate} 
           onClose={() => setShowAllMissingModal(false)} 
+          selectedAcademicYear={selectedAcademicYear}
         /> 
       )}
  
