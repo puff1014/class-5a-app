@@ -1176,7 +1176,7 @@ const [showBankModal, setShowBankModal] = useState(false);
   const [bcBiauKai, setBcBiauKai] = useState(false);
   
   const { students, loadingStudents } = useStudents(db, isOffline);
-  const { bankData, ... } = useStudentBank(db, isAuthReady, isOffline, students, selectedAcademicYear);
+  const { bankData, updateBankBalance, setBankBalancedDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students, selectedAcademicYear);
   const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
   const { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline, students);
   // --- [新增] 任務同步核心邏輯：抓取前一個上課日的航海日誌 ---
