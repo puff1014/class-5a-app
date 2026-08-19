@@ -555,7 +555,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
     }, { merge: true });
   }, [db, isOffline, selectedAcademicYear]);
 
-  return { bankData, updateBankBalance, setBankBalancedDirectly, setBankData };
+  return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData };
 };
 // --- [V20.0.43] 學生存簿介面 (修正：滾動時固定姓名欄) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
@@ -1204,7 +1204,7 @@ const [showBankModal, setShowBankModal] = useState(false);
   const [bcBiauKai, setBcBiauKai] = useState(false);
   
   const { students, loadingStudents } = useStudents(db, isOffline);
-  const { bankData, updateBankBalance, setBankBalancedDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students, selectedAcademicYear);
+  const { bankData, updateBankBalance, setBankBalanceDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students, selectedAcademicYear);
   const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
   const { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline, students);
   // --- [新增] 任務同步核心邏輯：抓取前一個上課日的航海日誌 ---
