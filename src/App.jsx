@@ -1236,12 +1236,6 @@ const [showBankModal, setShowBankModal] = useState(false);
     setSelectedDisplayDate(date);
     setLoading(false);
   }, [db, isOffline, getInitialSubmissionStatus]);
-
-  const { defaultSemester, defaultMonth } = useMemo(() => { const today = new Date(); const m = today.getMonth() + 1; const monthStr = String(m).padStart(2, '0'); let sem = 'S1'; if (m >= 2 && m <= 7) { sem = 'S2'; } return { defaultSemester: sem, defaultMonth: monthStr }; }, []);
-  const [selectedSemester, setSelectedSemester] = useState(defaultSemester); const [selectedMonth, setSelectedMonth] = useState(defaultMonth); const [unlockClicks, setUnlockClicks] = useState({});
-  // 當切換學年度或學期時，自動更新預設選中的月份
-  useEffect(() => {
-    if (selectedSemester === 'S1') {
 // --- 學年度與學期設定 (支援五年級與六年級切換) ---
   const ACADEMIC_YEARS = {
     '115': { label: '115 學年度 (六年級)', startYear: 2026, endYear: 2027 },
@@ -1258,7 +1252,9 @@ const [showBankModal, setShowBankModal] = useState(false);
     { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear },
     { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }
   ];
-
+  const [selectedSemester, setSelectedSemester] = useState('S1');
+  const [selectedMonth, setSelectedMonth] = useState('08');
+  const [unlockClicks, setUnlockClicks] = useState({});
   // 當切換學年度或學期時，自動更新預設選中的月份
   useEffect(() => {
     if (selectedSemester === 'S1') {
