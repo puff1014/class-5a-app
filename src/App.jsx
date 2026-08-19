@@ -693,7 +693,7 @@ const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
       <div className="fixed inset-0 bg-[#F0F8FF] flex items-center justify-center z-[10000]"> 
           <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100"> 
               <div className="text-center mb-8"> 
-                  <h1 className="text-4xl font-bold text-gray-800 mb-2 tracking-wide">五年甲班作業表</h1> 
+                  <h1 className="text-4xl font-bold text-gray-800 mb-2 tracking-wide">六年甲班作業表</h1> 
                   <p className="text-gray-400 text-xl font-medium">請選擇您的身分</p> 
               </div> 
               <div className="flex bg-gray-100 p-1 rounded-xl mb-6"> 
@@ -869,7 +869,7 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose })
             {/* --- [新版] 列印專用區：僅顯示勾選的作業並標註日期區間 --- */}
             <div className="hidden print:block w-full h-full bg-white text-black p-4">
                 <h1 className="text-4xl font-extrabold text-center mb-6 border-b-4 border-black pb-4">
-                    五年甲班 訂正作業待補單 ({startDate?.replace(/-/g, '/')} ~ {endDate?.replace(/-/g, '/')})
+                    六年甲班 訂正作業待補單 ({startDate?.replace(/-/g, '/')} ~ {endDate?.replace(/-/g, '/')})
                 </h1>
                 
                 <div className="flex flex-col gap-8">
@@ -1239,8 +1239,30 @@ const [showBankModal, setShowBankModal] = useState(false);
 
   const { defaultSemester, defaultMonth } = useMemo(() => { const today = new Date(); const m = today.getMonth() + 1; const monthStr = String(m).padStart(2, '0'); let sem = 'S1'; if (m >= 2 && m <= 7) { sem = 'S2'; } return { defaultSemester: sem, defaultMonth: monthStr }; }, []);
   const [selectedSemester, setSelectedSemester] = useState(defaultSemester); const [selectedMonth, setSelectedMonth] = useState(defaultMonth); const [unlockClicks, setUnlockClicks] = useState({});
-  const academicYear = "114"; const startYear = 2025; const endYear = 2026;
-  const semesters = [ { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear }, { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }, ];
+  // 當切換學年度或學期時，自動更新預設選中的月份
+  useEffect(() => {
+    if (selectedSemester === 'S1') {
+      setSelectedMonth(`${startYear}-08`);
+    } else {
+      setSelectedMonth(`${endYear}-02`);
+    }
+  }, [selectedAcademicYear, selectedSemester, startYear, endYear]);
+  // --- 學年度與學期設定 (支援五年級與六年級切換) ---
+  const ACADEMIC_YEARS = {
+    '115': { label: '115 學年度 (六年級)', startYear: 2026, endYear: 2027 },
+    '114': { label: '114 學年度 (五年級)', startYear: 2025, endYear: 2026 }
+  };
+
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState('115'); // 預設為最新的六年級
+  const academicYear = selectedAcademicYear;
+  const currentYearConfig = ACADEMIC_YEARS[selectedAcademicYear];
+  const startYear = currentYearConfig.startYear;
+  const endYear = currentYearConfig.endYear;
+
+  const semesters = [
+    { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear },
+    { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }
+  ];
   const months = useMemo(() => [ { id: '08', name: `8月`, color: 'bg-green-500', semester: 'S1' }, { id: '09', name: `9月`, color: 'bg-teal-500', semester: 'S1' }, { id: '10', name: `10月`, color: 'bg-cyan-500', semester: 'S1' }, { id: '11', name: `11月`, color: 'bg-blue-500', semester: 'S1' }, { id: '12', name: `12月`, color: 'bg-indigo-500', semester: 'S1' }, { id: '01', name: `1月`, color: 'bg-purple-500', semester: 'S1' }, { id: '02', name: `2月`, color: 'bg-pink-500', semester: 'S2' }, { id: '03', name: `3月`, color: 'bg-rose-500', semester: 'S2' }, { id: '04', name: `4月`, color: 'bg-red-500', semester: 'S2' }, { id: '05', name: `5月`, color: 'bg-orange-500', semester: 'S2' }, { id: '06', name: `6月`, color: 'bg-amber-500', semester: 'S2' }, { id: '07', name: `7月`, color: 'bg-yellow-500', semester: 'S2' }, ], []);
 
   useEffect(() => { const timer = setTimeout(() => { if (loading) setAuthTimeout(true); }, 3000); if (!firebaseConfig) { console.error("Firebase configuration is missing."); setError("無法載入 Firebase 設定。請檢查環境配置。"); setLoading(false); return; } try { const app = initializeApp(firebaseConfig); const firestore = getFirestore(app); const firebaseAuth = getAuth(app); setDb(firestore); setAuth(firebaseAuth); const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => { if (user) { setUserId(user.uid); setIsAuthReady(true); setIsAuthenticated(true); if (user.isAnonymous) { setAuthMode('GUEST'); } else { setAuthMode('ADMIN'); } } else { setIsAuthenticated(false); setAuthMode('GUEST'); } setLoadingLogin(false); }); return () => { unsubscribe(); clearTimeout(timer); }; } catch (e) { console.error("Firebase initialization failed:", e); setError("初始化失敗：" + e.message); setLoading(false); } }, []);
@@ -1740,7 +1762,7 @@ const [showBankModal, setShowBankModal] = useState(false);
           <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20" title="登出系統"> <LogOut className="w-5 h-5" /> 登出 {authMode === 'ADMIN' ? '(老師)' : '(訪客)'} </button>
  
          {/* 🐻‍❄️ 熊貓標題 */}
-         <div className={`flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2 ${isOffline ? 'mt-8' : ''}`}><span className="text-orange-500 text-6xl mr-3">🐻‍❄️</span><span className="text-5xl">五年甲班訂正作業表</span><span className="text-green-600 text-6xl ml-3">🐼</span></div>
+         <div className={`flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2 ${isOffline ? 'mt-8' : ''}`}><span className="text-orange-500 text-6xl mr-3">🐻‍❄️</span><span className="text-5xl">六年甲班訂正作業表</span><span className="text-green-600 text-6xl ml-3">🐼</span></div>
          <p className="text-3xl text-gray-600 mb-4"> {new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'long' })}</p>
          <p className={`absolute right-4 text-xl text-gray-500 font-bold z-30 transition-all ${authMode === 'ADMIN' ? 'top-20' : 'top-4'}`}> 版本: {VERSION}</p>
        </header>
@@ -1748,8 +1770,31 @@ const [showBankModal, setShowBankModal] = useState(false);
        
        <div className="flex-1 overflow-x-hidden bg-gray-50 p-4 relative flex flex-col">
            <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl">
-               <label className="font-semibold text-gray-700">學期：</label>
-               <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading}>{semesters.map((s) => ( <option key={s.id} value={s.id}>{s.name}</option>))}</select>
+               <label className="font-semibold text-gray-700">學年：</label>
+          <select 
+            value={selectedAcademicYear} 
+            onChange={(e) => setSelectedAcademicYear(e.target.value)} 
+            className="p-3 border border-gray-300 rounded-lg font-semibold bg-white shadow-sm" 
+            disabled={isGlobalLoading}
+          >
+            {Object.keys(ACADEMIC_YEARS).map((yearKey) => (
+              <option key={yearKey} value={yearKey}>
+                {ACADEMIC_YEARS[yearKey].label}
+              </option>
+            ))}
+          </select>
+
+          <label className="font-semibold text-gray-700 ml-2">學期：</label>
+          <select 
+            value={selectedSemester} 
+            onChange={(e) => setSelectedSemester(e.target.value)} 
+            className="p-3 border border-gray-300 rounded-lg font-semibold bg-white shadow-sm" 
+            disabled={isGlobalLoading}
+          >
+            {semesters.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
                <label className="font-semibold text-gray-700">月份：</label>
                <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading} style={{ backgroundColor: months.find((m) => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
                
