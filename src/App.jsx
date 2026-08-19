@@ -1162,6 +1162,7 @@ const App = () => {
   const [focusedStudentId, setFocusedStudentId] = useState(null);
 const [showBankModal, setShowBankModal] = useState(false);
   const [rewardState, setRewardState] = useState(null);
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState('115');
   const [dashboardStudent, setDashboardStudent] = useState(null);
   const [syncData, setSyncData] = useState(null); // [新增] 用於存放待同步的日誌任務數據
   // 新增：全域廣播相關狀態
@@ -1246,7 +1247,6 @@ const [showBankModal, setShowBankModal] = useState(false);
     '114': { label: '114 學年度 (五年級)', startYear: 2025, endYear: 2026 }
   };
 
-  const [selectedAcademicYear, setSelectedAcademicYear] = useState('115');
   const academicYear = selectedAcademicYear;
   const currentYearConfig = ACADEMIC_YEARS[selectedAcademicYear] || ACADEMIC_YEARS['115'];
   const startYear = currentYearConfig.startYear;
