@@ -57,7 +57,7 @@ const getBankCollectionPath = (year) => {
   if (year === '114') {
     return `/artifacts/${appId}/public/data/student_bank`;
   }
-  return `/artifacts/${appId}/public/data/student_bank_${year || '115'}`;
+  return `/artifacts/${appId}/public/data/student_bank/years/${year || '115'}`;
 };
 const getDailySettlementPath = () => `/artifacts/${appId}/public/data/daily_settlements`;
 
