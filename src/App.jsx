@@ -1829,13 +1829,13 @@ const [showBankModal, setShowBankModal] = useState(false);
                <label className="font-semibold text-gray-700">月份：</label>
                <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading} style={{ backgroundColor: months.find((m) => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
                
-               <div className="flex items-center gap-3">
-                   <button onClick={() => setShowBankModal(true)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md flex items-center justify-center" disabled={isGlobalLoading}> <BookOpen className="h-6 w-6 mr-2" />訂正存簿 </button>
+               <div className="inline-flex items-center gap-2 ml-auto">
+                   <button onClick={() => setShowBankModal(true)} className="px-3 py-2 text-base font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md flex items-center justify-center" disabled={isGlobalLoading}> <BookOpen className="h-6 w-6 mr-2" />訂正存簿 </button>
                    {authMode === 'ADMIN' && (
                        <>
                            <button 
                                onClick={handleBatchSettlement} 
-                               className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-500 hover:bg-gray-600' : 'bg-indigo-600 hover:bg-indigo-700'}`} 
+                               className={`px-3 py-2 text-base font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-500 hover:bg-gray-600' : 'bg-indigo-600 hover:bg-indigo-700'}`} 
                                disabled={isGlobalLoading}
                                title={dailySettlements[selectedDisplayDate]?.isSettled ? "點擊以補發給新完成的學生" : "結算並發放銀幣給全對學生"}
                            > 
@@ -1843,7 +1843,7 @@ const [showBankModal, setShowBankModal] = useState(false);
                            </button>
                 <button 
                   onClick={() => setShowBroadcastEditor(true)} 
-                  className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-purple-700 hover:bg-purple-800 transition duration-150 shadow-md flex items-center justify-center" 
+                  className="px-3 py-2 text-base font-medium rounded-lg text-white bg-purple-700 hover:bg-purple-800 transition duration-150 shadow-md flex items-center justify-center" 
                   disabled={isGlobalLoading}
                 > 
                   <Megaphone className="h-6 w-6 mr-2" />全域廣播 
