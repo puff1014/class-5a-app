@@ -1800,58 +1800,73 @@ const [showBankModal, setShowBankModal] = useState(false);
        {alertMessage && ( <CustomAlert message={alertMessage} onClose={() => setAlertMessage(null)} /> )}
        
        <div className="flex-1 overflow-x-hidden bg-gray-50 p-4 relative flex flex-col">
-           <div className="flex flex-wrap items-center gap-6 mb-6 text-3xl">
-               <label className="font-semibold text-gray-700">學年：</label>
-          <select 
-            value={selectedAcademicYear} 
-            onChange={(e) => setSelectedAcademicYear(e.target.value)} 
-            className="p-3 border border-gray-300 rounded-lg font-semibold bg-white shadow-sm" 
-            disabled={isGlobalLoading}
-          >
-            {Object.keys(ACADEMIC_YEARS).map((yearKey) => (
-              <option key={yearKey} value={yearKey}>
-                {ACADEMIC_YEARS[yearKey].label}
-              </option>
-            ))}
-          </select>
+           <div className="flex items-center justify-between gap-2 mb-4 w-full flex-nowrap overflow-x-auto py-1">
+          <div className="flex items-center gap-2 flex-nowrap shrink-0">
+            <label className="font-bold text-gray-700 whitespace-nowrap text-xl">學年：</label>
+            <select
+              value={selectedAcademicYear}
+              onChange={(e) => setSelectedAcademicYear(e.target.value)}
+              className="py-1.5 px-2 text-xl font-bold border border-gray-300 rounded-lg bg-white shadow-sm"
+              disabled={isGlobalLoading}
+            >
+              {Object.keys(ACADEMIC_YEARS).map((yearKey) => (
+                <option key={yearKey} value={yearKey}>
+                  {ACADEMIC_YEARS[yearKey].label}
+                </option>
+              ))}
+            </select>
 
-          <label className="font-semibold text-gray-700 ml-2">學期：</label>
-          <select 
-            value={selectedSemester} 
-            onChange={(e) => setSelectedSemester(e.target.value)} 
-            className="p-3 border border-gray-300 rounded-lg font-semibold bg-white shadow-sm" 
-            disabled={isGlobalLoading}
-          >
-            {semesters.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-               <label className="font-semibold text-gray-700">月份：</label>
-               <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-3 border border-gray-300 rounded-lg font-semibold" disabled={isGlobalLoading} style={{ backgroundColor: months.find((m) => m.id === selectedMonth)?.color || 'white' }}>{filteredMonths.map((m) => ( <option key={m.id} value={m.id} style={{ backgroundColor: m.color }}>{m.name}</option>))}</select>
-               
-               <div className="inline-flex items-center gap-2 ml-auto">
-                   <button onClick={() => setShowBankModal(true)} className="px-4 py-2.5 text-xl font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md flex items-center justify-center" disabled={isGlobalLoading}> <BookOpen className="h-6 w-6 mr-2" />訂正存簿 </button>
-                   {authMode === 'ADMIN' && (
-                       <>
-                           <button 
-                               onClick={handleBatchSettlement} 
-                               className={`px-4 py-2.5 text-xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-500 hover:bg-gray-600' : 'bg-indigo-600 hover:bg-indigo-700'}`} 
-                               disabled={isGlobalLoading}
-                               title={dailySettlements[selectedDisplayDate]?.isSettled ? "點擊以補發給新完成的學生" : "結算並發放銀幣給全對學生"}
-                           > 
-                               {dailySettlements[selectedDisplayDate]?.isSettled ? <><Lock className="h-6 w-6 mr-2" />已發布(可補發)</> : <><Megaphone className="h-6 w-6 mr-2" />結算發布</>}
-                           </button>
-                <button 
-                  onClick={() => setShowBroadcastEditor(true)} 
-                  className="px-4 py-2.5 text-xl font-medium rounded-lg text-white bg-purple-700 hover:bg-purple-800 transition duration-150 shadow-md flex items-center justify-center" 
+            <label className="font-bold text-gray-700 whitespace-nowrap text-xl ml-2">學期：</label>
+            <select
+              value={selectedSemester}
+              onChange={(e) => setSelectedSemester(e.target.value)}
+              className="py-1.5 px-2 text-xl font-bold border border-gray-300 rounded-lg bg-white shadow-sm"
+              disabled={isGlobalLoading}
+            >
+              {semesters.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+
+            <label className="font-bold text-gray-700 whitespace-nowrap text-xl ml-2">月份：</label>
+            <select 
+              value={selectedMonth} 
+              onChange={(e) => setSelectedMonth(e.target.value)} 
+              className="py-1.5 px-2 text-xl font-bold border border-gray-300 rounded-lg shadow-sm" 
+              disabled={isGlobalLoading} 
+              style={{ backgroundColor: months.find((m) => m.id === selectedMonth)?.color || 'white' }}
+            >
+              {filteredMonths.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="inline-flex items-center gap-2 flex-nowrap shrink-0 ml-auto">
+            <button onClick={() => setShowBankModal(true)} className="px-4 py-2 text-2xl font-bold rounded-lg text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md flex items-center justify-center whitespace-nowrap" disabled={isGlobalLoading}>
+              <BookOpen className="h-6 w-6 mr-1.5" />訂正存簿
+            </button>
+            {authMode === 'ADMIN' && (
+              <>
+                <button
+                  onClick={handleBatchSettlement}
+                  className={`px-4 py-2 text-2xl font-bold rounded-lg text-white transition duration-150 shadow-md flex items-center justify-center whitespace-nowrap ${dailySettlements[selectedDisplayDate]?.isSettled ? 'bg-gray-500 hover:bg-gray-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
                   disabled={isGlobalLoading}
-                > 
-                  <Megaphone className="h-6 w-6 mr-2" />全域廣播 
+                  title={dailySettlements[selectedDisplayDate]?.isSettled ? "點擊以補發給新完成的學生" : "結算並發放銀幣給全對學生"}
+                >
+                  {dailySettlements[selectedDisplayDate]?.isSettled ? <><Lock className="h-6 w-6 mr-1.5" />已發布(可補發)</> : <><Megaphone className="h-6 w-6 mr-1.5" />結算發布</>}
                 </button>
-                       </>
-                   )}
-               </div>
-           </div>
+                <button
+                  onClick={() => setShowBroadcastEditor(true)}
+                  className="px-4 py-2 text-2xl font-bold rounded-lg text-white bg-purple-700 hover:bg-purple-800 transition duration-150 shadow-md flex items-center justify-center whitespace-nowrap"
+                  disabled={isGlobalLoading}
+                >
+                  <Megaphone className="h-6 w-6 mr-1.5" />全域廣播
+                </button>
+              </>
+            )}
+          </div>
+        </div>
            
            <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto pb-2 shrink-0">
                {displayedDates.map(date => ( <DateTab key={date} date={date} isSelected={date === selectedDisplayDate} onClick={setSelectedDisplayDate} onEdit={() => handleEditCurrentDate(date)} authMode={authMode} /> ))}
