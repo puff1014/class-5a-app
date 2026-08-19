@@ -555,7 +555,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
     }, { merge: true });
   }, [db, isOffline, selectedAcademicYear]);
 
-  return { bankData, updateBankBalance, setBankBalanceDirectly, setBankData };
+  return { bankData, updateBankBalance, setBankBalancedDirectly, setBankData };
 };
 // --- [V20.0.43] 學生存簿介面 (修正：滾動時固定姓名欄) ---
 const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
@@ -572,17 +572,17 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
 
   const handleInputChange = (studentId, type, value) => {
     if (authMode !== 'ADMIN') return;
-    if (value === '') { setBankBalanceDirectly(studentId, type, 0); return; }
+    if (value === '') { setBankBalancedDirectly(studentId, type, 0); return; }
     const numVal = parseInt(value, 10);
-    if (!isNaN(numVal) && numVal >= 0) { setBankBalanceDirectly(studentId, type, numVal); }
+    if (!isNaN(numVal) && numVal >= 0) { setBankBalancedDirectly(studentId, type, numVal); }
   };
 
   const handleResetAll = async (studentId) => {
       if (authMode !== 'ADMIN') return;
       if (!window.confirm(`確定要將學生 ${studentId} 的【所有資產】歸零嗎？`)) return;
-      setBankBalanceDirectly(studentId, 'gold', 0);
-      setBankBalanceDirectly(studentId, 'silver', 0);
-      setBankBalanceDirectly(studentId, 'bronze', 0);
+      setBankBalancedDirectly(studentId, 'gold', 0);
+      setBankBalancedDirectly(studentId, 'silver', 0);
+      setBankBalancedDirectly(studentId, 'bronze', 0);
   };
 
   const handleExchange = (studentId, type) => {
@@ -601,9 +601,9 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDi
       if(!window.confirm("⚠️ 危險操作：確定要將「全班所有人的錢」全部歸零嗎？\n此操作無法復原！")) return;
       if(!window.confirm("再次確認：您真的要歸零全班嗎？")) return;
       students.forEach(s => {
-          setBankBalanceDirectly(s.id, 'gold', 0);
-          setBankBalanceDirectly(s.id, 'silver', 0);
-          setBankBalanceDirectly(s.id, 'bronze', 0);
+          setBankBalancedDirectly(s.id, 'gold', 0);
+          setBankBalancedDirectly(s.id, 'silver', 0);
+          setBankBalancedDirectly(s.id, 'bronze', 0);
       });
   };
 
@@ -1204,7 +1204,7 @@ const [showBankModal, setShowBankModal] = useState(false);
   const [bcBiauKai, setBcBiauKai] = useState(false);
   
   const { students, loadingStudents } = useStudents(db, isOffline);
-  const { bankData, updateBankBalance, setBankBalanceDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students, selectedAcademicYear);
+  const { bankData, updateBankBalance, setBankBalancedDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students, selectedAcademicYear);
   const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
   const { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline, students);
   // --- [新增] 任務同步核心邏輯：抓取前一個上課日的航海日誌 ---
