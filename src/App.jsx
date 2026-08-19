@@ -558,7 +558,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
   return { bankData, updateBankBalance, setBankBalancedDirectly, setBankData };
 };
 // --- [V20.0.43] 學生存簿介面 (修正：滾動時固定姓名欄) ---
-const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalanceDirectly, authMode, students }) => {
+const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedDirectly, authMode, students }) => {
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) => { 
         const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
@@ -1763,7 +1763,7 @@ const [showBankModal, setShowBankModal] = useState(false);
      {rewardState && ( <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} /> )}
      
      {/* --- [彈窗層] 各式功能視窗 --- */}
-     {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalanceDirectly={setBankBalanceDirectly} authMode={authMode} students={students} /> )}
+     {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalancedDirectly={setBankBalancedDirectly} authMode={authMode} students={students} /> )}
      {dashboardStudent && ( <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={() => setDashboardStudent(null)} /> )}
      {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
      
