@@ -2145,9 +2145,9 @@ const [showBankModal, setShowBankModal] = useState(false);
                    onChange={e => setBroadcastInput(e.target.value)} 
                    style={{ 
                      fontSize: `${Math.min(bcFontSize, 60)}px`,
-                     fontFamily: bcBiauKai ? '"BiauKai", "DFKai-SB", "標楷體", serif' : 'inherit' 
+                     fontFamily: bcBiauKai ? '"DFKai-SB", "BiauKai", "標楷體", "Kaiti TC", "KaiTi", serif' : 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
                    }}
-                   className={`w-full min-h-[260px] p-6 md:p-8 border-4 border-slate-200 rounded-[2rem] font-black focus:outline-none focus:border-sky-400 transition-colors shadow-inner ${bcBgColor} ${bcTextColor} ${bcAlign}`} 
+                   className={`w-full min-h-[260px] p-6 md:p-8 border-4 border-slate-200 rounded-[2rem] font-black focus:outline-none focus:border-sky-400 transition-all shadow-inner ${bcBgColor} ${bcTextColor} ${bcAlign}`} 
                    placeholder="請輸入要廣播給全班的任務或提醒..."
                  />
                </div>
