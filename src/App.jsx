@@ -1794,7 +1794,7 @@ const [showBankModal, setShowBankModal] = useState(false);
           <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20" title="登出系統"> <LogOut className="w-5 h-5" /> 登出 {authMode === 'ADMIN' ? '(老師)' : '(訪客)'} </button>
  
          {/* 🐻‍❄️ 熊貓標題 */}
-         <div className={`flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2 ${isOffline ? 'mt-8' : ''}`}><span className="text-6xl mr-3">🐼</span><span className="text-5xl">{selectedAcademicYear.includes('114') ? '五年甲班' : '六年甲班'}</span><span className="text-6xl ml-3">🐻‍❄️</span></div>
+         <div className={`flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2 ${isOffline ? 'mt-8' : ''}`}><span className="text-6xl mr-3">🐼</span><span className="text-5xl">{selectedAcademicYear.includes('114') ? '五年甲班訂正作業表' : '六年甲班訂正作業表'}</span><span className="text-6xl ml-3">🐻‍❄️</span></div>
          <p className="text-3xl text-gray-600 mb-4"> {new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'long' })}</p>
          <p className={`absolute right-4 text-xl text-gray-500 font-bold z-30 transition-all ${authMode === 'ADMIN' ? 'top-20' : 'top-4'}`}> 版本: {VERSION}</p>
        </header>
