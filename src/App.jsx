@@ -1211,40 +1211,41 @@ const [showBankModal, setShowBankModal] = useState(false);
   const syncFromVoyageLog = useCallback(async (targetDate) => {
     if (!db || isOffline) return null;
     try {
-      // 1. 優先抓取小於等於 targetDate 的最新一筆日誌
-      let q = query(
-        collection(db, "announcements"),
-        where("date", "<=", targetDate),
-        orderBy("date", "desc"),
-        limit(1)
-      );
-      let snap = await getDocs(q);
-
-      // 2. 如果沒抓到，直接抓全資料庫最新的一筆紀錄 (如 8/28)
-      if (snap.empty) {
-        q = query(
-          collection(db, "announcements"),
-          orderBy("date", "desc"),
-          limit(1)
-        );
-        snap = await getDocs(q);
-      }
-
+      // 讀取所有日誌文件，前端精準比對
+      const q = query(collection(db, "announcements"));
+      const snap = await getDocs(q);
       if (snap.empty) return null;
 
-      const docSnap = snap.docs[0];
-      const logData = docSnap.data();
-      const rawItems = logData.items || [];
-      const actualDate = logData.date || docSnap.id;
+      // 解析所有日誌，統一取得日期
+      const allLogs = snap.docs.map(d => {
+        const data = d.data();
+        const dateStr = data.date || d.id;
+        return {
+          id: d.id,
+          date: dateStr,
+          rawItems: data.items || []
+        };
+      });
 
-      const candidates = rawItems
+      // 1. 優先找出「小於或等於目標日期」的日誌，並由新到舊排序
+      let matchedLogs = allLogs
+        .filter(log => log.date <= targetDate)
+        .sort((a, b) => b.date.localeCompare(a.date));
+
+      // 2. 如果目標日期前沒有紀錄，直接取全資料庫最新的一筆
+      let chosenLog = matchedLogs.length > 0 ? matchedLogs[0] : allLogs.sort((a, b) => b.date.localeCompare(a.date))[0];
+
+      if (!chosenLog) return null;
+
+      // 過濾註解與空白
+      const candidates = chosenLog.rawItems
         .map(item => typeof item === 'string' ? item : (item.text || ""))
         .filter(text => {
           const t = text.trim();
           return t !== "" && !t.startsWith('※') && !t.startsWith(' ') && !t.includes('新航程開始');
         });
 
-      return candidates.length > 0 ? { date: actualDate, candidates } : null;
+      return candidates.length > 0 ? { date: chosenLog.date, candidates } : null;
     } catch (e) {
       console.error("同步失敗:", e);
       return null;
