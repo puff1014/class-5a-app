@@ -1211,47 +1211,46 @@ const [showBankModal, setShowBankModal] = useState(false);
   const syncFromVoyageLog = useCallback(async (targetDate) => {
     if (!db || isOffline) return null;
     try {
-      // 讀取所有日誌文件，前端精準比對
-      const q = query(collection(db, "announcements"));
-      const snap = await getDocs(q);
+      // 根據當前選取的學年度切換 Firestore 集合 (114 -> announcements, 115 -> 115_announcements)
+      const prefix = selectedAcademicYear?.includes('114') ? '' : '115_';
+      const colName = `${prefix}announcements`;
+
+      // 1. 讀取該學年度的所有日誌
+      const snap = await getDocs(collection(db, colName));
       if (snap.empty) return null;
 
-      // 解析所有日誌，統一取得日期
+      // 2. 解析並取得所有日誌日期
       const allLogs = snap.docs.map(d => {
         const data = d.data();
         const dateStr = data.date || d.id;
         return {
           id: d.id,
-          date: dateStr,
+          date: String(dateStr).replace(/\//g, "-"),
           rawItems: data.items || []
         };
       });
 
-      // 1. 優先找出「小於或等於目標日期」的日誌，並由新到舊排序
-      let matchedLogs = allLogs
-        .filter(log => log.date <= targetDate)
-        .sort((a, b) => b.date.localeCompare(a.date));
+      // 3. 依日期由新到舊排序
+      allLogs.sort((a, b) => b.date.localeCompare(a.date));
 
-      // 2. 如果目標日期前沒有紀錄，直接取全資料庫最新的一筆
-      let chosenLog = matchedLogs.length > 0 ? matchedLogs[0] : allLogs.sort((a, b) => b.date.localeCompare(a.date))[0];
+      // 4. 優先找出小於等於目標日期的日誌，沒有就取全資料庫最新一筆
+      const formattedTarget = String(targetDate).replace(/\//g, "-");
+      let chosenLog = allLogs.find(log => log.date <= formattedTarget) || allLogs[0];
 
       if (!chosenLog) return null;
 
-      // 過濾註解與空白
+      // 5. 解析並過濾任務項目
       const candidates = chosenLog.rawItems
         .map(item => typeof item === 'string' ? item : (item.text || ""))
-        .filter(text => {
-          const t = text.trim();
-          return t !== "" && !t.startsWith('※') && !t.startsWith(' ') && !t.includes('新航程開始');
-        });
+        .map(t => t.trim())
+        .filter(t => t !== "" && !t.startsWith('※') && !t.startsWith(' ') && !t.includes('新航程開始'));
 
       return candidates.length > 0 ? { date: chosenLog.date, candidates } : null;
     } catch (e) {
       console.error("同步失敗:", e);
       return null;
     }
-  }, [db, isOffline]);
-
+  }, [db, isOffline, selectedAcademicYear]);
   // --- [新增] 執行寫入作業的通用邏輯 ---
   const executeCreateAssignments = useCallback(async (date, assignmentNames) => {
     setLoading(true);
