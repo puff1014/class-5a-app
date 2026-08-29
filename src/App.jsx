@@ -1233,9 +1233,14 @@ const [showBankModal, setShowBankModal] = useState(false);
       // 3. 依日期由新到舊排序
       allLogs.sort((a, b) => b.date.localeCompare(a.date));
 
-      // 4. 優先找出小於等於目標日期的日誌，沒有就取全資料庫最新一筆
+      // 4. 關鍵修正：必須抓「小於（<）」目標日期的前一日誌 (8/31 會抓 8/28)
       const formattedTarget = String(targetDate).replace(/\//g, "-");
-      let chosenLog = allLogs.find(log => log.date <= formattedTarget) || allLogs[0];
+      let chosenLog = allLogs.find(log => log.date < formattedTarget);
+
+      // 如果是開學第一天前面完全沒有舊日誌，才預設抓最新的一筆
+      if (!chosenLog) {
+        chosenLog = allLogs[0];
+      }
 
       if (!chosenLog) return null;
 
