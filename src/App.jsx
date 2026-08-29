@@ -1211,26 +1211,40 @@ const [showBankModal, setShowBankModal] = useState(false);
   const syncFromVoyageLog = useCallback(async (targetDate) => {
     if (!db || isOffline) return null;
     try {
-      const q = query(
+      // 1. 優先抓取小於等於 targetDate 的最新一筆日誌
+      let q = query(
         collection(db, "announcements"),
-        where("date", "<", targetDate),
+        where("date", "<=", targetDate),
         orderBy("date", "desc"),
         limit(1)
       );
-      const snap = await getDocs(q);
+      let snap = await getDocs(q);
+
+      // 2. 如果沒抓到，直接抓全資料庫最新的一筆紀錄 (如 8/28)
+      if (snap.empty) {
+        q = query(
+          collection(db, "announcements"),
+          orderBy("date", "desc"),
+          limit(1)
+        );
+        snap = await getDocs(q);
+      }
+
       if (snap.empty) return null;
 
-      const logData = snap.docs[0].data();
+      const docSnap = snap.docs[0];
+      const logData = docSnap.data();
       const rawItems = logData.items || [];
+      const actualDate = logData.date || docSnap.id;
 
       const candidates = rawItems
         .map(item => typeof item === 'string' ? item : (item.text || ""))
         .filter(text => {
           const t = text.trim();
-          return t !== "" && !t.startsWith('※') && !t.startsWith(' ');
+          return t !== "" && !t.startsWith('※') && !t.startsWith(' ') && !t.includes('新航程開始');
         });
 
-      return candidates.length > 0 ? { date: snap.docs[0].id, candidates } : null;
+      return candidates.length > 0 ? { date: actualDate, candidates } : null;
     } catch (e) {
       console.error("同步失敗:", e);
       return null;
