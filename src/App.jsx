@@ -1302,12 +1302,22 @@ const [showBankModal, setShowBankModal] = useState(false);
     { id: 'S1', name: `上學期 (${startYear}/8 - ${endYear}/1)`, startMonth: '08', endMonth: '01', startYear: startYear, endYear: endYear },
     { id: 'S2', name: `下學期 (${endYear}/2 - ${endYear}/7)`, startMonth: '02', endMonth: '07', startYear: endYear, endYear: endYear }
   ];
-  const [selectedSemester, setSelectedSemester] = useState('S1');
-  const [selectedMonth, setSelectedMonth] = useState('08');
+  // 動態取得當前真實月份與學期
+  const curM = new Date().getMonth() + 1;
+  const initSemester = (curM >= 2 && curM <= 7) ? 'S2' : 'S1';
+  const initMonth = String(curM).padStart(2, '0');
+
+  const [selectedSemester, setSelectedSemester] = useState(initSemester);
+  const [selectedMonth, setSelectedMonth] = useState(initMonth);
   const [unlockClicks, setUnlockClicks] = useState({});
-  // 當切換學年度或學期時，自動更新預設選中的月份
+
+  // 當切換學年度或學期時，若是當前學期則停在當月，否則設為該學期起始月
   useEffect(() => {
-    if (selectedSemester === 'S1') {
+    const realM = new Date().getMonth() + 1;
+    const realSem = (realM >= 2 && realM <= 7) ? 'S2' : 'S1';
+    if (selectedSemester === realSem) {
+      setSelectedMonth(String(realM).padStart(2, '0'));
+    } else if (selectedSemester === 'S1') {
       setSelectedMonth('08');
     } else {
       setSelectedMonth('02');
@@ -1344,18 +1354,34 @@ const [showBankModal, setShowBankModal] = useState(false);
   const availableDates = useMemo(() => { return Object.keys(allAssignmentsByDate).sort(); }, [allAssignmentsByDate]);
   const displayedDates = useMemo(() => { const dates = Object.keys(allAssignmentsByDate).sort(); const filteredByMonth = dates.filter(date => { const dateMonth = date.substring(5, 7); return dateMonth === selectedMonth; }).sort(); return filteredByMonth; }, [allAssignmentsByDate, selectedMonth]);
   
-  useEffect(() => { 
-      const currentSelectedMonth = selectedDisplayDate.substring(5, 7);
-      if (currentSelectedMonth !== selectedMonth) {
-          if (displayedDates.length > 0) { 
-              setSelectedDisplayDate(displayedDates[displayedDates.length - 1]); 
-          } else { 
-              const currentSem = semesters.find(s => s.id === selectedSemester);
-              const year = (selectedMonth >= '08') ? currentSem?.startYear : currentSem?.endYear;
-              if (year) setSelectedDisplayDate(`${year}-${selectedMonth.padStart(2, '0')}-01`);
-          } 
+  useEffect(() => {
+    const currentSelectedMonth = selectedDisplayDate.substring(5, 7);
+    if (currentSelectedMonth !== selectedMonth) {
+      if (displayedDates.length > 0) {
+        // 取得今天的年月日字串 (例如 "2026-09-11")
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+        // 1. 如果「今天」就在當月的清單中，直接停在今天
+        if (displayedDates.includes(todayStr)) {
+          setSelectedDisplayDate(todayStr);
+        } else {
+          // 2. 找小於等於今天的最近一天 (以前的上課日)
+          const pastOrToday = displayedDates.filter(d => d <= todayStr);
+          if (pastOrToday.length > 0) {
+            setSelectedDisplayDate(pastOrToday[pastOrToday.length - 1]);
+          } else {
+            // 3. 若都是未來的日期，停在當月的第一個日期
+            setSelectedDisplayDate(displayedDates[0]);
+          }
+        }
+      } else {
+        const currentSem = semesters.find(s => s.id === selectedSemester);
+        const year = (selectedMonth >= '08') ? currentSem?.startYear : currentSem?.endYear;
+        if (year) setSelectedDisplayDate(`${year}-${selectedMonth.padStart(2, '0')}-01`);
       }
-  }, [displayedDates, selectedMonth, semesters, selectedSemester]); 
+    }
+  }, [displayedDates, selectedMonth, semesters, selectedSemester, selectedDisplayDate]);
 
   const studentMissingStats = useMemo(() => {
     const stats = students.map(student => ({ 
