@@ -751,13 +751,12 @@ const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
 };
 
 // --- [升級版] 全班未完成作業總表 (支援日期區間篩選) ---
+// --- [升級版] 全班未完成作業總表 (支援日期區間篩選與安全列印) ---
 const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, selectedAcademicYear }) => {
     const now = new Date();
     const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     const [startDate, setStartDate] = useState(firstDay);
     const [endDate, setEndDate] = useState(getTodayDate());
-
-    // --- [核心新增] 用於存放「要列印的作業鍵值」 ---
     const [selectedItemKeys, setSelectedItemKeys] = useState(new Set());
 
     // 1. 先計算出日期區間內所有缺交的資料
@@ -780,19 +779,17 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
         return stats.filter(s => s.missingCount > 0).sort((a, b) => b.missingCount - a.missingCount);
     }, [allAssignmentsByDate, students, startDate, endDate]);
 
-    // 2. 當日期區間改變時，預設「全選」所有抓到的作業
+    // 2. 當日期區間改變時，預設全選
     useEffect(() => {
         const newKeys = new Set();
         allMissingData.forEach(s => {
             s.missingDetails.forEach(d => {
-                // 唯一鍵值：學生ID-日期-作業名稱
                 newKeys.add(`${s.id}-${d.date}-${d.assignment}`);
             });
         });
         setSelectedItemKeys(newKeys);
     }, [allMissingData]);
 
-    // 3. 切換勾選狀態的工具 (點一下就踢掉，再點一下就補回)
     const toggleItem = (key) => {
         const next = new Set(selectedItemKeys);
         if (next.has(key)) next.delete(key);
@@ -801,8 +798,10 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
     };
 
     const handlePrint = () => { window.print(); };
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0 print:z-[20000]">
+            {/* 螢幕畫面區 (列印時隱藏) */}
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-6xl h-[90vh] flex flex-col border border-gray-200 print:hidden">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
                     <div className="flex flex-col gap-1">
@@ -821,7 +820,6 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                     </div>
                 </div>
 
-                {/* 日期篩選工具列 */}
                 <div className="bg-blue-50 p-4 rounded-xl mb-6 flex items-center gap-6 border border-blue-100">
                     <div className="flex items-center gap-3">
                         <label className="text-2xl font-black text-blue-800">從：</label>
@@ -831,7 +829,7 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                         <label className="text-2xl font-black text-blue-800">到：</label>
                         <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="p-2 text-2xl border-2 border-blue-200 rounded-lg font-bold focus:ring-blue-500 outline-none" />
                     </div>
-                    <button onClick={() => { setStartDate(''); setEndDate(getTodayDate()); }} className="text-xl font-bold text-blue-600 hover:underline">重設區間</button>
+                    <button onClick={() => { setStartDate(''); setEndDate(getTodayDate()); }} className="text-xl font-bold text-blue-600 hover:underline">重設區建</button>
                 </div>
 
                 <div className="flex-1 overflow-auto">
@@ -858,35 +856,33 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                                         <td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td>
                                         <td className="px-6 py-4 text-xl text-gray-700">
                                             <ul className="grid grid-cols-3 gap-x-4 list-disc list-inside">
-    {[...student.missingDetails]
-        .sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date))
-        .map((detail, idx) => {
-            // 💡 建立每筆作業的唯一 Key： 學生ID-日期-作業名稱
-            const itemKey = `${student.id}-${detail.date}-${detail.assignment}`;
-            const isChecked = selectedItemKeys.has(itemKey);
-            
-            return (
-                <li 
-                    key={idx} 
-                    className={`flex items-center mb-1 cursor-pointer p-1 rounded transition-all ${isChecked ? 'bg-white' : 'opacity-30 bg-gray-100'}`} 
-                    onClick={() => toggleItem(itemKey)}
-                >
-                    <input 
-                        type="checkbox" 
-                        checked={isChecked} 
-                        readOnly 
-                        className="w-6 h-6 mr-2 cursor-pointer accent-blue-600"
-                    />
-                    <span className={`text-red-600 font-bold mr-2 ${!isChecked ? 'line-through' : ''}`}>
-                        {detail.assignment}
-                    </span>
-                    <span className="text-gray-400 text-lg">
-                        ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
-                    </span>
-                </li>
-            );
-        })}
-</ul>
+                                                {[...student.missingDetails]
+                                                    .sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date))
+                                                    .map((detail, idx) => {
+                                                        const itemKey = `${student.id}-${detail.date}-${detail.assignment}`;
+                                                        const isChecked = selectedItemKeys.has(itemKey);
+                                                        return (
+                                                            <li 
+                                                                key={idx} 
+                                                                className={`flex items-center mb-1 cursor-pointer p-1 rounded transition-all ${isChecked ? 'bg-white' : 'opacity-30 bg-gray-100'}`} 
+                                                                onClick={() => toggleItem(itemKey)}
+                                                            >
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={isChecked} 
+                                                                    readOnly 
+                                                                    className="w-6 h-6 mr-2 cursor-pointer accent-blue-600"
+                                                                />
+                                                                <span className={`text-red-600 font-bold mr-2 ${!isChecked ? 'line-through' : ''}`}>
+                                                                    {detail.assignment}
+                                                                </span>
+                                                                <span className="text-gray-400 text-lg">
+                                                                    ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
+                                                                </span>
+                                                            </li>
+                                                        );
+                                                    })}
+                                            </ul>
                                         </td>
                                     </tr>
                                 ))}
@@ -1013,8 +1009,7 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                 })()}
             </div>
         </div>
-    </div>
-);
+    );
 };
 const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, confirmColor }) => { 
     const [isAltPressed, setIsAltPressed] = useState(false); 
