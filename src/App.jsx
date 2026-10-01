@@ -15,8 +15,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-// --- 版本資訊 (V22) ---
-const VERSION = 'v22 - 擴充115學年'; 
+// --- 版本資訊 (V23) ---
+const VERSION = 'v23 - 修改列印功能'; 
 const appId = 'class-5a-app'; 
 
 // 🚨 終極資安防禦：已透過 Google Cloud 設定 HTTP 網域白名單，此金鑰現已受實體隔離保護，可安全運行
