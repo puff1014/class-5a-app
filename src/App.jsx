@@ -896,131 +896,65 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                 </div>
             </div>
 
-            {/* --- 列印專用區：原版大字體 + 12項門檻智慧省紙 + 家長簽章 --- */}
-            <div className="hidden print:block w-full bg-white text-black">
-                {(() => {
-                    // 1. 篩選有勾選作業的學生清單
-                    const validStudents = allMissingData.map(student => {
-                        const items = student.missingDetails.filter(d => 
+            {/* --- 列印專用區：會根據篩選結果顯示 --- */}
+            {/* --- [新版] 列印專用區：僅顯示勾選的作業並標註日期區間 --- */}
+            <div className="hidden print:block w-full h-full bg-white text-black p-4">
+                <h1 className="text-4xl font-extrabold text-center mb-6 border-b-4 border-black pb-4">
+                    {selectedAcademicYear.includes('114') ? '五年甲班' : '六年甲班'} 訂正作業待補單 ({startDate?.replace(/-/g, '/')} ~ {endDate?.replace(/-/g, '/')})
+                </h1>
+                
+                <div className="flex flex-col gap-8">
+                    {allMissingData.map((student) => {
+                        // 💡 核心過濾：只篩選出「畫面上還有勾選」的項目
+                        const itemsToPrint = student.missingDetails.filter(d => 
                             selectedItemKeys.has(`${student.id}-${d.date}-${d.assignment}`)
                         ).sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date));
-                        return { ...student, itemsToPrint: items };
-                    }).filter(s => s.itemsToPrint.length > 0);
 
-                    // 2. 依 12 項門檻進行分頁打包 (<=12項可雙人併頁，>12項獨立一整頁)
-                    const pages = [];
-                    let currentPage = [];
-
-                    validStudents.forEach(student => {
-                        const isHuge = student.itemsToPrint.length > 12; // 12 項門檻
-
-                        // 若有定義 printLayoutMode 且為 single，或作業超過 12 項，直接獨立一頁
-                        const forceSingle = (typeof printLayoutMode !== 'undefined' && printLayoutMode === 'single') || isHuge;
-
-                        if (forceSingle) {
-                            if (currentPage.length > 0) {
-                                pages.push(currentPage);
-                                currentPage = [];
-                            }
-                            pages.push([student]);
-                        } else {
-                            currentPage.push(student);
-                            if (currentPage.length === 2) {
-                                pages.push(currentPage);
-                                currentPage = [];
-                            }
-                        }
-                    });
-                    if (currentPage.length > 0) {
-                        pages.push(currentPage);
-                    }
-
-                    const dateRangeText = `${startDate?.replace(/-/g, '/')} - ${endDate?.replace(/-/g, '/')}`;
-
-                    return pages.map((pageStudents, pageIdx) => {
-                        const isSingleStudentPage = pageStudents.length === 1;
+                        // 如果該學生所有作業都沒被勾選，則直接跳過，不印他的單子
+                        if (itemsToPrint.length === 0) return null;
 
                         return (
-                            <div 
-                                key={pageIdx} 
-                                className="w-full flex flex-col justify-between"
-                                style={{ 
-                                    minHeight: '94vh',
-                                    pageBreakAfter: pageIdx === pages.length - 1 ? 'auto' : 'always',
-                                    breakAfter: pageIdx === pages.length - 1 ? 'auto' : 'page'
-                                }}
-                            >
-                                {pageStudents.map((student, sIdx) => {
-                                    const maskedName = student.name[0] + 'O' + student.name.slice(2);
+                            <div key={student.id} className="border-2 border-black rounded-2xl p-5 break-inside-avoid shadow-none">
+                                <div className="flex flex-col border-b-2 border-gray-400 pb-3 mb-4">
+                                    {/* 第一行：左邊姓名，右邊項數 */}
+                                    <div className="flex justify-between items-center w-full">
+                                        <span className="text-4xl font-black">
+                                            {student.name[0] + 'O' + student.name.slice(2)} 待補作業清單
+                                        </span>
+                                        <span className="text-3xl font-bold text-black">
+                                            共 {itemsToPrint.length} 項
+                                        </span>
+                                    </div>
 
-                                    return (
-                                        <React.Fragment key={student.id}>
-                                            <div 
-                                                className={`border-2 border-black rounded-2xl p-5 flex flex-col justify-between bg-white shadow-none ${
-                                                    isSingleStudentPage ? 'flex-1' : 'min-h-[44vh]'
-                                                }`}
-                                                style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
-                                            >
-                                                <div>
-                                                    {/* 第一行：座號 + 姓名 訂正作業清單，右邊項數 */}
-                                                    <div className="flex flex-col border-b-2 border-gray-400 pb-3 mb-4">
-                                                        <div className="flex justify-between items-center w-full">
-                                                            <span className="text-4xl font-black">
-                                                                座號 {student.id} 號 {maskedName} 訂正作業清單
-                                                            </span>
-                                                            <span className="text-3xl font-bold text-black">
-                                                                共 {student.itemsToPrint.length} 項
-                                                            </span>
-                                                        </div>
-
-                                                        {/* 第二行：統計日期 */}
-                                                        <div className="mt-2 text-left">
-                                                            <span className="text-xl font-bold text-gray-500">
-                                                                (統計日期：{dateRangeText})
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* 三欄方格作業清單 (100% 保持你原本的字體大小與寬距) */}
-                                                    <div className="grid grid-cols-3 gap-x-8 gap-y-4">
-                                                        {student.itemsToPrint.map((detail, idx) => (
-                                                            <div key={idx} className="flex items-start text-xl leading-tight">
-                                                                <div className="w-6 h-6 border-2 border-black mr-2 bg-white mt-1 shrink-0"></div>
-                                                                <div className="flex flex-col">
-                                                                    <span className="font-bold text-black">{detail.assignment}</span>
-                                                                    <span className="text-lg text-gray-600 font-medium">
-                                                                        ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                {/* 底部家長簽章欄位 */}
-                                                <div className="mt-4 pt-3 border-t-2 border-gray-200 flex justify-end items-center">
-                                                    <span className="text-2xl font-bold text-black border-b-2 border-black pb-1 px-4 min-w-[220px] text-left">
-                                                        家長簽章：
-                                                    </span>
-                                                </div>
+                                    {/* 第二行：統計日期 (獨立一行且靠左) */}
+                                    <div className="mt-2 text-left">
+                                        <span className="text-xl font-bold text-gray-500">
+                                            (統計日期：{startDate?.replace(/-/g, '/')} - {endDate?.replace(/-/g, '/')})
+                                        </span>
+                                    </div>
+                                </div>                                
+                                <div className="grid grid-cols-3 gap-x-8 gap-y-4">
+                                    {itemsToPrint.map((detail, idx) => (
+                                        <div key={idx} className="flex items-start text-xl leading-tight">
+                                            {/* 列印出的方框 */}
+                                            <div className="w-6 h-6 border-2 border-black mr-2 bg-white mt-1 shrink-0"></div>
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-black">{detail.assignment}</span>
+                                                <span className="text-lg text-gray-600 font-medium">
+                                                    ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
+                                                </span>
                                             </div>
-
-                                            {/* 方案一雙人模式中間的剪刀裁切線 (只呈現在同頁第 1 位學生下方) */}
-                                            {!isSingleStudentPage && sIdx === 0 && (
-                                                <div className="w-full my-3 flex items-center justify-center text-gray-500 text-sm tracking-widest">
-                                                    <span className="border-b border-dashed border-gray-400 flex-1"></span>
-                                                    <span className="mx-3 flex items-center font-mono">✂ - - - - - 請 沿 虛 線 裁 切 - - - - - ✂</span>
-                                                    <span className="border-b border-dashed border-gray-400 flex-1"></span>
-                                                </div>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         );
-                    });
-                })()}
+                    })}
+                </div>
             </div>
+        </div>
+    );
+};
 
 const ConfirmationModal = ({ title, message, onConfirm, onCancel, confirmTitle, confirmColor }) => { 
     const [isAltPressed, setIsAltPressed] = useState(false); 
