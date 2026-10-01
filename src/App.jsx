@@ -488,16 +488,22 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
     return () => unsubscribe();
   }, [isAuthReady, db, isOffline, students, selectedAcademicYear]);
 
-  const updateBankBalance = useCallback(async (studentId, goldChange, silverChange, bronzeChange) => {
+  const updateBankBalance = useCallback(async (studentId, goldChange, silverChange, bronzeChange, markGoldClaimedSemester = null) => {
     if (isOffline) {
       setBankData(prev => {
         const current = prev[studentId] || { gold: 0, silver: 0, bronze: 0 };
+        const claimedSemesters = { ...(current.claimedSemesters || {}) };
+        if (markGoldClaimedSemester) {
+          claimedSemesters[markGoldClaimedSemester] = true;
+        }
         return {
           ...prev,
           [studentId]: {
+            ...current,
             gold: Math.max(0, (current.gold || 0) + goldChange),
             silver: Math.max(0, (current.silver || 0) + silverChange),
-            bronze: Math.max(0, (current.bronze || 0) + bronzeChange)
+            bronze: Math.max(0, (current.bronze || 0) + bronzeChange),
+            claimedSemesters
           }
         };
       });
@@ -510,11 +516,18 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
       const docSnap = await getDoc(docRef);
       const raw = docSnap.exists() ? docSnap.data() : {};
       const current = raw.years?.[selectedAcademicYear] || (selectedAcademicYear === '114' ? raw : {}) || { gold: 0, silver: 0, bronze: 0 };
+      const claimedSemesters = { ...(current.claimedSemesters || {}) };
+
+      if (markGoldClaimedSemester) {
+        claimedSemesters[markGoldClaimedSemester] = true;
+      }
 
       const newYearData = {
+        ...current,
         gold: Math.max(0, (current.gold || 0) + goldChange),
         silver: Math.max(0, (current.silver || 0) + silverChange),
         bronze: Math.max(0, (current.bronze || 0) + bronzeChange),
+        claimedSemesters,
         updatedAt: serverTimestamp()
       };
 
@@ -528,7 +541,6 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
       console.error("Update bank balance failed:", e);
     }
   }, [db, isOffline, selectedAcademicYear]);
-
   const setBankBalancedDirectly = useCallback(async (studentId, type, value) => {
     if (isOffline) {
       setBankData(prev => ({
@@ -558,7 +570,7 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
   return { bankData, updateBankBalance, setBankBalancedDirectly, setBankData };
 };
 // --- [V20.0.43] 學生存簿介面 (修正：滾動時固定姓名欄) ---
-const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedDirectly, authMode, students }) => {
+const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedDirectly, authMode, students, selectedSemester }) => {
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) => { 
         const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
@@ -645,7 +657,16 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
                       {/* 凍結表格內容欄位 */}
                       <td className="p-3 text-center text-3xl font-black text-gray-400 sticky left-0 bg-white group-hover:bg-blue-50 z-10">{rankIcon}</td>
                       <td className="p-3 text-center text-2xl font-bold text-gray-600 sticky left-[80px] bg-white group-hover:bg-blue-50 z-10">{student.id}</td>
-                      <td className="p-3 text-2xl font-bold text-gray-800 sticky left-[176px] bg-white group-hover:bg-blue-50 z-10 border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">{student.name[0] + 'O' + student.name.slice(2)}</td>
+                      <td className="p-3 text-2xl font-bold text-gray-800 sticky left-[176px] bg-white group-hover:bg-blue-50 z-10 border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">
+    <div className="flex items-center justify-between">
+        <span>{student.name[0] + 'O' + student.name.slice(2)}</span>
+        {bal.claimedSemesters?.[selectedSemester] && (
+            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold border border-amber-300 ml-2" title="本學期已領過清空獎金幣">
+                🏅已領獎
+            </span>
+        )}
+    </div>
+</td>
                       
                       <td className="p-2 text-center bg-yellow-50/30">
                         <input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} 
@@ -1812,8 +1833,21 @@ const [showBankModal, setShowBankModal] = useState(false);
           );
           
           if (redAssignments.length === 0) {
-              triggerAnimation = 'GOLD_CLEAR';
-              goldChange = 3; 
+              // 檢查該學生在當前學期 (selectedSemester: 'S1' 或 'S2') 是否已經領過金幣
+              const studentBank = bankData[studentId] || {};
+              const claimedInCurrentSemester = studentBank.claimedSemesters?.[selectedSemester] === true;
+
+              if (!claimedInCurrentSemester) {
+                  // 本學期第一次全數清空：發放 3 金幣 + 觸發大慶祝動畫
+                  triggerAnimation = 'GOLD_CLEAR';
+                  goldChange = 3;
+                  // 標記該學期已領過，往後同個學期不再重複發放金幣
+                  updateBankBalance(studentId, goldChange, silverChange, bronzeChange, selectedSemester);
+                  return; // 提早結束，避免下方重複呼叫 updateBankBalance
+              } else {
+                  // 該學期已領過一次機會：只給一般的補交銅幣特效
+                  triggerAnimation = 'BRONZE';
+              }
           }
 
       } else {
@@ -1948,7 +1982,7 @@ const [showBankModal, setShowBankModal] = useState(false);
      {rewardState && ( <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} /> )}
      
      {/* --- [彈窗層] 各式功能視窗 --- */}
-     {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalancedDirectly={setBankBalancedDirectly} authMode={authMode} students={students} /> )}
+     {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalancedDirectly={setBankBalancedDirectly} authMode={authMode} students={students} selectedSemester={selectedSemester} /> )}
      {dashboardStudent && ( <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={() => setDashboardStudent(null)} /> )}
      {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
      
