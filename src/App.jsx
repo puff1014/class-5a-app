@@ -966,10 +966,10 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                 </div>
             </div>
 
-            {/* --- 列印專用區：無座號抬頭 + 學生勾選連動 + 15項(5排)省紙排版 --- */}
+            {/* --- 列印專用區：座號排序 + 該半張就固定半張(不被拉長) + 15項省紙 --- */}
             <div className="hidden print:block w-full bg-white text-black">
                 {(() => {
-                    // 1. 篩選：同時符合「有被勾選列印的學生」且「該項目有被勾選」
+                    // 1. 篩選有勾選的學生，並【嚴格依照座號 (1, 2, 3...) 遞增排序】
                     const validStudents = allMissingData
                         .filter(student => selectedStudentIds.has(student.id))
                         .map((student) => {
@@ -977,17 +977,18 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                                 selectedItemKeys.has(student.id + '-' + d.date + '-' + d.assignment)
                             ).sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date));
                             return { ...student, itemsToPrint: items };
-                        }).filter((s) => s.itemsToPrint.length > 0);
+                        })
+                        .filter((s) => s.itemsToPrint.length > 0)
+                        .sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10)); // 依座號排序
 
-                    // 2. 依 15 項門檻（5排）分頁打包
+                    // 2. 打包成每頁學生清單
                     const pages = [];
                     let currentPage = [];
 
                     validStudents.forEach((student) => {
-                        const isHuge = student.itemsToPrint.length > 15; // 🚀 提高到 15 項門檻 (5排)
-                        const forceSingle = (typeof printLayoutMode !== 'undefined' && printLayoutMode === 'single') || isHuge;
+                        const isHuge = student.itemsToPrint.length > 15; // 超過 15 項才整頁大單
 
-                        if (forceSingle) {
+                        if (isHuge) {
                             if (currentPage.length > 0) {
                                 pages.push(currentPage);
                                 currentPage = [];
@@ -1010,29 +1011,31 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                     const dateRangeText = startStr + ' - ' + endStr;
 
                     return pages.map((pageStudents, pageIdx) => {
-                        const isSingleStudentPage = pageStudents.length === 1;
-
                         return (
                             <div 
                                 key={pageIdx} 
-                                className="w-full flex flex-col justify-between"
+                                className="w-full flex flex-col justify-start"
                                 style={{ 
-                                    minHeight: '94vh',
+                                    height: '96vh',
                                     pageBreakAfter: pageIdx === pages.length - 1 ? 'auto' : 'always',
                                     breakAfter: pageIdx === pages.length - 1 ? 'auto' : 'page'
                                 }}
                             >
                                 {pageStudents.map((student, sIdx) => {
                                     const maskedName = student.name[0] + 'O' + student.name.slice(2);
+                                    const isHuge = student.itemsToPrint.length > 15;
 
                                     return (
                                         <React.Fragment key={student.id}>
+                                            {/* 卡片容器：若是超長作業才撐滿(flex-1)，否則一律鎖定為標準半張高度(h-[46vh]) */}
                                             <div 
-                                                className={'border-2 border-black rounded-2xl p-4 flex flex-col justify-between bg-white shadow-none ' + (isSingleStudentPage ? 'flex-1' : 'min-h-[44vh]')}
+                                                className={`border-2 border-black rounded-2xl p-4 flex flex-col justify-between bg-white shadow-none ${
+                                                    isHuge ? 'flex-1' : 'h-[46vh] min-h-[46vh] max-h-[46vh]'
+                                                }`}
                                                 style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
                                             >
                                                 <div>
-                                                    {/* 頂部抬頭：拿掉座號，只顯示「姓名 訂正作業清單」 */}
+                                                    {/* 頂部抬頭 */}
                                                     <div className="flex flex-col border-b-2 border-gray-400 pb-2 mb-3">
                                                         <div className="flex justify-between items-center w-full">
                                                             <span className="text-4xl font-black">
@@ -1050,7 +1053,7 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                                                         </div>
                                                     </div>
 
-                                                    {/* 三欄方格作業清單：gap-y-3 微調以完美容納 5 排 */}
+                                                    {/* 三欄方格作業清單 */}
                                                     <div className="grid grid-cols-3 gap-x-8 gap-y-3">
                                                         {student.itemsToPrint.map((detail, idx) => (
                                                             <div key={idx} className="flex items-start text-xl leading-tight">
@@ -1074,9 +1077,9 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                                                 </div>
                                             </div>
 
-                                            {/* 方案一雙人模式中間的剪刀裁切線 */}
-                                            {!isSingleStudentPage && sIdx === 0 && (
-                                                <div className="w-full my-2 flex items-center justify-center text-gray-500 text-sm tracking-widest">
+                                            {/* 中間裁切線：同一頁有兩位學生時，出現在第一位下方 */}
+                                            {pageStudents.length === 2 && sIdx === 0 && (
+                                                <div className="w-full my-2 flex items-center justify-center text-gray-500 text-sm tracking-widest shrink-0">
                                                     <span className="border-b border-dashed border-gray-400 flex-1"></span>
                                                     <span className="mx-3 flex items-center font-mono">✂ 請沿虛線裁切 ✂</span>
                                                     <span className="border-b border-dashed border-gray-400 flex-1"></span>
