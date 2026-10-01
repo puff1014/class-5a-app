@@ -750,16 +750,18 @@ const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => {
   ); 
 };
 
-// --- [升級版] 全班未完成作業總表 (支援日期區間篩選) ---
-// --- [升級版] 全班未完成作業總表 (支援日期區間篩選與安全列印) ---
+// --- [升級版] 全班未完成作業總表 (支援日期篩選、學生名單勾選、15項省紙排版) ---
 const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, selectedAcademicYear }) => {
     const now = new Date();
     const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     const [startDate, setStartDate] = useState(firstDay);
     const [endDate, setEndDate] = useState(getTodayDate());
     const [selectedItemKeys, setSelectedItemKeys] = useState(new Set());
+    
+    // 💡 [新增] 紀錄「要列印的學生 ID」集合（預設全選）
+    const [selectedStudentIds, setSelectedStudentIds] = useState(new Set());
 
-    // 1. 先計算出日期區間內所有缺交的資料
+    // 1. 計算日期區間內所有缺交的學生資料
     const allMissingData = useMemo(() => {
         const stats = students.map(s => ({ id: s.id, name: s.name, missingCount: 0, missingDetails: [] }));
         Object.keys(allAssignmentsByDate)
@@ -779,17 +781,21 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
         return stats.filter(s => s.missingCount > 0).sort((a, b) => b.missingCount - a.missingCount);
     }, [allAssignmentsByDate, students, startDate, endDate]);
 
-    // 2. 當日期區間改變時，預設全選
+    // 2. 當資料變化時，預設勾選所有缺交學生與所有項目
     useEffect(() => {
         const newKeys = new Set();
+        const newStudentIds = new Set();
         allMissingData.forEach(s => {
+            newStudentIds.add(s.id);
             s.missingDetails.forEach(d => {
                 newKeys.add(`${s.id}-${d.date}-${d.assignment}`);
             });
         });
         setSelectedItemKeys(newKeys);
+        setSelectedStudentIds(newStudentIds);
     }, [allMissingData]);
 
+    // 單項作業切換
     const toggleItem = (key) => {
         const next = new Set(selectedItemKeys);
         if (next.has(key)) next.delete(key);
@@ -797,13 +803,30 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
         setSelectedItemKeys(next);
     };
 
+    // 💡 [新增] 單一學生列印勾選切換
+    const toggleStudent = (studentId) => {
+        const next = new Set(selectedStudentIds);
+        if (next.has(studentId)) next.delete(studentId);
+        else next.add(studentId);
+        setSelectedStudentIds(next);
+    };
+
+    // 💡 [新增] 學生全選 / 取消全選
+    const toggleAllStudents = () => {
+        if (selectedStudentIds.size === allMissingData.length) {
+            setSelectedStudentIds(new Set());
+        } else {
+            setSelectedStudentIds(new Set(allMissingData.map(s => s.id)));
+        }
+    };
+
     const handlePrint = () => { window.print(); };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0 print:z-[20000]">
-            {/* 螢幕畫面區 (列印時隱藏) */}
+            {/* 螢幕畫面區 (列印時自動隱藏) */}
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-6xl h-[90vh] flex flex-col border border-gray-200 print:hidden">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                <div className="flex justify-between items-center mb-4 border-b pb-4">
                     <div className="flex flex-col gap-1">
                         <h3 className="text-4xl font-bold text-gray-800 flex items-center">
                             <AlertCircle className="w-10 h-10 text-red-500 mr-3" />未完成作業總表
@@ -812,7 +835,7 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                     </div>
                     <div className="flex gap-3">
                         <button onClick={handlePrint} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xl font-bold transition shadow-sm">
-                            <Printer className="w-6 h-6"/> 列印此區間
+                            <Printer className="w-6 h-6"/> 列印所選名單 ({selectedStudentIds.size}人)
                         </button>
                         <button onClick={onClose} className="text-gray-500 hover:text-gray-800 transition p-2 rounded-full bg-gray-100">
                             <X className="w-8 h-8" />
@@ -820,7 +843,8 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                     </div>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-xl mb-6 flex items-center gap-6 border border-blue-100">
+                {/* 日期篩選工具列 */}
+                <div className="bg-blue-50 p-4 rounded-xl mb-3 flex items-center gap-6 border border-blue-100">
                     <div className="flex items-center gap-3">
                         <label className="text-2xl font-black text-blue-800">從：</label>
                         <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="p-2 text-2xl border-2 border-blue-200 rounded-lg font-bold focus:ring-blue-500 outline-none" />
@@ -829,8 +853,44 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                         <label className="text-2xl font-black text-blue-800">到：</label>
                         <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="p-2 text-2xl border-2 border-blue-200 rounded-lg font-bold focus:ring-blue-500 outline-none" />
                     </div>
-                    <button onClick={() => { setStartDate(''); setEndDate(getTodayDate()); }} className="text-xl font-bold text-blue-600 hover:underline">重設區建</button>
+                    <button onClick={() => { setStartDate(''); setEndDate(getTodayDate()); }} className="text-xl font-bold text-blue-600 hover:underline">重設區間</button>
                 </div>
+
+                {/* 💡 [新增] 學生列印名單快速勾選列 */}
+                {allMissingData.length > 0 && (
+                    <div className="bg-gray-50 p-3 rounded-xl mb-4 border border-gray-200 flex flex-wrap items-center gap-2">
+                        <div className="flex items-center mr-3">
+                            <button 
+                                onClick={toggleAllStudents} 
+                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-lg font-bold transition shadow-sm"
+                            >
+                                {selectedStudentIds.size === allMissingData.length ? '取消全選學生' : '全選所有學生'}
+                            </button>
+                            <span className="text-base text-gray-500 ml-2 font-bold">(勾選要列印的學生)</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {allMissingData.map(s => {
+                                const isChecked = selectedStudentIds.has(s.id);
+                                return (
+                                    <label 
+                                        key={s.id} 
+                                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border-2 cursor-pointer transition select-none text-lg font-bold ${
+                                            isChecked ? 'bg-blue-100 border-blue-500 text-blue-900' : 'bg-white border-gray-300 text-gray-400'
+                                        }`}
+                                    >
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isChecked} 
+                                            onChange={() => toggleStudent(s.id)}
+                                            className="w-5 h-5 accent-blue-600"
+                                        />
+                                        <span>{s.id}.{s.name[0]}O{s.name.slice(2)}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 <div className="flex-1 overflow-auto">
                     {allMissingData.length === 0 ? (
@@ -842,71 +902,89 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                         <table className="min-w-full divide-y divide-gray-300">
                             <thead className="bg-gray-100 sticky top-0 z-10">
                                 <tr>
+                                    <th className="px-4 py-4 text-2xl font-bold text-gray-700 w-24 text-center border-r border-gray-300">列印</th>
                                     <th className="px-4 py-4 text-2xl font-bold text-gray-700 w-24 text-center border-r border-gray-300">座號</th>
                                     <th className="px-4 py-4 text-2xl font-bold text-gray-700 w-32 text-center border-r border-gray-300">姓名</th>
                                     <th className="px-4 py-4 text-2xl font-bold text-gray-700 w-32 text-center border-r border-gray-300">缺交數</th>
-                                    <th className="px-6 py-4 text-2xl font-bold text-gray-700 text-left">未完成項目明細</th>
+                                    <th className="px-6 py-4 text-2xl font-bold text-gray-700 text-left">未完成項目明細 (可個別點選排除)</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {allMissingData.map((student) => (
-                                    <tr key={student.id} className="hover:bg-red-50 transition duration-100">
-                                        <td className="px-4 py-4 text-2xl text-gray-900 text-center border-r border-gray-200">{student.id}</td>
-                                        <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td>
-                                        <td className="px-4 py-4 text-center border-r border-gray-200"><span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span></td>
-                                        <td className="px-6 py-4 text-xl text-gray-700">
-                                            <ul className="grid grid-cols-3 gap-x-4 list-disc list-inside">
-                                                {[...student.missingDetails]
-                                                    .sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date))
-                                                    .map((detail, idx) => {
-                                                        const itemKey = `${student.id}-${detail.date}-${detail.assignment}`;
-                                                        const isChecked = selectedItemKeys.has(itemKey);
-                                                        return (
-                                                            <li 
-                                                                key={idx} 
-                                                                className={`flex items-center mb-1 cursor-pointer p-1 rounded transition-all ${isChecked ? 'bg-white' : 'opacity-30 bg-gray-100'}`} 
-                                                                onClick={() => toggleItem(itemKey)}
-                                                            >
-                                                                <input 
-                                                                    type="checkbox" 
-                                                                    checked={isChecked} 
-                                                                    readOnly 
-                                                                    className="w-6 h-6 mr-2 cursor-pointer accent-blue-600"
-                                                                />
-                                                                <span className={`text-red-600 font-bold mr-2 ${!isChecked ? 'line-through' : ''}`}>
-                                                                    {detail.assignment}
-                                                                </span>
-                                                                <span className="text-gray-400 text-lg">
-                                                                    ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
-                                                                </span>
-                                                            </li>
-                                                        );
-                                                    })}
-                                            </ul>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {allMissingData.map((student) => {
+                                    const isStudentSelected = selectedStudentIds.has(student.id);
+                                    return (
+                                        <tr key={student.id} className={`transition duration-100 ${isStudentSelected ? 'hover:bg-red-50' : 'opacity-40 bg-gray-50'}`}>
+                                            <td className="px-4 py-4 text-center border-r border-gray-200">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={isStudentSelected} 
+                                                    onChange={() => toggleStudent(student.id)}
+                                                    className="w-7 h-7 accent-blue-600 cursor-pointer"
+                                                />
+                                            </td>
+                                            <td className="px-4 py-4 text-2xl text-gray-900 text-center border-r border-gray-200">{student.id}</td>
+                                            <td className="px-4 py-4 text-2xl text-gray-900 font-bold text-center border-r border-gray-200">{student.name[0] + 'O' + student.name.slice(2)}</td>
+                                            <td className="px-4 py-4 text-center border-r border-gray-200">
+                                                <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-bold text-2xl">{student.missingCount}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-xl text-gray-700">
+                                                <ul className="grid grid-cols-3 gap-x-4 list-disc list-inside">
+                                                    {[...student.missingDetails]
+                                                        .sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date))
+                                                        .map((detail, idx) => {
+                                                            const itemKey = `${student.id}-${detail.date}-${detail.assignment}`;
+                                                            const isChecked = selectedItemKeys.has(itemKey);
+                                                            return (
+                                                                <li 
+                                                                    key={idx} 
+                                                                    className={`flex items-center mb-1 cursor-pointer p-1 rounded transition-all ${isChecked ? 'bg-white' : 'opacity-30 bg-gray-100'}`} 
+                                                                    onClick={() => toggleItem(itemKey)}
+                                                                >
+                                                                    <input 
+                                                                        type="checkbox" 
+                                                                        checked={isChecked} 
+                                                                        readOnly 
+                                                                        className="w-6 h-6 mr-2 cursor-pointer accent-blue-600"
+                                                                    />
+                                                                    <span className={`text-red-600 font-bold mr-2 ${!isChecked ? 'line-through' : ''}`}>
+                                                                        {detail.assignment}
+                                                                    </span>
+                                                                    <span className="text-gray-400 text-lg">
+                                                                        ({new Date(detail.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})})
+                                                                    </span>
+                                                                </li>
+                                                            );
+                                                        })}
+                                                </ul>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     )}
                 </div>
             </div>
 
-            {/* --- 列印專用區：原版大字體 + 12項門檻智慧省紙 + 家長簽章 --- */}
+            {/* --- 列印專用區：無座號抬頭 + 學生勾選連動 + 15項(5排)省紙排版 --- */}
             <div className="hidden print:block w-full bg-white text-black">
                 {(() => {
-                    const validStudents = allMissingData.map((student) => {
-                        const items = student.missingDetails.filter((d) => 
-                            selectedItemKeys.has(student.id + '-' + d.date + '-' + d.assignment)
-                        ).sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date));
-                        return { ...student, itemsToPrint: items };
-                    }).filter((s) => s.itemsToPrint.length > 0);
+                    // 1. 篩選：同時符合「有被勾選列印的學生」且「該項目有被勾選」
+                    const validStudents = allMissingData
+                        .filter(student => selectedStudentIds.has(student.id))
+                        .map((student) => {
+                            const items = student.missingDetails.filter((d) => 
+                                selectedItemKeys.has(student.id + '-' + d.date + '-' + d.assignment)
+                            ).sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date));
+                            return { ...student, itemsToPrint: items };
+                        }).filter((s) => s.itemsToPrint.length > 0);
 
+                    // 2. 依 15 項門檻（5排）分頁打包
                     const pages = [];
                     let currentPage = [];
 
                     validStudents.forEach((student) => {
-                        const isHuge = student.itemsToPrint.length > 12;
+                        const isHuge = student.itemsToPrint.length > 15; // 🚀 提高到 15 項門檻 (5排)
                         const forceSingle = (typeof printLayoutMode !== 'undefined' && printLayoutMode === 'single') || isHuge;
 
                         if (forceSingle) {
@@ -950,31 +1028,33 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                                     return (
                                         <React.Fragment key={student.id}>
                                             <div 
-                                                className={'border-2 border-black rounded-2xl p-5 flex flex-col justify-between bg-white shadow-none ' + (isSingleStudentPage ? 'flex-1' : 'min-h-[44vh]')}
+                                                className={'border-2 border-black rounded-2xl p-4 flex flex-col justify-between bg-white shadow-none ' + (isSingleStudentPage ? 'flex-1' : 'min-h-[44vh]')}
                                                 style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
                                             >
                                                 <div>
-                                                    <div className="flex flex-col border-b-2 border-gray-400 pb-3 mb-4">
+                                                    {/* 頂部抬頭：拿掉座號，只顯示「姓名 訂正作業清單」 */}
+                                                    <div className="flex flex-col border-b-2 border-gray-400 pb-2 mb-3">
                                                         <div className="flex justify-between items-center w-full">
                                                             <span className="text-4xl font-black">
-                                                                座號 {student.id} 號 {maskedName} 訂正作業清單
+                                                                {maskedName} 訂正作業清單
                                                             </span>
                                                             <span className="text-3xl font-bold text-black">
                                                                 共 {student.itemsToPrint.length} 項
                                                             </span>
                                                         </div>
 
-                                                        <div className="mt-2 text-left">
+                                                        <div className="mt-1 text-left">
                                                             <span className="text-xl font-bold text-gray-500">
                                                                 (統計日期：{dateRangeText})
                                                             </span>
                                                         </div>
                                                     </div>
 
-                                                    <div className="grid grid-cols-3 gap-x-8 gap-y-4">
+                                                    {/* 三欄方格作業清單：gap-y-3 微調以完美容納 5 排 */}
+                                                    <div className="grid grid-cols-3 gap-x-8 gap-y-3">
                                                         {student.itemsToPrint.map((detail, idx) => (
                                                             <div key={idx} className="flex items-start text-xl leading-tight">
-                                                                <div className="w-6 h-6 border-2 border-black mr-2 bg-white mt-1 shrink-0"></div>
+                                                                <div className="w-6 h-6 border-2 border-black mr-2 bg-white mt-0.5 shrink-0"></div>
                                                                 <div className="flex flex-col">
                                                                     <span className="font-bold text-black">{detail.assignment}</span>
                                                                     <span className="text-lg text-gray-600 font-medium">
@@ -986,15 +1066,17 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                                                     </div>
                                                 </div>
 
-                                                <div className="mt-4 pt-3 border-t-2 border-gray-200 flex justify-end items-center">
+                                                {/* 底部家長簽章欄位 */}
+                                                <div className="mt-3 pt-2 border-t-2 border-gray-200 flex justify-end items-center">
                                                     <span className="text-2xl font-bold text-black border-b-2 border-black pb-1 px-4 min-w-[220px] text-left">
                                                         家長簽章：
                                                     </span>
                                                 </div>
                                             </div>
 
+                                            {/* 方案一雙人模式中間的剪刀裁切線 */}
                                             {!isSingleStudentPage && sIdx === 0 && (
-                                                <div className="w-full my-3 flex items-center justify-center text-gray-500 text-sm tracking-widest">
+                                                <div className="w-full my-2 flex items-center justify-center text-gray-500 text-sm tracking-widest">
                                                     <span className="border-b border-dashed border-gray-400 flex-1"></span>
                                                     <span className="mx-3 flex items-center font-mono">✂ 請沿虛線裁切 ✂</span>
                                                     <span className="border-b border-dashed border-gray-400 flex-1"></span>
