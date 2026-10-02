@@ -566,6 +566,55 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
       }
     }, { merge: true });
   }, [db, isOffline, selectedAcademicYear]);
+  const toggleClaimedSemester = useCallback(async (studentId, semesterId) => {
+    if (!studentId || !semesterId) return;
+    const currentStudent = bankData[studentId] || {};
+    const currentSemesters = currentStudent.claimedSemesters || {};
+    const newStatus = !currentSemesters[semesterId];
+
+    if (isOffline) {
+      setBankData(prev => ({
+        ...prev,
+        [studentId]: {
+          ...prev[studentId],
+          claimedSemesters: {
+            ...(prev[studentId]?.claimedSemesters || {}),
+            [semesterId]: newStatus
+          }
+        }
+      }));
+      return;
+    }
+
+    if (!db) return;
+    const docRef = doc(db, getBankCollectionPath(), studentId);
+    const docSnap = await getDoc(docRef);
+    const raw = docSnap.exists() ? docSnap.data() : {};
+    const current = raw.years?.[selectedAcademicYear] || (selectedAcademicYear === '114' ? raw : {}) || {};
+
+    const updatedClaimedSemesters = {
+      ...(current.claimedSemesters || {}),
+      [semesterId]: newStatus
+    };
+
+    setBankData(prev => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        claimedSemesters: updatedClaimedSemesters
+      }
+    }));
+
+    await setDoc(docRef, {
+      years: {
+        ...(raw.years || {}),
+        [selectedAcademicYear]: {
+          ...current,
+          claimedSemesters: updatedClaimedSemesters
+        }
+      }
+    }, { merge: true });
+  }, [db, isOffline, selectedAcademicYear, bankData]);
 
   return { bankData, updateBankBalance, setBankBalancedDirectly, setBankData, toggleClaimedSemester };
 };
