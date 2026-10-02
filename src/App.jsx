@@ -642,7 +642,12 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
                   <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center">金幣</th>
                   <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
                   <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
-                  <th className="p-3 text-center border-b font-bold text-gray-600 w-32">清空獎</th>
+                  <th className="p-3 text-2xl w-36 bg-amber-50/50 text-amber-800 text-center border-1 border-gray-200">
+    <div className="flex items-center justify-center gap-1">
+        <span>🪙</span>
+        <span>清空獎</span>
+    </div>
+</th>
                   <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto">
                     <span className="text-2xl text-gray-600 block">操作</span>
                   </th>
@@ -659,14 +664,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
                       <td className="p-3 text-center text-3xl font-black text-gray-400 sticky left-0 bg-white group-hover:bg-blue-50 z-10">{rankIcon}</td>
                       <td className="p-3 text-center text-2xl font-bold text-gray-600 sticky left-[80px] bg-white group-hover:bg-blue-50 z-10">{student.id}</td>
                       <td className="p-3 text-2xl font-bold text-gray-800 sticky left-[176px] bg-white group-hover:bg-blue-50 z-10 border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">
-    <div className="flex items-center justify-between">
-        <span>{student.name[0] + 'O' + student.name.slice(2)}</span>
-        {bal.claimedSemesters?.[selectedSemester] && (
-            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold border border-amber-300 ml-2" title="本學期已領過清空獎金幣">
-                🏅已領獎
-            </span>
-        )}
-    </div>
+    {student.name[0] + 'O' + student.name.slice(2)}
 </td>
                       
                       <td className="p-2 text-center bg-yellow-50/30">
@@ -680,6 +678,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
                       <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100">
                         <input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} 
                           className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" />
+                        </td>
                         {/* 清空金幣獎勵狀態切換鈕 */}
                             <td className="p-2 text-center border-1 border-gray-100">
                                 <button
