@@ -642,6 +642,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
                   <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center">金幣</th>
                   <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
                   <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
+                  <th className="p-3 text-center border-b font-bold text-gray-600 w-32">清空獎</th>
                   <th className="p-3 text-center bg-gray-100 border-l border-gray-200 w-auto">
                     <span className="text-2xl text-gray-600 block">操作</span>
                   </th>
@@ -679,6 +680,22 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
                       <td className="p-2 text-center bg-orange-50/30 border-l border-gray-100">
                         <input type="number" value={bal.bronze || 0} onChange={(e)=>handleInputChange(student.id, 'bronze', e.target.value)} disabled={authMode!=='ADMIN'} 
                           className="w-24 text-center text-3xl font-bold text-orange-700 bg-transparent border-b-2 border-transparent focus:border-orange-500 outline-none hover:bg-white/50 rounded" />
+                        {/* 清空金幣獎勵狀態切換鈕 */}
+                            <td className="p-2 text-center border-1 border-gray-100">
+                                <button
+                                    onClick={() => toggleClaimedSemester(student.id, selectedSemester)}
+                                    disabled={authMode !== 'ADMIN'}
+                                    className={`px-3 py-1 rounded-full text-base font-bold transition-all flex items-center justify-center mx-auto gap-1.5 border ${
+                                        bal.claimedSemesters?.[selectedSemester]
+                                            ? 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200' 
+                                            : 'bg-amber-100 text-amber-800 border-amber-400 hover:bg-amber-200'
+                                    } ${authMode !== 'ADMIN' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}`}
+                                    title={authMode === 'ADMIN' ? "點擊切換：本學期是否已領過清空獎金幣" : "需管理員權限"}
+                                >
+                                    <span className={`w-2 h-2 rounded-full ${bal.claimedSemesters?.[selectedSemester] ? 'bg-gray-400' : 'bg-amber-500'}`}></span>
+                                    <span>{bal.claimedSemesters?.[selectedSemester] ? '已領取' : '未領取'}</span>
+                                </button>
+                            </td>
                       </td>
                       <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100">
                           <div className="flex gap-2">
