@@ -733,19 +733,27 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
                         </td>
                         {/* 清空金幣獎勵狀態切換鈕 */}
                             <td className="p-2 text-center border-1 border-gray-100">
-                                <button
-                                    onClick={() => toggleClaimedSemester && toggleClaimedSemester(student.id, selectedSemester)}
-                                    className={`px-3 py-1 rounded-full text-base font-bold transition-all flex items-center justify-center mx-auto gap-1.5 border cursor-pointer active:scale-95 ${
-                                        bal.claimedSemesters?.[selectedSemester]
-                                            ? 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200' 
-                                            : 'bg-amber-100 text-amber-800 border-amber-400 hover:bg-amber-200 shadow-sm'
-                                    }`}
-                                    title="點擊切換：本學期是否已領過清空獎金幣"
-                                >
-                                    <span className={`w-2 h-2 rounded-full ${bal.claimedSemesters?.[selectedSemester] ? 'bg-gray-400' : 'bg-amber-500'}`}></span>
-                                    <span>{bal.claimedSemesters?.[selectedSemester] ? '已領取' : '未領取'}</span>
-                                </button>
-                            </td>
+            <button
+              type="button"
+              onClick={() => {
+                if (!toggleClaimedSemester) {
+                  alert("【錯誤】toggleClaimedSemester 函式尚未傳入此視窗！");
+                  return;
+                }
+                const sem = selectedSemester || 'default';
+                toggleClaimedSemester(student.id, sem);
+              }}
+              className={`px-3 py-1 rounded-full text-base font-bold transition-all flex items-center justify-center mx-auto gap-1.5 border cursor-pointer active:scale-95 ${
+                bal.claimedSemesters?.[selectedSemester || 'default']
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-400 hover:bg-emerald-200' 
+                  : 'bg-amber-100 text-amber-800 border-amber-400 hover:bg-amber-200 shadow-sm'
+              }`}
+              title="點擊切換：本學期是否已領過清空獎金幣"
+            >
+              <span className={`w-2.5 h-2.5 rounded-full ${bal.claimedSemesters?.[selectedSemester || 'default'] ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+              <span>{bal.claimedSemesters?.[selectedSemester || 'default'] ? '已領取' : '未領取'}</span>
+            </button>
+          </td>
                       <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100">
                           <div className="flex gap-2">
                             <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 text-gray-700 active:scale-95 transition" title="100銅 換 1銀"><RotateCw className="w-7 h-7"/></button>
