@@ -567,10 +567,10 @@ const useStudentBank = (db, isAuthReady, isOffline, students, selectedAcademicYe
     }, { merge: true });
   }, [db, isOffline, selectedAcademicYear]);
 
-  return { bankData, updateBankBalance, setBankBalancedDirectly, setBankData };
+  return { bankData, updateBankBalance, setBankBalancedDirectly, setBankData, toggleClaimedSemester };
 };
 // --- [V20.0.43] 學生存簿介面 (修正：滾動時固定姓名欄) ---
-const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedDirectly, authMode, students, selectedSemester }) => {
+const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedDirectly, authMode, students, selectedSemester, toggleClaimedSemester }) => {
   const sortedStudents = useMemo(() => {
     return [...students].sort((a, b) => { 
         const bankA = bankData[a.id] || { bronze: 0, silver: 0, gold: 0 }; 
@@ -621,7 +621,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-[10000] p-4">
-      <div className={`bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col border-4 border-orange-400 transition-colors duration-300`}>
+      <div className={`bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col border-4 border-orange-400 transition-colors duration-300`}>
         <div className="bg-gray-100 p-4 border-b flex justify-between items-center shrink-0">
           <div className="text-3xl font-bold text-gray-700 flex items-center gap-2">
             <span className="text-4xl">💰</span> 訂正存簿 <span className="text-xl font-normal text-gray-400 ml-4">(修改期間順序固定，重新開啟後更新排名)</span>
@@ -637,8 +637,7 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
                   {/* 凍結表頭 */}
                   <th className="p-3 text-2xl w-20 text-center bg-gray-100 sticky left-0 z-[120]">排名</th>
                   <th className="p-3 text-2xl w-24 text-center bg-gray-100 sticky left-[80px] z-[120]">座號</th>
-                  <th className="p-3 text-2xl text-left bg-gray-100 sticky left-[176px] z-[120] border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">姓名</th>
-                  
+                  <th className="p-3 text-2xl text-left bg-gray-100 sticky left-[176px] z-[120] border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)] w-40 whitespace-nowrap">姓名</th>                  
                   <th className="p-3 text-2xl w-32 bg-yellow-50 text-yellow-700 text-center">金幣</th>
                   <th className="p-3 text-2xl w-32 bg-gray-50 text-gray-700 text-center border-l border-gray-200">銀幣</th>
                   <th className="p-3 text-2xl w-32 bg-orange-50 text-orange-700 text-center border-l border-gray-200">銅幣</th>
@@ -663,10 +662,14 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
                       {/* 凍結表格內容欄位 */}
                       <td className="p-3 text-center text-3xl font-black text-gray-400 sticky left-0 bg-white group-hover:bg-blue-50 z-10">{rankIcon}</td>
                       <td className="p-3 text-center text-2xl font-bold text-gray-600 sticky left-[80px] bg-white group-hover:bg-blue-50 z-10">{student.id}</td>
-                      <td className="p-3 text-2xl font-bold text-gray-800 sticky left-[176px] bg-white group-hover:bg-blue-50 z-10 border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">
-    {student.name[0] + 'O' + student.name.slice(2)}
-</td>
-                      
+                      <td className="p-3 text-2xl font-bold text-gray-800 sticky left-[176px] bg-white group-hover:bg-blue-50 z-10 border-r-2 border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.1)] whitespace-nowrap">
+    <div className="flex items-center gap-1.5 whitespace-nowrap">
+        <span>{student.name[0] + 'O' + student.name.slice(2)}</span>
+        {bal.claimedSemesters?.[selectedSemester] && (
+            <span title="本學期已領過清空獎金幣" className="text-xl inline-block">🪙</span>
+        )}
+    </div>
+</td>                      
                       <td className="p-2 text-center bg-yellow-50/30">
                         <input type="number" value={bal.gold || 0} onChange={(e)=>handleInputChange(student.id, 'gold', e.target.value)} disabled={authMode!=='ADMIN'} 
                           className="w-24 text-center text-3xl font-bold text-yellow-600 bg-transparent border-b-2 border-transparent focus:border-yellow-500 outline-none hover:bg-white/50 rounded" />
@@ -682,14 +685,13 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
                         {/* 清空金幣獎勵狀態切換鈕 */}
                             <td className="p-2 text-center border-1 border-gray-100">
                                 <button
-                                    onClick={() => toggleClaimedSemester(student.id, selectedSemester)}
-                                    disabled={authMode !== 'ADMIN'}
-                                    className={`px-3 py-1 rounded-full text-base font-bold transition-all flex items-center justify-center mx-auto gap-1.5 border ${
+                                    onClick={() => toggleClaimedSemester && toggleClaimedSemester(student.id, selectedSemester)}
+                                    className={`px-3 py-1 rounded-full text-base font-bold transition-all flex items-center justify-center mx-auto gap-1.5 border cursor-pointer active:scale-95 ${
                                         bal.claimedSemesters?.[selectedSemester]
                                             ? 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200' 
-                                            : 'bg-amber-100 text-amber-800 border-amber-400 hover:bg-amber-200'
-                                    } ${authMode !== 'ADMIN' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}`}
-                                    title={authMode === 'ADMIN' ? "點擊切換：本學期是否已領過清空獎金幣" : "需管理員權限"}
+                                            : 'bg-amber-100 text-amber-800 border-amber-400 hover:bg-amber-200 shadow-sm'
+                                    }`}
+                                    title="點擊切換：本學期是否已領過清空獎金幣"
                                 >
                                     <span className={`w-2 h-2 rounded-full ${bal.claimedSemesters?.[selectedSemester] ? 'bg-gray-400' : 'bg-amber-500'}`}></span>
                                     <span>{bal.claimedSemesters?.[selectedSemester] ? '已領取' : '未領取'}</span>
@@ -1380,7 +1382,7 @@ const [showBankModal, setShowBankModal] = useState(false);
   const [bcBiauKai, setBcBiauKai] = useState(false);
   
   const { students, loadingStudents } = useStudents(db, isOffline);
-  const { bankData, updateBankBalance, setBankBalancedDirectly, setBankData } = useStudentBank(db, isAuthReady, isOffline, students, selectedAcademicYear);
+  const { bankData, updateBankBalance, setBankBalancedDirectly, setBankData, toggleClaimedSemester } = useStudentBank(db, isAuthReady, isOffline, students, selectedAcademicYear);
   const dailySettlements = useDailySettlements(db, isAuthReady, isOffline);
   const { categories, loadingCategories, addCategory, deleteCategory, editCategory, moveCategory, getInitialSubmissionStatus } = useCategories(db, userId, isAuthReady, setAlertMessage, isOffline, students);
   // --- [新增] 任務同步核心邏輯：抓取前一個上課日的航海日誌 ---
@@ -1997,7 +1999,7 @@ const [showBankModal, setShowBankModal] = useState(false);
      {rewardState && ( <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} /> )}
      
      {/* --- [彈窗層] 各式功能視窗 --- */}
-     {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalancedDirectly={setBankBalancedDirectly} authMode={authMode} students={students} selectedSemester={selectedSemester} /> )}
+     {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalancedDirectly={setBankBalancedDirectly} authMode={authMode} students={students} selectedSemester={selectedSemester} /> )}toggleClaimedSemester={toggleClaimedSemester}
      {dashboardStudent && ( <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={() => setDashboardStudent(null)} /> )}
      {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
      
