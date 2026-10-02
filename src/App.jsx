@@ -695,7 +695,6 @@ const StudentBankModal = ({ bankData, onClose, onUpdateBalance, setBankBalancedD
                                     <span>{bal.claimedSemesters?.[selectedSemester] ? '已領取' : '未領取'}</span>
                                 </button>
                             </td>
-                      </td>
                       <td className="p-2 flex justify-center items-center gap-2 border-l border-gray-100">
                           <div className="flex gap-2">
                             <button onClick={() => handleExchange(student.id, 'B2S')} className="w-12 h-12 rounded-full shadow-md flex items-center justify-center bg-gray-200 hover:bg-gray-300 border-2 border-gray-400 text-gray-700 active:scale-95 transition" title="100銅 換 1銀"><RotateCw className="w-7 h-7"/></button>
