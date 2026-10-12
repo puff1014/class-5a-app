@@ -1108,14 +1108,13 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                     return pages.map((pageStudents, pageIdx) => {
                         return (
                             <div 
-                                key={pageIdx} 
-                                className="w-full flex flex-col justify-start"
-                                style={{ 
-                                    height: '96vh',
-                                    pageBreakAfter: pageIdx === pages.length - 1 ? 'auto' : 'always',
-                                    breakAfter: pageIdx === pages.length - 1 ? 'auto' : 'page'
-                                }}
-                            >
+    key={pageIdx} 
+    className="w-full h-[98vh] flex flex-col justify-between py-2 box-border"
+    style={{ 
+        pageBreakAfter: pageIdx === pages.length - 1 ? 'auto' : 'always',
+        breakAfter: pageIdx === pages.length - 1 ? 'auto' : 'page'
+    }}
+>
                                 {pageStudents.map((student, sIdx) => {
                                     const maskedName = student.name[0] + 'O' + student.name.slice(2);
                                     const isHuge = student.itemsToPrint.length > 15;
@@ -1124,11 +1123,13 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                                         <React.Fragment key={student.id}>
                                             {/* 卡片容器：若是超長作業才撐滿(flex-1)，否則一律鎖定為標準半張高度(h-[46vh]) */}
                                             <div 
-                                                className={`border-2 border-black rounded-2xl p-4 flex flex-col justify-between bg-white shadow-none ${
-                                                    isHuge ? 'flex-1' : 'h-[46vh] min-h-[46vh] max-h-[46vh]'
-                                                }`}
-                                                style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
-                                            >
+                                                className={`border-2 border-black rounded-2xl px-5 py-3.5 flex flex-col justify-between bg-white shadow-none ${
+    pageStudents.length === 1 
+        ? 'h-full flex-1' 
+        : 'h-[46.5vh] max-h-[46.5vh] min-h-[46.5vh]'
+}`}
+style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
+>
                                                 <div>
                                                     {/* 頂部抬頭 */}
                                                     <div className="flex flex-col border-b-2 border-gray-400 pb-2 mb-3">
@@ -1149,19 +1150,19 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                                                     </div>
 
                                                     {/* 三欄方格作業清單 */}
-                                                    <div className="grid grid-cols-3 gap-x-8 gap-y-3">
-                                                        {student.itemsToPrint.map((detail, idx) => (
-                                                            <div key={idx} className="flex items-start text-xl leading-tight">
-                                                                <div className="w-6 h-6 border-2 border-black mr-2 bg-white mt-0.5 shrink-0"></div>
-                                                                <div className="flex flex-col">
-                                                                    <span className="font-bold text-black">{detail.assignment}</span>
-                                                                    <span className="text-lg text-gray-600 font-medium">
-                                                                        ({new Date(detail.date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })})
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
+<div className="grid grid-cols-3 gap-x-6 gap-y-2">
+    {student.itemsToPrint.map((detail, idx) => (
+        <div key={idx} className="flex items-start leading-tight">
+            <div className="w-5 h-5 border-2 border-black mr-2 bg-white mt-0.5 shrink-0"></div>
+            <div className="text-base text-black">
+                <span className="font-bold">{detail.assignment}</span>
+                <span className="text-sm text-gray-500 font-semibold ml-1">
+                    ({new Date(detail.date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })})
+                </span>
+            </div>
+        </div>
+    ))}
+</div>
                                                 </div>
 
                                                 {/* 底部家長簽章欄位 */}
@@ -2055,8 +2056,8 @@ const [showBankModal, setShowBankModal] = useState(false);
      {/* --- [特效層] 慶祝動畫與銅幣特效 --- */}
      {rewardState && ( <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} /> )}
      
-     {/* --- [彈窗層] 各式功能視窗 --- */}
-     {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalancedDirectly={setBankBalancedDirectly} authMode={authMode} students={students} selectedSemester={selectedSemester} /> )}toggleClaimedSemester={toggleClaimedSemester}
+     {/* --- [彈窗層] 各式功能視窗 --- */
+     {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalancedDirectly={setBankBalancedDirectly} authMode={authMode} students={students} selectedSemester={selectedSemester} toggleClaimedSemester={toggleClaimedSemester} /> )}
      {dashboardStudent && ( <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={() => setDashboardStudent(null)} /> )}
      {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
      
