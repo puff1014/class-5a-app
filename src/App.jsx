@@ -2056,7 +2056,7 @@ const [showBankModal, setShowBankModal] = useState(false);
      {/* --- [特效層] 慶祝動畫與銅幣特效 --- */}
      {rewardState && ( <RewardOverlay type={rewardState.type} onClose={() => setRewardState(null)} /> )}
      
-     {/* --- [彈窗層] 各式功能視窗 --- */
+     {/* --- [彈窗層] 各式功能視窗 --- */}
 {showBankModal && ( <StudentBankModal bankData={bankData} onClose={() => setShowBankModal(false)} onUpdateBalance={updateBankBalance} setBankBalancedDirectly={setBankBalancedDirectly} authMode={authMode} students={students} selectedSemester={selectedSemester} toggleClaimedSemester={toggleClaimedSemester} /> )}
      {dashboardStudent && ( <StudentHistoryModal student={dashboardStudent} allAssignmentsByDate={allAssignmentsByDate} bankBalance={bankData[dashboardStudent.id]} semesterId={selectedSemester} onClose={() => setDashboardStudent(null)} /> )}
      {confirmationModal && ( <ConfirmationModal title={confirmationModal.title} message={confirmationModal.message} onConfirm={executeDelete} onCancel={() => setConfirmationModal(null)} confirmTitle={confirmationModal.confirmTitle} confirmColor={confirmationModal.confirmColor} /> )}
