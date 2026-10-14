@@ -245,7 +245,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             totalDays++; let dayHasMissing = false; let dayHasLate = false;
             
             assignments.forEach(assign => {
-                const status = assign.?.[student.id]; 
+                const status = assign.submissionStatus?.[student.id]; 
                 const completedAt = assign.completedAt?.[student.id];
                 let tScore = 0;
                 
