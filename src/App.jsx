@@ -245,7 +245,7 @@ const StudentHistoryModal = ({ student, allAssignmentsByDate, onClose, bankBalan
             totalDays++; let dayHasMissing = false; let dayHasLate = false;
             
             assignments.forEach(assign => {
-                const status = assign.submissionStatus?.[student.id]; 
+                const status = assign.?.[student.id]; 
                 const completedAt = assign.completedAt?.[student.id];
                 let tScore = 0;
                 
@@ -863,9 +863,9 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
             .filter(date => (!startDate || date >= startDate) && (!endDate || date <= endDate))
             .forEach(date => {
                 (allAssignmentsByDate[date] || []).forEach(assignment => {
-                    if (assignment.submissionStatus) {
+                    if (assignment.) {
                         students.forEach((student, index) => {
-                            if (assignment.submissionStatus[student.id] === false) {
+                            if (assignment.[student.id] === false) {
                                 stats[index].missingCount += 1;
                                 stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName });
                             }
@@ -1778,11 +1778,21 @@ const [showBankModal, setShowBankModal] = useState(false);
 
     const greenStudentIds = [];
     students.forEach(s => {
-        const isAllGreen = assignments.every(a => {
-            const status = a.submissionStatus[s.id];
-            return status === true; 
+        const isEligible = assignments.every(a => {
+            const status = a.submissionStatus?.[s.id];
+            // 情況 1：綠色勾勾（準時完成）
+            if (status === true) return true;
+            
+            // 情況 2：黃色勾勾（補交），檢查是否在作業當天完成
+            if (status === 'late') {
+                const lateDate = a.lateCompletedDate?.[s.id];
+                // 如果補交日期等於該份作業的日期，算合格！
+                return lateDate === selectedDisplayDate;
+            }
+            
+            return false;
         });
-        if (isAllGreen) greenStudentIds.push(s.id);
+        if (isEligible) greenStudentIds.push(s.id);
     });
 
     const claimedMap = settledData?.silverRewardClaimed || {};
@@ -1897,10 +1907,14 @@ const [showBankModal, setShowBankModal] = useState(false);
               settlementUpdate = { [`silverRewardClaimed.${studentId}`]: deleteField() }; 
           }
       } else if (currentStatus === false) {
-          newStatus = 'late';
-          bronzeChange = 10; 
-          makeupUpdate = { [`makeupClaimed.${studentId}`]: true };
-          triggerAnimation = 'BRONZE'; 
+    newStatus = 'late';
+    bronzeChange = 10;
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    makeupUpdate = { 
+        [`makeupClaimed.${studentId}`]: true,
+        [`lateCompletedDate.${studentId}`]: todayDateStr
+    };
+    triggerAnimation = 'BRONZE';
           
           const allStudentAssignments = Object.values(allAssignmentsByDate).flat();
           const redAssignments = allStudentAssignments.filter(a => 
@@ -1940,12 +1954,23 @@ const [showBankModal, setShowBankModal] = useState(false);
       if (triggerAnimation) { setRewardState({ type: triggerAnimation }); }
 
       if (isOffline) {
-          setAllAssignmentsByDate(prev => { 
-              const newMap = { ...prev }; 
-              newMap[selectedDisplayDate] = newMap[selectedDisplayDate].map(a => 
-                  a.id === assignmentData.id ? { ...a, submissionStatus: { ...a.submissionStatus, [studentId]: newStatus } } : a
-              ); return newMap; 
-          });
+          setAllAssignmentsByDate(prev => {
+        const newMap = { ...prev };
+        const todayDateStr = new Date().toISOString().split('T')[0];
+        newMap[selectedDisplayDate] = (newMap[selectedDisplayDate] || []).map(a => {
+          if (a.id !== assignmentData.id) return a;
+          const updatedLateDates = { ...(a.lateCompletedDate || {}) };
+          if (newStatus === 'late') {
+            updatedLateDates[studentId] = todayDateStr;
+          }
+          return {
+            ...a,
+            submissionStatus: { ...a.submissionStatus, [studentId]: newStatus },
+            lateCompletedDate: updatedLateDates
+          };
+        });
+        return newMap;
+      });
       } else {
           const batch = writeBatch(db);
           const assignRef = doc(db, getAssignmentCollectionPath(), assignmentData.id);
