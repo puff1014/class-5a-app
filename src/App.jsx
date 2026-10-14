@@ -863,12 +863,15 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
             .filter(date => (!startDate || date >= startDate) && (!endDate || date <= endDate))
             .forEach(date => {
                 (allAssignmentsByDate[date] || []).forEach(assignment => {
-                    if (assignment.) {
-                        students.forEach((student, index) => {
-                            if (assignment.[student.id] === false) {
-                                stats[index].missingCount += 1;
-                                stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName });
-                            }
+    if (assignment.submissionStatus) {
+        students.forEach((student, index) => {
+            if (assignment.submissionStatus[student.id] === false) {
+                stats[index].missingCount += 1;
+                stats[index].missingDetails.push({ date: date, assignment: assignment.assignmentName });
+            }
+        });
+    }
+});
                         });
                     }
                 });
