@@ -15,8 +15,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine 
 } from 'recharts';
 
-// --- 版本資訊 (V23.1 - 修正銅幣重複發放與狀態回滾 Bug) ---
-const VERSION = 'v23.1 - 修正獎勵防重複機制'; 
+// --- 版本資訊 (V24 - 卡片分層) ---
+const VERSION = 'v24 - 卡片分層'; 
 const appId = 'class-5a-app'; 
 
 const firebaseConfig = {
@@ -2385,44 +2385,65 @@ const App = () => {
                 <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">⚠️</span><span className="text-4xl">全班未訂正統計</span></h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     {studentMissingStats.map((stat) => {
-                        // 🎨 上半部與下半部各自依照自己的數字取得專屬 25 色階
-                        const currentColors = getMissingColorClasses(stat.currentMissingCount);
-                        const legacyColors = getMissingColorClasses(stat.legacyMissingCount);
+    // 1. 上下兩半各自依照原本的 25 色階取色
+    const currentColors = getMissingColorClasses(stat.currentMissingCount);
+    const legacyColors = getMissingColorClasses(stat.legacyMissingCount);
 
-                        return (
-                            <div 
-                                key={stat.id} 
-                                onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} 
-                                className="relative rounded-3xl cursor-pointer transition-all duration-150 overflow-hidden border-4 border-gray-300 shadow-md hover:shadow-xl hover:-translate-y-1 active:translate-y-1 flex flex-col bg-white"
-                            >
-                                {/* 學生姓名置頂 */}
-                                <div className={`py-2 px-3 text-center border-b-2 border-gray-200 ${currentColors.bg}`}>
-                                    <p className={`text-4xl font-black ${currentColors.text}`}>
-                                        {stat.name[0] + 'O' + stat.name.slice(2)}
-                                    </p>
-                                </div>
+    // 2. 找出最嚴重的項目數量 (本次 vs 前次)
+    const maxCount = Math.max(stat.currentMissingCount, stat.legacyMissingCount);
+    const dominantColors = getMissingColorClasses(maxCount);
 
-                                {/* 🌟 上半部：本次欠繳（大數字，套用本次色階） */}
-                                <div className={`flex-1 py-4 flex items-center justify-center ${currentColors.bg}`}>
-                                    <p className={`text-6xl font-black leading-none ${currentColors.countText}`}>
-                                        {stat.currentMissingCount}
-                                    </p>
-                                </div>
+    // 3. 外框樣式設定：
+    // - 全清空 (0/0)：中立淡灰框 (border-slate-300)
+    // - 有欠繳：依照最大欠繳色階上色，並搭配 ring-2 ring-white (白色雙層隔離環，絕不融色)
+    const cardBorderStyle = maxCount > 0 
+        ? `${dominantColors.border} border-4 ring-2 ring-white shadow-lg` 
+        : 'border-2 border-slate-300 shadow-sm';
 
-                                {/* 🌟 分隔線 */}
-                                <div className="w-full border-t-2 border-gray-300/60"></div>
+    return (
+        <div 
+            key={stat.id} 
+            onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} 
+            className={`relative rounded-3xl cursor-pointer transition-all duration-200 overflow-hidden ${cardBorderStyle} hover:shadow-2xl hover:-translate-y-1.5 active:translate-y-0.5 flex flex-col bg-white`}
+        >
+            {/* 頂部：姓名欄（白底，不搶內部色調） */}
+            <div className="py-2 px-3 text-center border-b-2 border-slate-200 bg-white">
+                <p className="text-4xl font-black text-slate-800 tracking-wider">
+                    {stat.name[0] + 'O' + stat.name.slice(2)}
+                </p>
+            </div>
 
-                                {/* 🌟 下半部：前次累計（標註「前次累計」，數字與上半部同大小，獨立套用前次色階） */}
-                                <div className={`flex-1 py-3 flex flex-col items-center justify-center ${legacyColors.bg}`}>
-                                    <span className={`text-xl font-bold mb-1 opacity-80 ${legacyColors.text}`}>
-                                        前次累計
-                                    </span>
-                                    <p className={`text-6xl font-black leading-none ${legacyColors.countText}`}>
-                                        {stat.legacyMissingCount}
-                                    </p>
-                                </div>
-                            </div>
-                        );
+            {/* 🌟 上半部：微凸立體面（0 時為白底，有欠繳時套用本次色階） */}
+            <div className={`flex-1 py-4 flex items-center justify-center shadow-[inset_0_2px_4px_rgba(255,255,255,0.8)] ${
+                stat.currentMissingCount === 0 
+                    ? 'bg-white text-slate-800' 
+                    : `${currentColors.bg} ${currentColors.countText}`
+            }`}>
+                <p className="text-6xl font-black leading-none drop-shadow-sm font-mono">
+                    {stat.currentMissingCount}
+                </p>
+            </div>
+
+            {/* 🌟 中間物理切槽分割線：灰色雙向邊界 */}
+            <div className="w-full border-t-2 border-b border-t-slate-300 border-b-slate-100"></div>
+
+            {/* 🌟 下半部：內凹儀表槽（0 時為白底，有欠繳時套用前次色階 + 內陰影） */}
+            <div className={`flex-1 py-3 flex flex-col items-center justify-center shadow-inner ${
+                stat.legacyMissingCount === 0 
+                    ? 'bg-white text-slate-800' 
+                    : `${legacyColors.bg} ${legacyColors.countText}`
+            }`}>
+                <span className={`text-xl font-bold mb-1 opacity-80 ${
+                    stat.legacyMissingCount === 0 ? 'text-slate-400' : legacyColors.text
+                }`}>
+                    前次累計
+                </span>
+                <p className="text-6xl font-black leading-none drop-shadow-sm font-mono">
+                    {stat.legacyMissingCount}
+                </p>
+            </div>
+        </div>
+    );
                     })}
                 </div>
             </div>
