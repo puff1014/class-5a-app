@@ -1375,7 +1375,7 @@ const useCategories = (db, userId, isAuthReady, setAlertMessage, isOffline, stud
 
 // --- [主程式] App ---
 const App = () => {
-  const [cutOffDate, setCutOffDate] = useState('2026-04-14');
+  const [cutOffDate, setCutOffDate] = useState('2026-11-03');
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
@@ -2385,30 +2385,41 @@ const App = () => {
                 <h2 className="text-4xl font-extrabold text-gray-800 mb-6 flex items-center"><span className="text-5xl mr-3">⚠️</span><span className="text-4xl">全班未訂正統計</span></h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     {studentMissingStats.map((stat) => {
-                        const colorClasses = getMissingColorClasses(stat.currentMissingCount);
-                        
+                        // 🎨 上半部與下半部各自依照自己的數字取得專屬 25 色階
+                        const currentColors = getMissingColorClasses(stat.currentMissingCount);
+                        const legacyColors = getMissingColorClasses(stat.legacyMissingCount);
+
                         return (
                             <div 
                                 key={stat.id} 
                                 onClick={() => { if (stat.missingCount > 0) setMissingStudent(stat); }} 
-                                className={`relative p-4 rounded-2xl cursor-pointer transition-all duration-150 ${colorClasses.bg} ${colorClasses.border} ${colorClasses.text} text-center border-2 border-b-[8px] active:border-b-[2px] active:translate-y-[6px] hover:-translate-y-[2px] hover:shadow-md`}
+                                className="relative rounded-3xl cursor-pointer transition-all duration-150 overflow-hidden border-4 border-gray-300 shadow-md hover:shadow-xl hover:-translate-y-1 active:translate-y-1 flex flex-col bg-white"
                             >
-                                <p className="text-4xl font-black mb-1">
-                                    {stat.name[0] + 'O' + stat.name.slice(2)}
-                                </p>
-                                
-                                <div className="flex flex-col items-center">
-                                    <p className={`text-7xl font-black mt-1 ${colorClasses.countText}`}>
+                                {/* 學生姓名置頂 */}
+                                <div className={`py-2 px-3 text-center border-b-2 border-gray-200 ${currentColors.bg}`}>
+                                    <p className={`text-4xl font-black ${currentColors.text}`}>
+                                        {stat.name[0] + 'O' + stat.name.slice(2)}
+                                    </p>
+                                </div>
+
+                                {/* 🌟 上半部：本次欠繳（大數字，套用本次色階） */}
+                                <div className={`flex-1 py-4 flex items-center justify-center ${currentColors.bg}`}>
+                                    <p className={`text-6xl font-black leading-none ${currentColors.countText}`}>
                                         {stat.currentMissingCount}
                                     </p>
-                                    
-                                    {stat.legacyMissingCount > 0 && (
-                                        <div className="mt-2 px-3 py-1 bg-black/10 rounded-full border border-black/5 shadow-inner">
-                                            <p className="text-xl font-bold opacity-90">
-                                                前次累計: {stat.legacyMissingCount}
-                                            </p>
-                                        </div>
-                                    )}
+                                </div>
+
+                                {/* 🌟 分隔線 */}
+                                <div className="w-full border-t-2 border-gray-300/60"></div>
+
+                                {/* 🌟 下半部：前次累計（標註「前次累計」，數字與上半部同大小，獨立套用前次色階） */}
+                                <div className={`flex-1 py-3 flex flex-col items-center justify-center ${legacyColors.bg}`}>
+                                    <span className={`text-xl font-bold mb-1 opacity-80 ${legacyColors.text}`}>
+                                        前次累計
+                                    </span>
+                                    <p className={`text-6xl font-black leading-none ${legacyColors.countText}`}>
+                                        {stat.legacyMissingCount}
+                                    </p>
                                 </div>
                             </div>
                         );
