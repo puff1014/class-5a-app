@@ -898,7 +898,156 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
         }
     };
 
-    const handlePrint = () => { window.print(); };
+    // 列印專用：使用獨立視窗，避免主畫面的 fixed / vh 造成空白頁或裁切。
+    const handlePrint = () => {
+        const validStudents = allMissingData
+            .filter(student => selectedStudentIds.has(student.id))
+            .map(student => ({
+                ...student,
+                itemsToPrint: student.missingDetails
+                    .filter(d => selectedItemKeys.has(`${student.id}-${d.date}-${d.assignment}`))
+                    .sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date))
+            }))
+            .filter(student => student.itemsToPrint.length > 0)
+            .sort((a, b) => Number(a.id) - Number(b.id));
+
+        if (!validStudents.length) {
+            window.alert('請先勾選至少一位學生及其要列印的作業。');
+            return;
+        }
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            window.alert('瀏覽器封鎖了列印視窗，請允許此網站開啟彈出式視窗後重試。');
+            return;
+        }
+        const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+        const dateText = date => {
+            const parts = String(date).split('-');
+            return parts.length === 3 ? `${Number(parts[1])}/${Number(parts[2])}` : date;
+        };
+        const dateRange = `${startDate ? startDate.replace(/-/g, '/') : ''} - ${endDate ? endDate.replace(/-/g, '/') : ''}`;
+        const studentHtml = validStudents.map(student => {
+            const maskedName = student.name[0] + 'O' + student.name.slice(2);
+            return `<section class="student-source" data-name="${escapeHtml(maskedName)}" data-count="${student.itemsToPrint.length}">
+                <div class="item-source">${student.itemsToPrint.map(detail =>
+                    `<div class="item"><span class="check"></span><span class="item-text"><strong>${escapeHtml(detail.assignment)}</strong> <small>(${escapeHtml(dateText(detail.date))})</small></span></div>`
+                ).join('')}</div></section>`;
+        }).join('');
+        // 使用實際列印寬度測量每列高度，長清單拆頁但不縮小原本字體或間距。
+        const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8" />
+        <title>未完成作業清單</title><style>
+        @page { size: A4 portrait; margin: 10mm; }
+        * { box-sizing: border-box; }
+        html,body { margin:0; padding:0; color:#000; background:#fff; font-family: Arial, 'Microsoft JhengHei', sans-serif; }
+        .print-page { width:190mm; min-height:277mm; height:277mm; display:flex; flex-direction:column; justify-content:flex-start; break-after:page; page-break-after:always; overflow:hidden; }
+        .print-page:last-child { break-after:auto; page-break-after:auto; }
+        .student-card { border:2px solid #000; border-radius:14px; padding:14px 20px; display:flex; flex-direction:column; background:white; min-height:0; }
+        .student-card.half { height:136mm; flex:none; }
+        .student-card.full { height:277mm; flex:none; }
+        .student-card.continuation { height:277mm; flex:none; }
+        .heading { border-bottom:2px solid #9ca3af; padding-bottom:8px; margin-bottom:12px; }
+        .heading-line { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+        .heading-title { font-size:36px; font-weight:900; }
+        .heading-count { font-size:30px; font-weight:700; white-space:nowrap; }
+        .date-range { font-size:20px; font-weight:700; color:#666; margin-top:4px; }
+        .items { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); column-gap:24px; row-gap:8px; align-content:start; }
+        .item { display:flex; align-items:flex-start; line-height:1.25; min-width:0; font-size:16px; }
+        .check { width:20px; height:20px; border:2px solid #000; margin-right:8px; margin-top:2px; flex-shrink:0; }
+        .item-text { min-width:0; overflow-wrap:anywhere; }
+        .item strong { font-size:16px; font-weight:700; }
+        .item small { font-size:14px; color:#555; font-weight:600; white-space:normal; }
+        .signature { margin-top:auto; padding-top:8px; border-top:2px solid #e5e7eb; display:flex; justify-content:flex-end; }
+        .signature span { font-size:24px; font-weight:700; border-bottom:2px solid #000; padding:0 16px 4px; min-width:220px; }
+        .cut { height:5mm; display:flex; align-items:center; gap:10px; font-size:14px; color:#666; letter-spacing:2px; white-space:nowrap; }
+        .cut:before,.cut:after { content:''; flex:1; border-top:1px dashed #999; }
+        #source { position:absolute; left:-10000px; top:0; width:190mm; }
+        #measure { position:absolute; left:-10000px; top:0; width:190mm; }
+        @media screen { body { background:#ddd; } .print-page { margin:12px auto; background:white; box-shadow:0 2px 6px #aaa; } }
+        @media print { #source,#measure { display:none!important; } .print-page { margin:0; box-shadow:none; } }
+        </style></head><body><div id="source">${studentHtml}</div><div id="measure"></div><main id="pages"></main>
+        <script>
+        (function(){
+            const sources = Array.from(document.querySelectorAll('.student-source'));
+            const measure = document.getElementById('measure');
+            const pagesRoot = document.getElementById('pages');
+            const dateRange = ${JSON.stringify(dateRange)};
+            const pageHeight = 277 * 96 / 25.4;
+            const halfHeight = 136 * 96 / 25.4;
+            const cutHeight = 5 * 96 / 25.4;
+            const makeCard = (source, items, size, first, last) => {
+                const card = document.createElement('div');
+                card.className = 'student-card ' + size;
+                const heading = document.createElement('div');
+                heading.className='heading';
+                heading.innerHTML='<div class="heading-line"><span class="heading-title">'+source.dataset.name+' 訂正作業清單'+(first?'':'（續）')+'</span><span class="heading-count">共 '+source.dataset.count+' 項</span></div><div class="date-range">(統計日期：'+dateRange+')</div>';
+                const grid=document.createElement('div'); grid.className='items';
+                items.forEach(item=>grid.appendChild(item.cloneNode(true)));
+                card.append(heading,grid);
+                if(last){const sig=document.createElement('div');sig.className='signature';sig.innerHTML='<span>家長簽章：</span>';card.appendChild(sig);}
+                return card;
+            };
+            const fits = (source, items, size, first, last) => {
+                measure.innerHTML='';
+                const card=makeCard(source,items,size,first,last);
+                measure.appendChild(card);
+                const grid=card.querySelector('.items');
+                const head=card.querySelector('.heading');
+                const sig=card.querySelector('.signature');
+                const available=(size==='half'?halfHeight:pageHeight)-28-4-head.getBoundingClientRect().height-(sig?sig.getBoundingClientRect().height:0)-8;
+                return grid.getBoundingClientRect().height <= available+1;
+            };
+            const segments=[];
+            sources.forEach(source=>{
+                const items=Array.from(source.querySelectorAll('.item'));
+                if(fits(source,items,'half',true,true)) {
+                    segments.push({source,items,size:'half',first:true,last:true});
+                } else if(fits(source,items,'full',true,true)) {
+                    segments.push({source,items,size:'full',first:true,last:true});
+                } else {
+                    let pos=0,first=true;
+                    while(pos<items.length){
+                        let low=1,high=items.length-pos,best=0;
+                        while(low<=high){
+                            const mid=Math.floor((low+high)/2);
+                            const slice=items.slice(pos,pos+mid);
+                            const last=pos+mid===items.length;
+                            if(fits(source,slice,'full',first,last)){best=mid;low=mid+1;}else high=mid-1;
+                        }
+                        if(best===0){ throw new Error('單筆作業內容過長，無法完整排入 A4。'); }
+                        segments.push({source,items:items.slice(pos,pos+best),size:'full',first,last:pos+best===items.length});
+                        pos+=best;first=false;
+                    }
+                }
+            });
+            let pending=null;
+            const addPage=(cards)=>{
+                const page=document.createElement('div');page.className='print-page';
+                cards.forEach((seg,i)=>{
+                    if(i===1){const cut=document.createElement('div');cut.className='cut';cut.textContent='✂ 請沿虛線裁切 ✂';page.appendChild(cut);}
+                    page.appendChild(makeCard(seg.source,seg.items,seg.size,seg.first,seg.last));
+                });
+                pagesRoot.appendChild(page);
+            };
+            segments.forEach(seg=>{
+                if(seg.size==='half'){
+                    if(pending){addPage([pending,seg]);pending=null;}
+                    else pending=seg;
+                } else {
+                    if(pending){addPage([pending]);pending=null;}
+                    addPage([seg]);
+                }
+            });
+            if(pending)addPage([pending]);
+            document.getElementById('source').remove();measure.remove();
+            window.setTimeout(()=>{window.focus();window.print();},300);
+        })();
+        </script></body></html>`;
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] p-4 print:p-0 print:block print:bg-white print:absolute print:inset-0 print:z-[20000]">
@@ -1041,124 +1190,7 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
                 </div>
             </div>
 
-            <div className="hidden print:block w-full bg-white text-black">
-                {(() => {
-                    const validStudents = allMissingData
-                        .filter(student => selectedStudentIds.has(student.id))
-                        .map((student) => {
-                            const items = student.missingDetails.filter((d) => 
-                                selectedItemKeys.has(student.id + '-' + d.date + '-' + d.assignment)
-                            ).sort((a, b) => a.assignment.localeCompare(b.assignment, 'zh-TW') || a.date.localeCompare(b.date));
-                            return { ...student, itemsToPrint: items };
-                        })
-                        .filter((s) => s.itemsToPrint.length > 0)
-                        .sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
-                    const pages = [];
-                    let currentPage = [];
-
-                    validStudents.forEach((student) => {
-                        const isHuge = student.itemsToPrint.length > 15;
-
-                        if (isHuge) {
-                            if (currentPage.length > 0) {
-                                pages.push(currentPage);
-                                currentPage = [];
-                            }
-                            pages.push([student]);
-                        } else {
-                            currentPage.push(student);
-                            if (currentPage.length === 2) {
-                                pages.push(currentPage);
-                                currentPage = [];
-                            }
-                        }
-                    });
-                    if (currentPage.length > 0) {
-                        pages.push(currentPage);
-                    }
-
-                    const startStr = startDate ? startDate.split('-').join('/') : '';
-                    const endStr = endDate ? endDate.split('-').join('/') : '';
-                    const dateRangeText = startStr + ' - ' + endStr;
-
-                    return pages.map((pageStudents, pageIdx) => {
-                        return (
-                            <div 
-                                key={pageIdx} 
-                                className="w-full h-[98vh] flex flex-col justify-between py-2 box-border"
-                                style={{ 
-                                    pageBreakAfter: pageIdx === pages.length - 1 ? 'auto' : 'always',
-                                    breakAfter: pageIdx === pages.length - 1 ? 'auto' : 'page'
-                                }}
-                            >
-                                {pageStudents.map((student, sIdx) => {
-                                    const maskedName = student.name[0] + 'O' + student.name.slice(2);
-                                    return (
-                                        <React.Fragment key={student.id}>
-                                            <div 
-                                                className={`border-2 border-black rounded-2xl px-5 py-3.5 flex flex-col justify-between bg-white shadow-none ${
-                                                    pageStudents.length === 1 
-                                                        ? 'h-full flex-1' 
-                                                        : 'h-[46.5vh] max-h-[46.5vh] min-h-[46.5vh]'
-                                                }`}
-                                                style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
-                                            >
-                                                <div>
-                                                    <div className="flex flex-col border-b-2 border-gray-400 pb-2 mb-3">
-                                                        <div className="flex justify-between items-center w-full">
-                                                            <span className="text-4xl font-black">
-                                                                {maskedName} 訂正作業清單
-                                                            </span>
-                                                            <span className="text-3xl font-bold text-black">
-                                                                共 {student.itemsToPrint.length} 項
-                                                            </span>
-                                                        </div>
-
-                                                        <div className="mt-1 text-left">
-                                                            <span className="text-xl font-bold text-gray-500">
-                                                                (統計日期：{dateRangeText})
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-3 gap-x-6 gap-y-2">
-                                                        {student.itemsToPrint.map((detail, idx) => (
-                                                            <div key={idx} className="flex items-start leading-tight">
-                                                                <div className="w-5 h-5 border-2 border-black mr-2 bg-white mt-0.5 shrink-0"></div>
-                                                                <div className="text-base text-black">
-                                                                    <span className="font-bold">{detail.assignment}</span>
-                                                                    <span className="text-sm text-gray-500 font-semibold ml-1">
-                                                                        ({new Date(detail.date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })})
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-3 pt-2 border-t-2 border-gray-200 flex justify-end items-center">
-                                                    <span className="text-2xl font-bold text-black border-b-2 border-black pb-1 px-4 min-w-[220px] text-left">
-                                                        家長簽章：
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {pageStudents.length === 2 && sIdx === 0 && (
-                                                <div className="w-full my-2 flex items-center justify-center text-gray-500 text-sm tracking-widest shrink-0">
-                                                    <span className="border-b border-dashed border-gray-400 flex-1"></span>
-                                                    <span className="mx-3 flex items-center font-mono">✂ 請沿虛線裁切 ✂</span>
-                                                    <span className="border-b border-dashed border-gray-400 flex-1"></span>
-                                                </div>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </div>
-                        );
-                    });
-                })()}
-            </div>
         </div>
     );
 };
