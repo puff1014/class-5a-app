@@ -944,7 +944,7 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
         .print-page { width:190mm; min-height:277mm; height:277mm; display:flex; flex-direction:column; justify-content:flex-start; break-after:page; page-break-after:always; overflow:hidden; }
         .print-page:last-child { break-after:auto; page-break-after:auto; }
         .student-card { border:2px solid #000; border-radius:14px; padding:14px 20px; display:flex; flex-direction:column; background:white; min-height:0; }
-        .student-card.half { height:132mm; flex:none; }
+        .student-card.half { height:136mm; flex:none; }
         .student-card.full { height:277mm; flex:none; }
         .student-card.continuation { height:277mm; flex:none; }
         .heading { border-bottom:2px solid #9ca3af; padding-bottom:8px; margin-bottom:12px; }
@@ -960,7 +960,7 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
         .item small { font-size:14px; color:#555; font-weight:600; white-space:normal; }
         .signature { margin-top:auto; padding-top:8px; border-top:2px solid #e5e7eb; display:flex; justify-content:flex-end; }
         .signature span { font-size:24px; font-weight:700; border-bottom:2px solid #000; padding:0 16px 4px; min-width:220px; }
-        .cut { height:13mm; display:flex; align-items:center; gap:10px; font-size:14px; color:#666; letter-spacing:2px; white-space:nowrap; }
+        .cut { height:5mm; display:flex; align-items:center; gap:10px; font-size:14px; color:#666; letter-spacing:2px; white-space:nowrap; }
         .cut:before,.cut:after { content:''; flex:1; border-top:1px dashed #999; }
         #source { position:absolute; left:-10000px; top:0; width:190mm; }
         #measure { position:absolute; left:-10000px; top:0; width:190mm; }
@@ -974,8 +974,8 @@ const AllMissingAssignmentsModal = ({ students, allAssignmentsByDate, onClose, s
             const pagesRoot = document.getElementById('pages');
             const dateRange = ${JSON.stringify(dateRange)};
             const pageHeight = 277 * 96 / 25.4;
-            const halfHeight = 132 * 96 / 25.4;
-            const cutHeight = 13 * 96 / 25.4;
+            const halfHeight = 136 * 96 / 25.4;
+            const cutHeight = 5 * 96 / 25.4;
             const makeCard = (source, items, size, first, last) => {
                 const card = document.createElement('div');
                 card.className = 'student-card ' + size;
