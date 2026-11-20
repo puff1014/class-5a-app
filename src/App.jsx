@@ -801,10 +801,10 @@ const CustomAlert = ({ message, onClose }) => (
     </div> 
 );
 
-const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg }) => { 
+const LoginScreen = ({ onAdminLogin, onGuestLogin, isLoading, errorMsg, initialMode = 'GUEST' }) => { 
   const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState(''); 
-  const [mode, setMode] = useState('GUEST'); 
+  const [mode, setMode] = useState(initialMode); 
   const handleAdminSubmit = (e) => { e.preventDefault(); onAdminLogin(email, password); }; 
   return ( 
       <div className="fixed inset-0 bg-[#F0F8FF] flex items-center justify-center z-[10000]"> 
@@ -1426,6 +1426,7 @@ const App = () => {
   const [authTimeout, setAuthTimeout] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authMode, setAuthMode] = useState('GUEST');
+  const [showLoginScreen, setShowLoginScreen] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [loadingLogin, setLoadingLogin] = useState(false);
   const [showAllMissingModal, setShowAllMissingModal] = useState(false);
@@ -1606,9 +1607,9 @@ const App = () => {
   }, []);
 
   const handleGoOffline = () => { setIsOffline(true); setUserId('guest_user'); setIsAuthReady(true); setLoading(false); setIsAuthenticated(true); setAuthMode('GUEST'); };
-  const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { console.error("Login failed", error); if (error.code === 'auth/invalid-email') { setLoginError('Email 格式不正確'); } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') { setLoginError('帳號或密碼錯誤'); } else if (error.code === 'auth/too-many-requests') { setLoginError('嘗試次數過多，請稍後再試'); } else { setLoginError('登入失敗：' + error.message); } setLoadingLogin(false); } };
-  const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { await signInAnonymously(auth); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
-  const handleLogout = async () => { try { await signOut(auth); setIsAuthenticated(false); setAuthMode('GUEST'); } catch (e) { console.error("Logout failed", e); } };
+  const handleAdminLogin = async (email, password) => { setLoadingLogin(true); setLoginError(''); try { await signInWithEmailAndPassword(auth, email, password); setIsOffline(false); setShowLoginScreen(false); setLoadingLogin(false); } catch (error) { console.error("Login failed", error); if (error.code === 'auth/invalid-email') { setLoginError('Email 格式不正確'); } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') { setLoginError('帳號或密碼錯誤'); } else if (error.code === 'auth/too-many-requests') { setLoginError('嘗試次數過多，請稍後再試'); } else { setLoginError('登入失敗：' + error.message); } setLoadingLogin(false); } };
+  const handleGuestLogin = async () => { setLoadingLogin(true); setLoginError(''); try { if (!auth.currentUser) await signInAnonymously(auth); setShowLoginScreen(false); setIsAuthenticated(true); setLoadingLogin(false); } catch (error) { console.error("Anonymous login failed", error); setLoginError('訪客登入失敗，請稍後再試。'); setLoadingLogin(false); } };
+  const handleLogout = async () => { try { await signOut(auth); setAuthMode('GUEST'); setLoginError(''); setLoadingLogin(false); setShowLoginScreen(true); } catch (e) { console.error("Logout failed", e); } };
 
   useEffect(() => {
     if (!db) return;
@@ -2213,8 +2214,8 @@ const App = () => {
     );
   }
  
-  if (!isAuthenticated && !loading && !loadingCategories) {
-      return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} />;
+  if (showLoginScreen || (!isAuthenticated && !loading && !loadingCategories)) {
+      return <LoginScreen onAdminLogin={handleAdminLogin} onGuestLogin={handleGuestLogin} isLoading={loadingLogin} errorMsg={loginError} initialMode={showLoginScreen ? 'ADMIN' : 'GUEST'} />;
   }
  
   if (error) {
@@ -2251,7 +2252,11 @@ const App = () => {
      <div className="bg-white shadow-xl w-full flex flex-col h-full print:hidden">
        <header className="p-4 sm:p-6 text-center border-b border-gray-200 bg-white relative overflow-hidden shrink-0">
          {isOffline && ( <div className="absolute top-0 left-0 w-full bg-gray-800 text-white text-center py-2 text-xl font-bold tracking-wider z-10"> ⚠️ 目前為離線演示模式 (Guest Mode) </div> )}
-          <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20" title="登出系統"> <LogOut className="w-5 h-5" /> 登出 {authMode === 'ADMIN' ? '(老師)' : '(訪客)'} </button>
+          {authMode === 'ADMIN' ? (
+              <button onClick={handleLogout} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold transition z-20" title="登出系統"><LogOut className="w-5 h-5" />登出 (老師)</button>
+          ) : (
+              <button onClick={() => { setLoginError(''); setLoadingLogin(false); setShowLoginScreen(true); }} className="absolute top-4 left-4 flex items-center gap-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 rounded-lg text-blue-700 font-bold transition z-20" title="輸入老師帳號密碼"><Key className="w-5 h-5" />老師登入</button>
+          )}
  
          <div className={`flex items-center justify-center text-5xl font-extrabold text-gray-900 mb-2 ${isOffline ? 'mt-8' : ''}`}><span className="text-6xl mr-3">🐼</span><span className="text-5xl">{selectedAcademicYear.includes('114') ? '五年甲班訂正作業表' : '六年甲班訂正作業表'}</span><span className="text-6xl ml-3">🐻‍❄️</span></div>
          <p className="text-3xl text-gray-600 mb-4"> {new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'long' })}</p>
