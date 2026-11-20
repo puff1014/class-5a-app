@@ -2087,6 +2087,51 @@ const App = () => {
       }
   }, [db, assignmentMap, unlockClicks, isOffline, allAssignmentsByDate, updateBankBalance, selectedDisplayDate, dailySettlements, bankData, selectedSemester]);
 
+  // 批次登記僅限未發布日期，保留既有結算與錢幣流程。
+  const handleSetAllSubmissions = useCallback(async (newStatus) => {
+      if ((authMode !== 'ADMIN' && !isOffline) || loading || loadingCategories || loadingStudents) return;
+      if (!selectedDisplayDate || !assignmentsForSelectedDate.length || !students.length) return;
+      if (dailySettlements[selectedDisplayDate]?.isSettled) return;
+      if (!isOffline && (!db || !userId)) return;
+      const submissionStatus = Object.fromEntries(students.map(student => [student.id, newStatus]));
+      setLoading(true);
+      try {
+          if (isOffline) {
+              setAllAssignmentsByDate(prev => ({
+                  ...prev,
+                  [selectedDisplayDate]: (prev[selectedDisplayDate] || []).map(assignment => ({
+                      ...assignment,
+                      submissionStatus: { ...assignment.submissionStatus, ...submissionStatus }
+                  }))
+              }));
+          } else {
+              if (assignmentsForSelectedDate.length > 500) {
+                  setAlertMessage('此日期作業超過批次上限，請改用個別登記。');
+                  return;
+              }
+              const batch = writeBatch(db);
+              assignmentsForSelectedDate.forEach(assignment => {
+                  const updates = {};
+                  students.forEach(student => { updates[`submissionStatus.${student.id}`] = newStatus; });
+                  batch.update(doc(db, getAssignmentCollectionPath(), assignment.id), updates);
+              });
+              await batch.commit();
+          }
+          setUnlockClicks(prev => {
+              const next = { ...prev };
+              assignmentsForSelectedDate.forEach(assignment => {
+                  students.forEach(student => { delete next[`${student.id}-${assignment.id}`]; });
+              });
+              return next;
+          });
+      } catch (error) {
+          console.error('批次更新狀態失敗:', error);
+          setAlertMessage('批次更新失敗，請確認網路連線或權限後再試。');
+      } finally {
+          setLoading(false);
+      }
+  }, [authMode, isOffline, loading, loadingCategories, loadingStudents, selectedDisplayDate, assignmentsForSelectedDate, students, dailySettlements, db, userId]);
+
   const handleEditCurrentDate = useCallback(async (targetOldDate) => { const oldDate = typeof targetOldDate === 'string' ? targetOldDate : selectedDisplayDate; if (authMode !== 'ADMIN' || !oldDate) return; const newDate = prompt(`請輸入新的日期以取代 ${oldDate} (格式: YYYY-MM-DD)`, oldDate); if (!newDate || newDate === oldDate) return; const datePattern = /^\d{4}-\d{2}-\d{2}$/; if (!datePattern.test(newDate)) { alert("日期格式不正確，請使用 YYYY-MM-DD格式。"); return; } if (allAssignmentsByDate[newDate]) { alert(`日期 ${newDate} 已經存在作業資料，無法直接修改日期至此日。請手動遷移或刪除目標日期資料。`); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; newMap[newDate] = newMap[oldDate].map(a => ({...a, assignmentDate: newDate})); delete newMap[oldDate]; return newMap; }); setSelectedDisplayDate(newDate); setAlertMessage(`[離線] 日期已修改為 ${newDate}`); return; } if (!db || !userId) return; setLoading(true); try { const batch = writeBatch(db); const assignments = allAssignmentsByDate[oldDate] || []; const path = getAssignmentCollectionPath(); if (assignments.length === 0) { setAlertMessage("該日期沒有作業資料可供移動。"); setLoading(false); return; } assignments.forEach(assignment => { const docRef = doc(db, path, assignment.id); batch.update(docRef, { assignmentDate: newDate }); }); await batch.commit(); setSelectedDisplayDate(newDate); setAlertMessage(`日期已成功從 ${oldDate} 修改為 ${newDate}`); } catch(e) { console.error("Error modifying date:", e); setAlertMessage("修改日期失敗，請檢查網路或權限。"); } finally { setLoading(false); } }, [authMode, selectedDisplayDate, allAssignmentsByDate, isOffline, db, userId]);
   const handleBatchDelete = useCallback(async (assignmentIds, successMessage, failureMessage) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足：只有老師可以執行批次刪除。"); return false; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].filter(a => !assignmentIds.includes(a.id)); }); return newMap; }); setAlertMessage(successMessage + " (離線)"); return true; } if (!db || !userId || assignmentIds.length === 0) return false; setLoading(true); try { const batch = writeBatch(db); const path = getAssignmentCollectionPath(); assignmentIds.forEach(id => { if (id) { const docRef = doc(db, path, id); batch.delete(docRef); } }); await batch.commit(); setAlertMessage(successMessage); return true; } catch (e) { console.error("Error during batch delete: ", e); setAlertMessage(failureMessage); return false; } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
   const handleDeleteStudentGlobalData = useCallback(async (studentId, studentName) => { if (authMode !== 'ADMIN' && !isOffline) { setAlertMessage("權限不足。"); return; } if (isOffline) { setAllAssignmentsByDate(prev => { const newMap = { ...prev }; Object.keys(newMap).forEach(date => { newMap[date] = newMap[date].map(a => { const newStatus = { ...a.submissionStatus }; delete newStatus[studentId]; return { ...a, submissionStatus: newStatus }; }); }); return newMap; }); setAlertMessage(`[離線] 成功刪除 ${studentName} 的所有訂正紀錄。`); return; } if (!db || !userId) return; if (!window.confirm(`【極度危險】確定要永久刪除學生 ${studentName} (${studentId}) 在所有日期上的所有訂正紀錄嗎？此操作不可逆轉！`)) { return; } setLoading(true); try { const path = getAssignmentCollectionPath(); const assignmentCollection = collection(db, path); const snapshot = await getDocs(assignmentCollection); const batch = writeBatch(db); let updateCount = 0; snapshot.docs.forEach(doc => { const docRef = doc.ref; const data = doc.data(); const submissionStatus = data.submissionStatus || {}; if (submissionStatus.hasOwnProperty(studentId)) { const newSubmissionStatus = { ...submissionStatus }; delete newSubmissionStatus[studentId]; batch.set(docRef, { submissionStatus: newSubmissionStatus }, { merge: true }); updateCount++; } }); await batch.commit(); setAlertMessage(`成功刪除 ${studentName} 的所有訂正紀錄 (${updateCount} 筆作業文件受到影響)。`); } catch (e) { console.error("Error deleting student data:", e); setAlertMessage("刪除學生數據失敗，請檢查權限或連線。"); } finally { setLoading(false); } }, [db, userId, setAlertMessage, isOffline, authMode]);
@@ -2349,7 +2394,7 @@ const App = () => {
                     </div>
                 )}
           </div>
-            <div className="flex justify-between items-center mb-6 shrink-0">
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-6 shrink-0">
                <h2 className="text-5xl font-bold text-gray-800 flex items-center">
                    <span className="text-gray-500 mr-3 text-5xl">📋</span>
                    {selectedDisplayDate ? (
@@ -2363,6 +2408,13 @@ const App = () => {
                    ) : '請選擇日期'}
                </h2>
                <div className="flex items-center gap-4">
+                   {(authMode === 'ADMIN' || isOffline) && (
+                       <div className="flex flex-wrap items-center gap-2">
+                           <button onClick={() => handleSetAllSubmissions(false)} disabled={isGlobalLoading || isDaySettled || !assignmentsForSelectedDate.length || !students.length} className="px-4 py-3 text-2xl font-bold rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-md" title="將目前日期全班所有作業設為紅色叉叉（未發布日期適用）"><X className="h-7 w-7" />全部紅色 ✕</button>
+                           <button onClick={() => handleSetAllSubmissions(true)} disabled={isGlobalLoading || isDaySettled || !assignmentsForSelectedDate.length || !students.length} className="px-4 py-3 text-2xl font-bold rounded-lg bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-md" title="將目前日期全班所有作業設為綠色勾勾（未發布日期適用）"><Check className="h-7 w-7" />全部綠色 ✓</button>
+                           {isDaySettled && <span className="text-lg text-gray-600">已發布，請逐格調整</span>}
+                       </div>
+                   )}
                    {focusedStudentId && ( <button onClick={() => setFocusedStudentId(null)} className="px-5 py-3 text-3xl font-medium rounded-lg text-white bg-gray-600 hover:bg-gray-700 transition duration-150 shadow-md flex items-center"> <Eye className="h-8 w-8 mr-2" /> 顯示全部學生 </button> )}
                    <button onClick={handleAddNewAssignment} className={`px-5 py-3 text-3xl font-medium rounded-lg text-white transition duration-150 shadow-md flex items-center ${isGlobalLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-500'}`} disabled={isGlobalLoading || !selectedDisplayDate}><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>新增作業</button>
                </div>
